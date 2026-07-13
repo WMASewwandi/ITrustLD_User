@@ -1,0 +1,29 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  @apply font-poppins bg-white text-theme-black;
+}
+
+.container-shell {
+  @apply mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8;
+}
+
+@media (max-height: 900px) {
+  .register-fit {
+    zoom: 0.92;
+  }
+}
+
+@media (max-height: 820px) {
+  .register-fit {
+    zoom: 0.86;
+  }
+}
