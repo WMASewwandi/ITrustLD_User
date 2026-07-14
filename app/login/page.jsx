@@ -8,7 +8,7 @@ export default function LoginPage() {
         <div className="grid md:grid-cols-2">
           <section className="p-7 sm:p-10 lg:p-12">
             <Link href="/" className="inline-block">
-              <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className="h-10 w-auto" />
+              <img src="/assets/img/logos/logo-itrustld-wide-dark.svg" alt="iTrustLD" className="h-10 w-auto" />
             </Link>
             <h1 className="mt-7 text-3xl font-semibold text-theme-blue-dark">Welcome back</h1>
             <p className="mt-2 text-sm text-theme-gray">Sign in to continue to your secure iTrustLD dashboard.</p>

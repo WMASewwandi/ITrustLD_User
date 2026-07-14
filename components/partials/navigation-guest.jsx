@@ -1,101 +1,200 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import PrimaryButton from "@/components/ui/primary-button";
 
-function BrandLogo() {
+function BrandLogo({ className = "h-10" }) {
   return (
-    <Link href="/" className="inline-flex items-center text-white">
-      <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className="h-10 w-auto" />
+    <Link href="/" className="inline-flex shrink-0 items-center">
+      <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className={`${className} w-auto`} />
     </Link>
+  );
+}
+
+function AuthButtonGroup({ className = "", onNavigate, pathname = "" }) {
+  const loginActive = pathname !== "/register";
+
+  return (
+    <div
+      className={`inline-flex items-stretch overflow-hidden rounded-lg border border-white/20 bg-white/[0.06] shadow-[0_2px_8px_rgba(15,20,40,0.18)] ${className}`}
+      role="group"
+      aria-label="Account"
+    >
+      <Link
+        href="/login"
+        onClick={onNavigate}
+        className={`inline-flex min-w-[5.5rem] items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-green-action ${
+          loginActive
+            ? "bg-theme-green-action shadow-[0_6px_16px_rgba(13,159,27,0.35)] hover:brightness-110"
+            : "bg-transparent hover:bg-white/10"
+        }`}
+      >
+        Login
+      </Link>
+      <Link
+        href="/register"
+        onClick={onNavigate}
+        className={`inline-flex min-w-[5.5rem] items-center justify-center border-l border-white/20 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
+          loginActive
+            ? "bg-transparent hover:bg-white/10"
+            : "bg-theme-green-action shadow-[0_6px_16px_rgba(13,159,27,0.35)] hover:brightness-110"
+        }`}
+      >
+        Register
+      </Link>
+    </div>
   );
 }
 
 const navLinks = [
   { href: "/", label: "Home" },
-  { href: "/help", label: "Help" }
+  { href: "/support", label: "Help" }
 ];
 
 export default function NavigationGuest() {
   const [isOpen, setIsOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = isOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    setIsOpen(false);
+  }, [pathname]);
 
   return (
     <>
-      <header className="hidden h-20 bg-theme-blue-dark sm:block">
-        <div className="container-shell flex h-full items-center justify-between">
-          <BrandLogo />
-          <nav className="flex items-center gap-8">
-            {navLinks.map((item) => (
-              <Link key={item.label} href={item.href} className="text-sm text-white transition hover:text-theme-green-action">
-                {item.label}
-              </Link>
-            ))}
-            <Link href="/login">
-              <PrimaryButton className="px-6 py-2">Login</PrimaryButton>
-            </Link>
-            <Link href="/register">
-              <PrimaryButton className="px-6 py-2">Register</PrimaryButton>
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <header
+        className={`sticky top-0 z-40 border-b border-white/10 bg-theme-blue-dark transition-shadow duration-300 ${
+          scrolled || isOpen ? "shadow-[0_12px_40px_rgba(8,12,30,0.45)]" : "shadow-none"
+        }`}
+      >
+        <div className="container-shell flex h-16 items-center justify-between sm:h-20">
+          <BrandLogo className="h-8 sm:h-10" />
 
-      <header className="fixed left-0 right-0 top-0 z-40 h-16 bg-theme-blue-dark sm:hidden">
-        <div className="container-shell flex h-full items-center justify-between">
-          <BrandLogo />
+          <div className="hidden items-center gap-8 sm:flex">
+            <nav className="flex items-center gap-8" aria-label="Primary">
+              {navLinks.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={`relative pb-1.5 text-sm font-medium uppercase tracking-wide transition ${
+                      isActive ? "text-theme-green-action" : "text-white hover:text-white"
+                    }`}
+                  >
+                    {item.label}
+                    <span
+                      className={`absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-theme-green-action transition-opacity duration-300 ${
+                        isActive ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                  </Link>
+                );
+              })}
+            </nav>
+            <AuthButtonGroup pathname={pathname} />
+          </div>
+
           <button
             type="button"
-            aria-label="Toggle Menu"
+            aria-label={isOpen ? "Close menu" : "Open menu"}
+            aria-expanded={isOpen}
             onClick={() => setIsOpen((prev) => !prev)}
-            className="rounded-md border border-white/30 p-2 text-white"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/[0.06] text-white transition hover:border-white/35 hover:bg-white/10 sm:hidden"
           >
-            <span className="block h-0.5 w-5 bg-white" />
-            <span className="mt-1 block h-0.5 w-5 bg-white" />
-            <span className="mt-1 block h-0.5 w-5 bg-white" />
+            <span
+              className={`absolute h-0.5 w-4 rounded-full bg-current transition duration-300 ${
+                isOpen ? "translate-y-0 rotate-45" : "-translate-y-1.5"
+              }`}
+            />
+            <span
+              className={`absolute h-0.5 w-4 rounded-full bg-current transition duration-300 ${
+                isOpen ? "scale-x-0 opacity-0" : "opacity-100"
+              }`}
+            />
+            <span
+              className={`absolute h-0.5 w-4 rounded-full bg-current transition duration-300 ${
+                isOpen ? "translate-y-0 -rotate-45" : "translate-y-1.5"
+              }`}
+            />
           </button>
         </div>
       </header>
 
-      {isOpen && (
-        <div className="fixed inset-0 z-50 bg-theme-blue-dark sm:hidden">
-          <div className="container-shell flex h-full flex-col pb-6 pt-5">
-            <div className="flex items-center justify-between">
-              <BrandLogo />
-              <button
-                type="button"
-                onClick={() => setIsOpen(false)}
-                className="rounded-md border border-white/30 px-3 py-1 text-sm text-white"
-              >
-                Close
-              </button>
-            </div>
+      <div
+        className={`fixed inset-0 z-30 sm:hidden ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+        aria-hidden={!isOpen}
+      >
+        <button
+          type="button"
+          aria-label="Close menu overlay"
+          onClick={() => setIsOpen(false)}
+          className={`absolute inset-0 bg-theme-blue-dark/50 backdrop-blur-sm transition-opacity duration-300 ${
+            isOpen ? "opacity-100" : "opacity-0"
+          }`}
+        />
 
-            <nav className="mt-10 flex flex-col gap-5">
-              {[...navLinks, { href: "/login", label: "Login" }, { href: "/register", label: "Register" }].map(
-                (item) => (
+        <div
+          className={`absolute inset-x-0 top-16 origin-top border-b border-white/10 bg-theme-blue-dark/95 shadow-[0_24px_60px_rgba(8,12,30,0.55)] backdrop-blur-xl transition-all duration-300 ${
+            isOpen ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
+          }`}
+        >
+          <div className="container-shell flex flex-col gap-6 py-6">
+            <nav className="flex flex-col gap-1 border-b border-white/10 pb-5" aria-label="Mobile">
+              {navLinks.map((item) => {
+                const isActive = pathname === item.href;
+                return (
                   <Link
                     key={item.label}
                     href={item.href}
                     onClick={() => setIsOpen(false)}
-                    className="text-xl font-medium text-white"
+                    className={`flex items-center justify-between px-1 py-3 text-lg font-medium uppercase tracking-wide transition ${
+                      isActive ? "text-theme-green-action" : "text-white hover:text-white"
+                    }`}
                   >
                     {item.label}
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full bg-theme-green-action transition ${
+                        isActive ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
                   </Link>
-                )
-              )}
+                );
+              })}
             </nav>
 
-            <div className="mt-auto rounded-xl bg-[#3C3957] p-5 text-white">
-              <p className="text-lg font-semibold">News and Promos</p>
-              <p className="mt-1 text-sm text-white/80">Learn about our exciting promos and latest news.</p>
+            <AuthButtonGroup
+              className="w-full justify-stretch [&>a]:flex-1 [&>a]:py-2.5"
+              onNavigate={() => setIsOpen(false)}
+              pathname={pathname}
+            />
+
+            <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] p-5 text-white">
+              <p className="text-base font-semibold">News and Promos</p>
+              <p className="mt-1 text-sm text-white/70">Learn about our exciting promos and latest news.</p>
               <Link href="/" onClick={() => setIsOpen(false)} className="mt-4 inline-block">
                 <PrimaryButton className="px-6 py-2">Explore</PrimaryButton>
               </Link>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </>
   );
 }

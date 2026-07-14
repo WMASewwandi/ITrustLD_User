@@ -6,6 +6,7 @@ import BuildProfileSection from "@/components/home/build-profile-section";
 import VideoTutorialsSection from "@/components/home/video-tutorials-section";
 import ReferEarnSection from "@/components/home/refer-earn-section";
 import FooterGuest from "@/components/partials/footer-guest";
+import CurrencyWatermarks from "@/components/ui/currency-watermarks";
 
 const specialFeatures = [
   {
@@ -187,8 +188,8 @@ export default function HomePage() {
 
       <NavigationGuest />
 
-      <main className="pt-16 sm:pt-0">
-        <section className="flex min-h-[calc(100vh-4rem)] items-center pb-12 sm:min-h-[calc(100vh-5rem)] sm:pb-16">
+      <main>
+        <section className="relative flex min-h-[calc(100vh-4rem)] items-center pb-12 sm:min-h-[calc(100vh-5rem)] sm:pb-16">
           <div className="container-shell grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
               <p className="inline-flex rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-medium tracking-wide text-white backdrop-blur">
@@ -267,6 +268,7 @@ export default function HomePage() {
         </section>
 
         <section className="relative overflow-hidden bg-[#F6F8FC] py-16 sm:py-20">
+          <CurrencyWatermarks />
           <div className="pointer-events-none absolute -left-10 top-8 h-56 w-56 rounded-full bg-theme-green-shaded/10 blur-3xl" />
           <div className="pointer-events-none absolute right-0 top-20 h-64 w-64 rounded-full bg-theme-blue-darkshade/10 blur-3xl" />
 
@@ -307,6 +309,7 @@ export default function HomePage() {
         </section>
 
         <section className="relative overflow-hidden bg-gradient-to-b from-white to-[#EEF3FA] pt-16 pb-0 sm:pt-20 sm:pb-0">
+          <CurrencyWatermarks />
           <div className="pointer-events-none absolute -left-10 top-6 h-56 w-56 rounded-full bg-theme-green-shaded/12 blur-3xl" />
           <div className="pointer-events-none absolute right-0 top-24 h-72 w-72 rounded-full bg-theme-blue-darkshade/10 blur-3xl" />
 

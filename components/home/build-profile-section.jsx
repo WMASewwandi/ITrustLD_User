@@ -1,3 +1,5 @@
+import CurrencyWatermarks from "@/components/ui/currency-watermarks";
+
 const steps = [
   {
     title: "Create Account",
@@ -67,6 +69,7 @@ function StepIcon({ type }) {
 export default function BuildProfileSection() {
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white py-16 sm:py-20">
+      <CurrencyWatermarks />
       <div className="pointer-events-none absolute -left-8 top-10 h-56 w-56 rounded-full bg-theme-green-shaded/15 blur-3xl" />
       <div className="pointer-events-none absolute right-0 bottom-8 h-64 w-64 rounded-full bg-theme-blue-darkshade/10 blur-3xl" />
 

@@ -16,6 +16,54 @@ body {
   @apply mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8;
 }
 
+@keyframes wmFloatA {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(2deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+}
+
+@keyframes wmFloatB {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(5px) rotate(-2deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+}
+
+@keyframes wmFloatC {
+  0% {
+    transform: translateX(0px);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+  100% {
+    transform: translateX(0px);
+  }
+}
+
+.wm-float-a {
+  animation: wmFloatA 7s ease-in-out infinite;
+}
+
+.wm-float-b {
+  animation: wmFloatB 8s ease-in-out infinite;
+}
+
+.wm-float-c {
+  animation: wmFloatC 9s ease-in-out infinite;
+}
+
 @media (max-height: 900px) {
   .register-fit {
     zoom: 0.92;

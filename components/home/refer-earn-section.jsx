@@ -1,8 +1,10 @@
 import PrimaryButton from "@/components/ui/primary-button";
+import CurrencyWatermarks from "@/components/ui/currency-watermarks";
 
 export default function ReferEarnSection() {
   return (
     <section className="relative overflow-hidden bg-[#F5F7FC] py-16 sm:py-20">
+      <CurrencyWatermarks />
       <div className="pointer-events-none absolute -left-14 top-6 h-64 w-64 rounded-full bg-theme-green-shaded/18 blur-3xl" />
       <div className="pointer-events-none absolute right-0 top-10 h-72 w-72 rounded-full bg-theme-blue-darkshade/12 blur-3xl" />
       <div className="pointer-events-none absolute bottom-0 left-1/2 h-44 w-44 -translate-x-1/2 rounded-full bg-theme-green-action/10 blur-3xl" />

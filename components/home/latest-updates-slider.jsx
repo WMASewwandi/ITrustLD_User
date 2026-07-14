@@ -1,3 +1,5 @@
+import CurrencyWatermarks from "@/components/ui/currency-watermarks";
+
 const updates = {
   leftTop: {
     title: "Top Tips to Stay Motivated and Avoid Burnout While Working Remotely",
@@ -62,6 +64,7 @@ export default function LatestUpdatesSlider() {
         </p>
 
         <div className="relative left-1/2 mt-10 grid w-screen -translate-x-1/2 gap-6 px-6 xl:grid-cols-[1.05fr_2fr_1.05fr] xl:px-8">
+          <CurrencyWatermarks />
           <div className="grid gap-6">
             <ImageTile item={updates.leftTop} className="min-h-[200px]" />
             <TextTile item={updates.leftTop} />

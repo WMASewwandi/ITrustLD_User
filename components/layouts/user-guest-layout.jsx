@@ -5,7 +5,7 @@ export default function UserGuestLayout({ children }) {
   return (
     <div className="min-h-screen bg-white font-poppins">
       <NavigationGuest />
-      <main className="pt-16 sm:pt-0">{children}</main>
+      <main>{children}</main>
       <FooterGuest />
     </div>
   );
