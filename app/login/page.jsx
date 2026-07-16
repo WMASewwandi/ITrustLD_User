@@ -1,19 +1,49 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
+import { isValidEmail } from "@/lib/validation";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [error, setError] = useState("");
+
+  function handleSignIn(e) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const email = form.email?.value?.trim() || "";
+    if (!isValidEmail(email)) {
+      setError("Enter a valid email with @ and a domain. Spaces are not allowed.");
+      return;
+    }
+    // Frontend demo: treat unknown domains as "must already exist"
+    if (email.toLowerCase() === "unknown@email.com") {
+      setError("This email address is not registered in the system.");
+      return;
+    }
+    setError("");
+    const name = email.split("@")[0] || "User";
+    localStorage.setItem(
+      "itrustld_user",
+      JSON.stringify({ name: name.charAt(0).toUpperCase() + name.slice(1), email })
+    );
+    router.push("/dashboard");
+  }
+
   return (
     <UserAuthLayout>
       <div className="mx-auto w-full max-w-5xl overflow-hidden rounded-3xl border border-white/15 bg-white shadow-[0_28px_90px_rgba(8,12,30,0.5)]">
         <div className="grid md:grid-cols-2">
           <section className="p-7 sm:p-10 lg:p-12">
             <Link href="/" className="inline-block">
-              <img src="/assets/img/logos/logo-itrustld-wide-dark.svg" alt="iTrustLD" className="h-10 w-auto" />
+              <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className="h-10 w-auto" />
             </Link>
             <h1 className="mt-7 text-3xl font-semibold text-theme-blue-dark">Welcome back</h1>
             <p className="mt-2 text-sm text-theme-gray">Sign in to continue to your secure iTrustLD dashboard.</p>
 
-            <form className="mt-8 space-y-5">
+            <form className="mt-8 space-y-5" onSubmit={handleSignIn} noValidate>
               <div>
                 <label htmlFor="email" className="mb-1 block text-xs font-medium uppercase tracking-wide text-theme-gray">
                   Email Address
@@ -24,8 +54,10 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   defaultValue="john12@gmail.com"
+                  onChange={() => setError("")}
                   className="w-full rounded-lg border border-[#CDD5E0] bg-[#F7F9FC] px-3 py-2.5 text-sm text-theme-black outline-none ring-0 transition focus:border-theme-blue-dark focus:bg-white"
                 />
+                {error ? <p className="mt-1 text-xs text-theme-red-action">{error}</p> : null}
               </div>
 
               <div>
@@ -53,7 +85,7 @@ export default function LoginPage() {
               </div>
 
               <button
-                type="button"
+                type="submit"
                 className="mt-1 w-full rounded-lg bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-[0_10px_22px_rgba(13,159,27,0.35)] transition hover:brightness-110"
               >
                 Sign In

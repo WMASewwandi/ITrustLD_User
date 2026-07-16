@@ -24,7 +24,7 @@ const steps = [
 ];
 
 function StepIcon({ type }) {
-  const common = "h-5 w-5 text-white";
+  const common = "h-6 w-6 text-white";
 
   if (type === "account") {
     return (
@@ -49,8 +49,7 @@ function StepIcon({ type }) {
       <svg viewBox="0 0 24 24" className={common} fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3.5" y="5.5" width="17" height="13" rx="2" />
         <path d="M3.5 10.5H20.5" />
-        <path d="M12 13V16.5" />
-        <path d="M10.3 15H13.7" />
+        <circle cx="8" cy="14.5" r="1.1" fill="currentColor" stroke="none" />
       </svg>
     );
   }
@@ -61,41 +60,65 @@ function StepIcon({ type }) {
       <path d="M13.5 5.5L16.5 8.5L13.5 11.5" />
       <path d="M19.5 15.5H7.5" />
       <path d="M10.5 12.5L7.5 15.5L10.5 18.5" />
-      <rect x="4.5" y="5" width="15" height="14" rx="2" opacity="0.35" />
     </svg>
   );
 }
 
 export default function BuildProfileSection() {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-[#F7F9FC] to-white py-16 sm:py-20">
+    <section className="relative overflow-hidden bg-white py-20 sm:py-24">
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat opacity-80"
+        style={{ backgroundImage: "url('/sec.png')" }}
+        aria-hidden="true"
+      />
+      <div className="absolute inset-0 bg-white/45" aria-hidden="true" />
       <CurrencyWatermarks />
-      <div className="pointer-events-none absolute -left-8 top-10 h-56 w-56 rounded-full bg-theme-green-shaded/15 blur-3xl" />
-      <div className="pointer-events-none absolute right-0 bottom-8 h-64 w-64 rounded-full bg-theme-blue-darkshade/10 blur-3xl" />
+      <div className="pointer-events-none absolute -left-16 top-8 h-[26rem] w-[26rem] rounded-full bg-theme-green-action/15 blur-[100px]" aria-hidden="true" />
+      <div className="pointer-events-none absolute -right-20 bottom-0 h-[24rem] w-[24rem] rounded-full bg-[#4F7CFF]/12 blur-[110px]" aria-hidden="true" />
 
-      <div className="container-shell relative">
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.24em] text-theme-gray">Simple Onboarding</p>
-        <h2 className="text-center text-3xl font-semibold text-theme-blue-dark sm:text-4xl">
-          Build Your Profile With <span className="text-theme-green-action">Ease</span>
-        </h2>
-        <p className="mx-auto mt-3 max-w-2xl text-center text-md leading-7 text-theme-gray">
-          A step-by-step onboarding flow built for speed, security, and a frictionless first-time experience.
-        </p>
+      <div className="relative mx-auto w-full max-w-[1400px] px-4 sm:px-6 lg:px-10">
+        <div className="mx-auto max-w-3xl text-center">
+          <p className="inline-flex items-center gap-2 rounded-full border border-theme-green-action/25 bg-[#EAF8EC] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-theme-green-action shadow-sm">
+            Simple Onboarding
+          </p>
+          <h2 className="mt-5 text-3xl font-semibold tracking-tight text-theme-blue-dark sm:text-4xl lg:text-5-6xl">
+            Build Your Profile With <span className="text-theme-green-action">Ease</span>
+          </h2>
+          <div className="mx-auto mt-5 h-1 w-16 rounded-full bg-theme-blue-dark shadow-[0_0_14px_rgba(37,34,62,0.45)]" />
+          <p className="mx-auto mt-5 max-w-2xl text-md leading-7 text-theme-gray sm:text-md-lg sm:leading-8">
+            A step-by-step onboarding flow built for speed, security, and a frictionless first-time experience.
+          </p>
+        </div>
 
-        <div className="mt-12 bg-transparent p-2 sm:p-4">
-          <div className="relative">
-            <div className="absolute left-0 right-0 top-6 hidden h-[2px] bg-gradient-to-r from-theme-green-action via-theme-blue-darkshade to-theme-green-action lg:block" />
-            <div className="grid gap-6 lg:grid-cols-4">
-              {steps.map((step, idx) => (
-                <article key={step.title} className="relative text-center">
-                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-theme-blue-dark">
-                    <StepIcon type={step.icon} />
-                  </div>
-                  <h3 className="mt-4 text-md-lg font-semibold text-theme-blue-dark">{step.title}</h3>
-                  <p className="mx-auto mt-2 max-w-[250px] text-sm leading-7 text-theme-blue-darkshade">{step.description}</p>
-                </article>
-              ))}
-            </div>
+        <div className="relative mt-14 sm:mt-16">
+          <div
+            className="pointer-events-none absolute left-[12%] right-[12%] top-[34px] hidden h-[3px] rounded-full bg-theme-blue-dark lg:block"
+            aria-hidden="true"
+          />
+          <div
+            className="pointer-events-none absolute left-[12%] right-[12%] top-[34px] hidden h-[3px] rounded-full bg-theme-blue-dark/35 blur-[6px] lg:block"
+            aria-hidden="true"
+          />
+
+          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+            {steps.map((step, index) => (
+              <article key={step.title} className="group relative flex flex-col items-center text-center">
+                {index < steps.length - 1 ? (
+                  <div
+                    className="pointer-events-none absolute left-[calc(50%+2rem)] top-[34px] hidden h-[3px] w-[calc(100%-4rem)] bg-theme-blue-dark sm:block lg:hidden"
+                    aria-hidden="true"
+                  />
+                ) : null}
+
+                <div className="relative z-10 flex h-[68px] w-[68px] items-center justify-center rounded-full bg-theme-red-action shadow-[0_0_18px_rgba(255,0,0,0.35),0_12px_28px_rgba(255,0,0,0.22)] ring-[6px] ring-white transition duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_0_24px_rgba(255,0,0,0.45),0_16px_34px_rgba(255,0,0,0.28)] group-hover:ring-theme-red-action/15">
+                  <StepIcon type={step.icon} />
+                </div>
+
+                <h3 className="mt-6 text-lg font-semibold text-theme-blue-dark sm:text-xl">{step.title}</h3>
+                <p className="mx-auto mt-3 max-w-[260px] text-sm leading-7 text-theme-gray">{step.description}</p>
+              </article>
+            ))}
           </div>
         </div>
       </div>

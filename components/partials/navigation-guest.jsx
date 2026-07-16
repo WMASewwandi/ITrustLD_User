@@ -14,21 +14,18 @@ function BrandLogo({ className = "h-10" }) {
 }
 
 function AuthButtonGroup({ className = "", onNavigate, pathname = "" }) {
-  const loginActive = pathname !== "/register";
+  const loginActive = pathname === "/login";
+  const registerActive = pathname === "/register";
 
   return (
-    <div
-      className={`inline-flex items-stretch overflow-hidden rounded-lg border border-white/20 bg-white/[0.06] shadow-[0_2px_8px_rgba(15,20,40,0.18)] ${className}`}
-      role="group"
-      aria-label="Account"
-    >
+    <div className={`inline-flex items-center gap-2.5 ${className}`} role="group" aria-label="Account">
       <Link
         href="/login"
         onClick={onNavigate}
-        className={`inline-flex min-w-[5.5rem] items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-green-action ${
-          loginActive
+        className={`inline-flex min-w-[5.5rem] items-center justify-center rounded-[4px] px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-green-action ${
+          loginActive || (!loginActive && !registerActive)
             ? "bg-theme-green-action shadow-[0_6px_16px_rgba(13,159,27,0.35)] hover:brightness-110"
-            : "bg-transparent hover:bg-white/10"
+            : "border border-white/30 bg-transparent hover:bg-white/10"
         }`}
       >
         Login
@@ -36,10 +33,10 @@ function AuthButtonGroup({ className = "", onNavigate, pathname = "" }) {
       <Link
         href="/register"
         onClick={onNavigate}
-        className={`inline-flex min-w-[5.5rem] items-center justify-center border-l border-white/20 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
-          loginActive
-            ? "bg-transparent hover:bg-white/10"
-            : "bg-theme-green-action shadow-[0_6px_16px_rgba(13,159,27,0.35)] hover:brightness-110"
+        className={`inline-flex min-w-[5.5rem] items-center justify-center rounded-[4px] px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
+          registerActive
+            ? "bg-theme-green-action shadow-[0_6px_16px_rgba(13,159,27,0.35)] hover:brightness-110"
+            : "border border-white/30 bg-transparent hover:bg-white/10"
         }`}
       >
         Register
@@ -55,15 +52,36 @@ const navLinks = [
 
 export default function NavigationGuest() {
   const [isOpen, setIsOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
+  const isHome = pathname === "/";
+  const [pastHero, setPastHero] = useState(!isHome);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+    const updateHeaderState = () => {
+      if (!isHome) {
+        setPastHero(true);
+        return;
+      }
+
+      const hero = document.getElementById("home-hero");
+      if (!hero) {
+        setPastHero(window.scrollY > 8);
+        return;
+      }
+
+      const headerOffset = window.matchMedia("(min-width: 640px)").matches ? 80 : 64;
+      const heroBottom = hero.getBoundingClientRect().bottom;
+      setPastHero(heroBottom <= headerOffset);
+    };
+
+    updateHeaderState();
+    window.addEventListener("scroll", updateHeaderState, { passive: true });
+    window.addEventListener("resize", updateHeaderState);
+    return () => {
+      window.removeEventListener("scroll", updateHeaderState);
+      window.removeEventListener("resize", updateHeaderState);
+    };
+  }, [isHome]);
 
   useEffect(() => {
     document.body.style.overflow = isOpen ? "hidden" : "";
@@ -76,11 +94,15 @@ export default function NavigationGuest() {
     setIsOpen(false);
   }, [pathname]);
 
+  const solidHeader = !isHome || pastHero || isOpen;
+
   return (
     <>
       <header
-        className={`sticky top-0 z-40 border-b border-white/10 bg-theme-blue-dark transition-shadow duration-300 ${
-          scrolled || isOpen ? "shadow-[0_12px_40px_rgba(8,12,30,0.45)]" : "shadow-none"
+        className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
+          solidHeader
+            ? "border-b border-white/10 bg-theme-blue-dark shadow-[0_12px_40px_rgba(8,12,30,0.45)]"
+            : "border-b border-transparent bg-transparent shadow-none"
         }`}
       >
         <div className="container-shell flex h-16 items-center justify-between sm:h-20">
@@ -137,6 +159,8 @@ export default function NavigationGuest() {
         </div>
       </header>
 
+      {!isHome && <div className="h-16 sm:h-20" aria-hidden="true" />}
+
       <div
         className={`fixed inset-0 z-30 sm:hidden ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
         aria-hidden={!isOpen}
@@ -180,7 +204,7 @@ export default function NavigationGuest() {
             </nav>
 
             <AuthButtonGroup
-              className="w-full justify-stretch [&>a]:flex-1 [&>a]:py-2.5"
+              className="w-full [&>a]:flex-1 [&>a]:py-2.5"
               onNavigate={() => setIsOpen(false)}
               pathname={pathname}
             />

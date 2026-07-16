@@ -64,6 +64,214 @@ body {
   animation: wmFloatC 9s ease-in-out infinite;
 }
 
+@keyframes heroFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes heroCardFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes heroGlowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.hero-copy {
+  animation: heroFadeUp 0.7s ease-out both;
+}
+
+.hero-visual {
+  animation: heroFadeUp 0.85s ease-out 0.12s both;
+}
+
+.hero-card {
+  animation: heroCardFloat 6.5s ease-in-out infinite;
+}
+
+.hero-visual > div:first-child {
+  animation: heroGlowPulse 4.5s ease-in-out infinite;
+}
+
+.hero-green-glow {
+  background-image: linear-gradient(90deg, #9cff7a 0%, #0d9f1b 45%, #5dff8a 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 10px rgba(57, 255, 20, 0.45)) drop-shadow(0 0 22px rgba(13, 159, 27, 0.55));
+}
+
+@keyframes specialGlowPulse {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.special-glow {
+  animation: specialGlowPulse 7s ease-in-out infinite;
+}
+
+.special-glow-delay {
+  animation-delay: 1.8s;
+}
+
+@keyframes whyGlowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+}
+
+.why-glow {
+  animation: whyGlowPulse 8s ease-in-out infinite;
+}
+
+.why-glow-delay {
+  animation-delay: 2s;
+}
+
+.why-cut-card {
+  clip-path: polygon(28px 0, 100% 0, 100% calc(100% - 28px), calc(100% - 28px) 100%, 0 100%, 0 28px);
+}
+
+.why-cut-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06), transparent 42%);
+}
+
+@keyframes dashFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dashFloatY {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes dashFloatYAlt {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(12px);
+  }
+}
+
+.dash-fade-up {
+  animation: dashFadeUp 0.55s ease-out both;
+}
+
+.dash-fade-up-delay {
+  animation: dashFadeUp 0.65s ease-out 0.1s both;
+}
+
+.dash-float-a {
+  animation: dashFloatY 4.2s ease-in-out infinite;
+}
+
+.dash-float-b {
+  animation: dashFloatYAlt 5s ease-in-out infinite;
+}
+
+.coin-glow-usdt {
+  box-shadow:
+    0 0 24px rgba(38, 161, 123, 0.75),
+    0 0 48px rgba(38, 161, 123, 0.45),
+    0 0 80px rgba(38, 161, 123, 0.25),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.coin-glow-btc {
+  box-shadow:
+    0 0 24px rgba(247, 147, 26, 0.8),
+    0 0 48px rgba(247, 147, 26, 0.5),
+    0 0 80px rgba(247, 147, 26, 0.28),
+    0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+@keyframes coinGlowPulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.06);
+  }
+}
+
+.coin-glow-ring,
+.coin-glow-ring-soft {
+  animation: coinGlowPulse 3.2s ease-in-out infinite;
+}
+
+.coin-glow-ring-soft {
+  animation-delay: 0.6s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-copy,
+  .hero-visual,
+  .hero-card,
+  .hero-visual > div:first-child,
+  .special-glow,
+  .why-glow,
+  .dash-fade-up,
+  .dash-fade-up-delay,
+  .dash-float-a,
+  .dash-float-b,
+  .coin-glow-ring,
+  .coin-glow-ring-soft {
+    animation: none;
+  }
+}
+
 @media (max-height: 900px) {
   .register-fit {
     zoom: 0.92;
