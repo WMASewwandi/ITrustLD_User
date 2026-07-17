@@ -2,39 +2,137 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  ChevronDown,
+  ArrowDownToLine,
+  ArrowRight,
+  ArrowUpFromLine,
+  Bell,
+  Clock3,
+  Ellipsis,
   FileCheck2,
-  HelpCircle,
+  Globe2,
+  Headphones,
   Home,
   LogOut,
-  Menu,
-  Trophy,
-  ArrowDownToLine,
-  ArrowUpFromLine,
   Receipt,
+  Trophy,
   User,
+  Wallet,
   X,
 } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/dashboard/transactions", label: "Transactions", icon: Receipt },
+  { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
   { href: "/dashboard/withdrawal", label: "Withdrawal", icon: ArrowUpFromLine },
-  { href: "/dashboard/transactions", label: "Transactions", icon: Receipt },
   { href: "/dashboard/loyalty", label: "Loyalty", icon: Trophy },
   { href: "/dashboard/documents", label: "Documents", icon: FileCheck2 },
-  { href: "/dashboard/help", label: "Help", icon: HelpCircle },
 ];
+
+const MOBILE_BOTTOM_NAV = [
+  { href: "/dashboard", label: "Home", icon: Home },
+  { href: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
+  { href: "/dashboard/withdrawal", label: "Withdraw", icon: ArrowUpFromLine },
+  { href: "/dashboard/transactions", label: "History", icon: Receipt },
+];
+
+const MOBILE_MORE_LINKS = [
+  { href: "/dashboard/loyalty", label: "Loyalty", icon: Trophy },
+  { href: "/dashboard/documents", label: "Documents", icon: FileCheck2 },
+  { href: "/dashboard/profile", label: "Profile", icon: User },
+  { href: "/dashboard/help", label: "Support", icon: Headphones },
+];
+
+const FUNDING_OPTIONS = [
+  { href: "/dashboard/deposit", label: "Deposit", icon: ArrowUpFromLine },
+  { href: "/dashboard/withdrawal", label: "Withdraw", icon: ArrowDownToLine },
+  { href: "/dashboard/transactions", label: "Transactions History", icon: Clock3 },
+  { href: "/dashboard/help", label: "Subscribe to a Local Depositor", icon: Globe2 },
+  { href: "/dashboard/partner-pay", label: "Transfer from LD to Client", icon: ArrowRight },
+];
+
+const DEMO_NOTIFICATIONS = [
+  { id: 1, title: "Deposit pending", body: "Your deposit request is being reviewed.", time: "2h ago" },
+  { id: 2, title: "Document update", body: "National ID (Back) is In-Progress.", time: "1d ago" },
+  { id: 3, title: "Loyalty tip", body: "Earn double Trust Points this week.", time: "2d ago" },
+];
+
+const WALLET_BALANCE = "2,846.75";
+const WALLET_CURRENCY = "USD";
+const WALLET_ACCOUNT_ID = "67104269";
+
+function NavIconLink({ href, label, icon: Icon, active, onNavigate }) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className="group relative flex h-11 w-11 items-center justify-center rounded-xl transition"
+      aria-label={label}
+    >
+      <Icon
+        className={`h-5 w-5 transition ${
+          active ? "text-theme-green-action" : "text-white/55 group-hover:text-white"
+        }`}
+      />
+      <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0B1020] opacity-0 shadow-lg transition group-hover:opacity-100">
+        {label}
+      </span>
+      {active ? (
+        <span className="absolute left-0 h-5 w-0.5 rounded-full bg-theme-green-action" aria-hidden />
+      ) : null}
+    </Link>
+  );
+}
+
+function PanelShell({ title, onClose, children }) {
+  return (
+    <>
+      <button
+        type="button"
+        className="fixed inset-0 z-[70] bg-black/55"
+        aria-label="Close panel"
+        onClick={onClose}
+      />
+      <aside
+        data-lenis-prevent
+        className="fixed inset-0 z-[80] flex w-full flex-col bg-[#0B1020] lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[380px] lg:border-l lg:border-white/10 lg:shadow-[-20px_0_60px_rgba(0,0,0,0.45)]"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-4 py-4 sm:px-5">
+          <h2 className="text-xl font-bold text-white sm:text-2xl">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white/70 transition hover:bg-white/5 hover:text-white"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5">
+          {children}
+        </div>
+      </aside>
+    </>
+  );
+}
 
 export default function NavigationUser() {
   const pathname = usePathname();
   const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [panel, setPanel] = useState(null);
   const [userName, setUserName] = useState("User");
-  const profileRef = useRef(null);
+  const [accountId, setAccountId] = useState(WALLET_ACCOUNT_ID);
+
+  const moreActive = MOBILE_MORE_LINKS.some((item) =>
+    item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
+  );
 
   useEffect(() => {
     try {
@@ -42,6 +140,7 @@ export default function NavigationUser() {
       if (raw) {
         const parsed = JSON.parse(raw);
         if (parsed?.name) setUserName(parsed.name);
+        if (parsed?.accountId) setAccountId(String(parsed.accountId));
       }
     } catch {
       // ignore
@@ -49,19 +148,18 @@ export default function NavigationUser() {
   }, []);
 
   useEffect(() => {
-    setMenuOpen(false);
-    setProfileOpen(false);
+    setMoreOpen(false);
+    setPanel(null);
   }, [pathname]);
 
   useEffect(() => {
-    function onClickOutside(e) {
-      if (profileRef.current && !profileRef.current.contains(e.target)) {
-        setProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, []);
+    if (!panel && !moreOpen) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [panel, moreOpen]);
 
   function handleLogout() {
     localStorage.removeItem("itrustld_user");
@@ -73,97 +171,260 @@ export default function NavigationUser() {
     return pathname.startsWith(href);
   }
 
+  function openPanel(name) {
+    setMoreOpen(false);
+    setPanel(name);
+  }
+
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0B1020]">
-      <div className="mx-auto flex h-[72px] w-full max-w-[1400px] items-center justify-between px-4 sm:px-6 lg:px-8">
-        <Link href="/dashboard" className="inline-flex shrink-0 items-center">
-          <img
-            src="/assets/img/logos/logo-itrustld-wide.png"
-            alt="iTrustLD"
-            className="h-9 w-auto object-contain"
-          />
-        </Link>
-
-        <nav className="hidden items-center gap-1 lg:flex">
-          {NAV_LINKS.map(({ href, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`rounded-lg px-3.5 py-2 text-[13px] font-medium transition ${
-                isActive(href)
-                  ? "bg-white/10 text-white"
-                  : "text-white/65 hover:bg-white/5 hover:text-white"
-              }`}
-            >
-              {label}
+    <>
+      {/* Top bar */}
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050A14]/95 backdrop-blur-md lg:pl-[60px]">
+        <div className="flex h-14 w-full items-center justify-between gap-3 px-3 sm:h-16 sm:px-5 lg:px-6">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link href="/dashboard" className="inline-flex shrink-0 items-center">
+              <img
+                src="/assets/img/logos/logo-itrustld-wide.png"
+                alt="iTrustLD"
+                className="h-8 w-auto object-contain sm:h-9"
+              />
             </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2">
-          <div className="relative" ref={profileRef}>
-            <button
-              type="button"
-              onClick={() => setProfileOpen((v) => !v)}
-              className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/8 px-2.5 py-1.5 text-sm text-white transition hover:bg-white/12"
-            >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-theme-green-action/20 text-theme-green-action">
-                <User className="h-4 w-4" />
-              </span>
-              <span className="hidden max-w-[120px] truncate font-medium sm:inline">{userName}</span>
-              <ChevronDown className={`h-4 w-4 text-white/50 transition ${profileOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {profileOpen && (
-              <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-[#141A2E] py-1 shadow-2xl">
-                <Link
-                  href="/dashboard/profile"
-                  className="flex items-center gap-2 px-4 py-2.5 text-sm text-white/80 transition hover:bg-white/5 hover:text-white"
-                >
-                  <User className="h-4 w-4" />
-                  My Profile
-                </Link>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-red-400 transition hover:bg-white/5"
-                >
-                  <LogOut className="h-4 w-4" />
-                  Log out
-                </button>
-              </div>
-            )}
           </div>
 
-          <button
-            type="button"
-            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 text-white lg:hidden"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
-            {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-          </button>
+          <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
+            <button
+              type="button"
+              onClick={() => openPanel("wallet")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-theme-green-action transition hover:bg-white/5"
+              aria-label="Wallet"
+            >
+              <Wallet className="h-5 w-5" strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={() => openPanel("notifications")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/5"
+              aria-label="Notifications"
+            >
+              <Bell className="h-5 w-5" strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              onClick={() => openPanel("profile")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/5"
+              aria-label="Account"
+            >
+              <User className="h-5 w-5" strokeWidth={1.75} />
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      {menuOpen && (
-        <div className="border-t border-white/10 bg-[#0B1020] px-4 py-4 lg:hidden">
-          <nav className="flex flex-col gap-1">
-            {NAV_LINKS.map(({ href, label, icon: Icon }) => (
+      {/* Desktop left sidebar */}
+      <aside className="fixed bottom-0 left-0 top-0 z-40 hidden w-[60px] flex-col border-r border-white/10 bg-[#050A14]/95 backdrop-blur-md lg:flex">
+        <div className="flex h-14 items-center justify-center border-b border-white/10 sm:h-16">
+          <Link href="/dashboard" className="flex h-9 w-9 items-center justify-center" aria-label="iTrustLD Home">
+            <img src="/assets/img/logos/logo-itrustld.svg" alt="" className="h-7 w-7 object-contain" />
+          </Link>
+        </div>
+        <nav className="flex flex-1 flex-col items-center gap-1.5 py-4">
+          {NAV_LINKS.map((item) => (
+            <NavIconLink
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              icon={item.icon}
+              active={isActive(item.href)}
+            />
+          ))}
+        </nav>
+        <div className="flex flex-col items-center gap-1.5 border-t border-white/10 py-4">
+          <NavIconLink
+            href="/dashboard/help"
+            label="Support"
+            icon={Headphones}
+            active={isActive("/dashboard/help")}
+          />
+        </div>
+      </aside>
+
+      {/* Mobile bottom app navigation */}
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#050A14]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
+        <div className="mx-auto flex h-[64px] max-w-lg items-stretch justify-between">
+          {MOBILE_BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
+            const active = isActive(href);
+            return (
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm font-medium transition ${
-                  isActive(href) ? "bg-white/10 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition ${
+                  active ? "text-theme-green-action" : "text-white/50"
                 }`}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 1.75} />
+                <span className="truncate">{label}</span>
+              </Link>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => {
+              setPanel(null);
+              setMoreOpen(true);
+            }}
+            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition ${
+              moreOpen || moreActive ? "text-theme-green-action" : "text-white/50"
+            }`}
+          >
+            <Ellipsis className="h-5 w-5" strokeWidth={moreOpen || moreActive ? 2.25 : 1.75} />
+            <span className="truncate">More</span>
+          </button>
+        </div>
+      </nav>
+
+      {moreOpen ? (
+        <>
+          <button
+            type="button"
+            className="fixed inset-0 z-[55] bg-black/55 lg:hidden"
+            aria-label="Close more menu"
+            onClick={() => setMoreOpen(false)}
+          />
+          <div className="fixed inset-x-0 bottom-[64px] z-[56] border-t border-white/10 bg-[#0B1020] px-4 pb-4 pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.4)] lg:hidden">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-semibold text-white">More</p>
+              <button
+                type="button"
+                onClick={() => setMoreOpen(false)}
+                className="rounded-lg p-1.5 text-white/60 hover:bg-white/5 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {MOBILE_MORE_LINKS.map(({ href, label, icon: Icon }) => {
+                const active = isActive(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setMoreOpen(false)}
+                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-sm font-medium transition ${
+                      active
+                        ? "border-theme-green-action/40 bg-theme-green-action/10 text-theme-green-action"
+                        : "border-white/15 text-white hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      ) : null}
+
+      {/* Right panels: wallet / notifications / profile */}
+      {panel === "wallet" ? (
+        <PanelShell title="Funding" onClose={() => setPanel(null)}>
+          <div className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-white">Standard</p>
+              <span className="rounded-md bg-theme-green-action px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Real
+              </span>
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-white">
+              {WALLET_BALANCE} {WALLET_CURRENCY}
+            </p>
+            <p className="mt-1 text-sm text-white/45">#{accountId}</p>
+          </div>
+
+          <h3 className="mb-3 mt-7 text-base font-semibold text-white">Funding Options</h3>
+          <div className="space-y-2.5">
+            {FUNDING_OPTIONS.map(({ href, label, icon: Icon }) => (
+              <Link
+                key={label}
+                href={href}
+                onClick={() => setPanel(null)}
+                className="flex items-center gap-3 rounded-xl border border-white/20 px-4 py-3.5 text-sm font-medium text-white transition hover:bg-white/5"
+              >
+                <Icon className="h-4 w-4 shrink-0 text-white/80" />
                 {label}
               </Link>
             ))}
-          </nav>
-        </div>
-      )}
-    </header>
+          </div>
+        </PanelShell>
+      ) : null}
+
+      {panel === "notifications" ? (
+        <PanelShell title="Notifications" onClose={() => setPanel(null)}>
+          <div className="space-y-3">
+            {DEMO_NOTIFICATIONS.map((item) => (
+              <div key={item.id} className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-semibold text-white">{item.title}</p>
+                  <span className="shrink-0 text-[11px] text-white/40">{item.time}</span>
+                </div>
+                <p className="mt-1 text-sm text-white/55">{item.body}</p>
+              </div>
+            ))}
+          </div>
+        </PanelShell>
+      ) : null}
+
+      {panel === "profile" ? (
+        <PanelShell title="Profile" onClose={() => setPanel(null)}>
+          <div className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
+            <div className="flex items-center gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-full bg-theme-green-action/20 text-theme-green-action">
+                <User className="h-6 w-6" />
+              </span>
+              <div>
+                <p className="font-semibold text-white">{userName}</p>
+                <p className="text-sm text-white/45">#{accountId}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-2.5">
+            <Link
+              href="/dashboard/profile"
+              onClick={() => setPanel(null)}
+              className="flex items-center gap-3 rounded-xl border border-white/20 px-4 py-3.5 text-sm font-medium text-white transition hover:bg-white/5"
+            >
+              <User className="h-4 w-4" />
+              My Profile
+            </Link>
+            <Link
+              href="/dashboard/documents"
+              onClick={() => setPanel(null)}
+              className="flex items-center gap-3 rounded-xl border border-white/20 px-4 py-3.5 text-sm font-medium text-white transition hover:bg-white/5"
+            >
+              <FileCheck2 className="h-4 w-4" />
+              Documents
+            </Link>
+            <Link
+              href="/dashboard/loyalty"
+              onClick={() => setPanel(null)}
+              className="flex items-center gap-3 rounded-xl border border-white/20 px-4 py-3.5 text-sm font-medium text-white transition hover:bg-white/5"
+            >
+              <Trophy className="h-4 w-4" />
+              Loyalty
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-xl border border-white/20 px-4 py-3.5 text-sm font-medium text-theme-red-action transition hover:bg-white/5"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </button>
+          </div>
+        </PanelShell>
+      ) : null}
+    </>
   );
 }

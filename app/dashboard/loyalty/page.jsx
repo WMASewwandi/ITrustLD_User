@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import BottomMessage from "@/components/dashboard/bottom-message";
 import { Crown, Medal, Sparkles, Star, Trophy } from "lucide-react";
 
 const AVAILABLE = 811;
@@ -89,7 +90,7 @@ export default function LoyaltyPage() {
             onClick={() => setSection("overview")}
             className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
               section === "overview"
-                ? "bg-theme-green-action text-white"
+                ? "bg-white/20 text-white"
                 : "border border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
             }`}
           >
@@ -100,7 +101,7 @@ export default function LoyaltyPage() {
             onClick={openWithdraw}
             className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${
               section === "withdraw"
-                ? "bg-theme-green-action text-white"
+                ? "bg-white/20 text-white"
                 : "border border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
             }`}
           >
@@ -116,9 +117,9 @@ export default function LoyaltyPage() {
               <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-4">
                   <div className="relative flex h-16 w-16 items-center justify-center">
-                    <div className="absolute inset-0 rounded-2xl bg-[#FBBF24]/15 ring-1 ring-[#FBBF24]/30" />
-                    <Trophy className="relative h-8 w-8 text-[#FBBF24] drop-shadow-[0_0_16px_rgba(251,191,36,0.5)]" />
-                    <Star className="absolute -right-1 -top-1 h-4 w-4 fill-[#FBBF24] text-[#FBBF24]" />
+                    <div className="absolute inset-0 rounded-2xl bg-theme-green-action/15 ring-1 ring-theme-green-action/30" />
+                    <Trophy className="relative h-8 w-8 text-theme-green-action drop-shadow-[0_0_16px_rgba(13,159,27,0.5)]" />
+                    <Star className="absolute -right-1 -top-1 h-4 w-4 fill-theme-green-action text-theme-green-action" />
                   </div>
                   <div>
                     <p className="text-sm text-white/50">Available Balance</p>
@@ -136,7 +137,7 @@ export default function LoyaltyPage() {
               </div>
             </section>
 
-            <div className="rounded-xl bg-[#1B5E67] px-5 py-4 text-center text-sm font-semibold text-white shadow-[0_12px_28px_rgba(27,94,103,0.35)] sm:text-base">
+            <div className="rounded-xl bg-theme-green-dark px-5 py-4 text-center text-sm font-semibold text-white shadow-[0_12px_28px_rgba(20,83,91,0.35)] sm:text-base">
               ($) 10,000 Trust Points = 10 USD
             </div>
 
@@ -162,7 +163,7 @@ export default function LoyaltyPage() {
                     key={tier.name}
                     className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-center"
                   >
-                    <div className="mb-1 flex items-center justify-center gap-1 text-[#FBBF24]">
+                    <div className="mb-1 flex items-center justify-center gap-1 text-theme-green-action">
                       {tier.name === "VIP" || tier.name === "VVIP" ? (
                         <Sparkles className="h-3.5 w-3.5" />
                       ) : (
@@ -180,13 +181,13 @@ export default function LoyaltyPage() {
           <aside className="rounded-2xl border border-white/12 bg-[#0B1020]/85 p-6 text-center shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-8">
             <div className="relative mx-auto h-48 w-48">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-hidden>
-                <circle cx="90" cy="90" r={radius} fill="none" stroke="rgba(27,94,103,0.35)" strokeWidth="14" />
+                <circle cx="90" cy="90" r={radius} fill="none" stroke="rgba(13,159,27,0.25)" strokeWidth="14" />
                 <circle
                   cx="90"
                   cy="90"
                   r={radius}
                   fill="none"
-                  stroke="#1B5E67"
+                  stroke="#0D9F1B"
                   strokeWidth="14"
                   strokeLinecap="round"
                   strokeDasharray={circumference}
@@ -195,16 +196,16 @@ export default function LoyaltyPage() {
                 />
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <Star className="mb-1 h-5 w-5 fill-[#FBBF24] text-[#FBBF24]" />
+                <Star className="mb-1 h-5 w-5 fill-theme-green-action text-theme-green-action" />
                 <p className="text-3xl font-bold text-white">{LEVEL_PROGRESS}%</p>
               </div>
             </div>
-            <p className="mt-4 text-base font-semibold text-[#5eead4]">{CURRENT_LEVEL}</p>
+            <p className="mt-4 text-base font-semibold text-theme-green-shaded">{CURRENT_LEVEL}</p>
             <p className="mt-2 text-sm text-white/45">Progress based on activity & engagement</p>
             <button
               type="button"
               onClick={openWithdraw}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-theme-green-action px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white/20 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
             >
               Loyalty Withdraw
             </button>
@@ -301,34 +302,50 @@ export default function LoyaltyPage() {
                   </div>
                 </section>
 
-                {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+                {error ? (
+                  <BottomMessage
+                    title="Unable to withdraw"
+                    variant="error"
+                    onClose={() => setError("")}
+                    primaryAction={{ label: "Try Again", onClick: () => setError("") }}
+                    secondaryAction={{ label: "Close", onClick: () => setError("") }}
+                  >
+                    {error}
+                  </BottomMessage>
+                ) : null}
                 {success ? (
-                  <p className="rounded-xl border border-theme-green-action/30 bg-theme-green-action/10 px-4 py-3 text-sm text-theme-green-action">
+                  <BottomMessage
+                    title="Loyalty withdraw submitted"
+                    variant="success"
+                    onClose={() => setSuccess("")}
+                    primaryAction={{ label: "View History", onClick: () => { setSuccess(""); setWithdrawTab("history"); } }}
+                    secondaryAction={{ label: "Close", onClick: () => setSuccess("") }}
+                  >
                     {success}
-                  </p>
+                  </BottomMessage>
                 ) : null}
 
                 <button
                   type="submit"
-                  className="rounded-xl bg-theme-green-action px-10 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(13,159,27,0.35)] transition hover:brightness-110"
+                  className="rounded-xl bg-white/20 px-10 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
                 >
                   Withdraw
                 </button>
               </form>
 
               <aside
-                className="relative overflow-hidden rounded-2xl border border-white/12 bg-gradient-to-br from-[#141A2E] via-[#0B1020] to-[#1a1540] p-8 shadow-[0_20px_50px_rgba(0,0,0,0.4)]"
+                className="relative overflow-hidden rounded-2xl border border-white/12 bg-gradient-to-br from-[#141A2E] via-[#0B1020] to-theme-blue-dark p-8 shadow-[0_20px_50px_rgba(0,0,0,0.4)]"
                 aria-hidden
               >
-                <div className="pointer-events-none absolute -right-10 top-0 h-40 w-40 rounded-full bg-[#FBBF24]/15" />
-                <div className="pointer-events-none absolute -left-8 bottom-0 h-36 w-36 rounded-full bg-theme-green-action/15" />
+                <div className="pointer-events-none absolute -right-10 top-0 h-40 w-40 rounded-full bg-theme-green-action/15" />
+                <div className="pointer-events-none absolute -left-8 bottom-0 h-36 w-36 rounded-full bg-theme-green-dark/25" />
                 <div className="relative flex flex-col items-center text-center">
                   <div className="relative mb-6 flex h-36 w-36 items-center justify-center">
-                    <div className="absolute inset-0 rounded-full bg-[#FBBF24]/10 ring-1 ring-[#FBBF24]/25" />
-                    <Trophy className="h-20 w-20 text-[#FBBF24] drop-shadow-[0_0_24px_rgba(251,191,36,0.55)]" />
-                    <Medal className="absolute -bottom-1 right-2 h-10 w-10 text-[#F59E0B]" />
+                    <div className="absolute inset-0 rounded-full bg-theme-green-action/10 ring-1 ring-theme-green-action/25" />
+                    <Trophy className="h-20 w-20 text-theme-green-action drop-shadow-[0_0_24px_rgba(13,159,27,0.55)]" />
+                    <Medal className="absolute -bottom-1 right-2 h-10 w-10 text-theme-green-shaded" />
                   </div>
-                  <div className="flex items-center gap-2 text-[#FBBF24]">
+                  <div className="flex items-center gap-2 text-theme-green-action">
                     <Star className="h-4 w-4 fill-current" />
                     <Star className="h-5 w-5 fill-current" />
                     <Star className="h-4 w-4 fill-current" />
@@ -356,7 +373,7 @@ export default function LoyaltyPage() {
                       className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold ${
                         row.status === "Completed"
                           ? "bg-theme-green-action text-white"
-                          : "bg-amber-500 text-white"
+                          : "bg-theme-green-shaded text-white"
                       }`}
                     >
                       {row.status}

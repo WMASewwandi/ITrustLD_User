@@ -28,7 +28,7 @@ const legalLinks = [
 
 function Chevron() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-[#A855F7]" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-white" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M9 6L15 12L9 18" />
     </svg>
   );
@@ -52,7 +52,7 @@ export default function FooterGuest() {
         aria-hidden="true"
       />
       <div className="absolute inset-0 bg-[#070B16]/70" aria-hidden="true" />
-      <div className="pointer-events-none absolute -left-16 top-10 h-72 w-72 rounded-full bg-[#A855F7]/20 blur-[110px]" aria-hidden="true" />
+      <div className="pointer-events-none absolute -left-16 top-10 h-72 w-72 rounded-full bg-white/10 blur-[110px]" aria-hidden="true" />
       <div className="pointer-events-none absolute -right-20 bottom-20 h-80 w-80 rounded-full bg-theme-green-action/10 blur-[120px]" aria-hidden="true" />
 
       <div className="relative mx-auto w-full px-4 py-12 sm:px-6 sm:py-14 lg:px-8 xl:px-12 2xl:px-16">
@@ -77,7 +77,7 @@ export default function FooterGuest() {
           <div className="grid gap-8 lg:grid-cols-[0.85fr_0.75fr_1.25fr] lg:items-start lg:gap-6">
             <div>
               <h3 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-white">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#A855F7]/15 text-[#C084FC]">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-white">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M10 13a5 5 0 0 0 7.07 0l2.12-2.12a5 5 0 0 0-7.07-7.07L11 5" />
                     <path d="M14 11a5 5 0 0 0-7.07 0L4.81 13.12a5 5 0 0 0 7.07 7.07L13 19" />
@@ -104,7 +104,7 @@ export default function FooterGuest() {
 
             <div>
               <h3 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-white">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-[#A855F7]/15 text-[#C084FC]">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-white">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M12 3.5L19 6.2V11.7C19 16.1 16.1 20 12 21.5C7.9 20 5 16.1 5 11.7V6.2L12 3.5Z" />
                   </svg>
@@ -120,13 +120,13 @@ export default function FooterGuest() {
               </ul>
             </div>
 
-            <div className="group relative overflow-hidden rounded-[1.35rem] border border-[#A855F7]/20 bg-[#12172A]/70 p-5 shadow-[0_0_0_1px_rgba(168,85,247,0.08),0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl lg:ml-auto lg:max-w-[300px]">
-              <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-[#A855F7]/20 blur-2xl transition duration-500 group-hover:bg-[#A855F7]/30" />
-              <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-gradient-to-br from-[#A855F7]/[0.06] via-transparent to-transparent" />
+            <div className="group relative overflow-hidden rounded-[1.35rem] border border-white/20 bg-[#12172A]/70 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl lg:ml-auto lg:max-w-[300px]">
+              <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10 blur-2xl transition duration-500 group-hover:bg-white/15" />
+              <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-gradient-to-br from-white/[0.06] via-transparent to-transparent" />
 
               <div className="relative">
                 <div className="flex items-center gap-3">
-                  <span className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#A855F7]/15 text-[#C084FC] shadow-[0_0_24px_rgba(168,85,247,0.35)] ring-1 ring-[#A855F7]/25">
+                  <span className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/15 text-white shadow-[0_0_24px_rgba(255,255,255,0.12)] ring-1 ring-white/25">
                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="M12 4.5V7" />
                       <path d="M8 8.5H16L17.5 12.5H6.5L8 8.5Z" />
@@ -143,7 +143,7 @@ export default function FooterGuest() {
 
                 <Link
                   href="/register"
-                  className="relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#9333EA] to-[#A855F7] px-6 py-3 text-xs font-bold uppercase tracking-[0.12em] text-white shadow-[0_10px_30px_rgba(168,85,247,0.45)] transition duration-300 hover:brightness-110 hover:shadow-[0_14px_36px_rgba(168,85,247,0.55)]"
+                  className="relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.12em] text-[#0B1020] shadow-[0_10px_30px_rgba(255,255,255,0.18)] transition duration-300 hover:bg-white/90 hover:shadow-[0_14px_36px_rgba(255,255,255,0.25)]"
                 >
                   Sign Up Now
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

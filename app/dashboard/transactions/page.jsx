@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import BottomMessage from "@/components/dashboard/bottom-message";
 import { ChevronDown, Download, Printer } from "lucide-react";
 
 const ALL_TX = [
@@ -98,9 +99,9 @@ const labelClass = "mb-1.5 block text-xs font-medium text-white/55";
 
 const STATUS_STYLE = {
   Completed: "bg-theme-green-action text-white",
-  Pending: "bg-amber-500 text-white",
-  "Pending Authorization": "bg-amber-500 text-white",
-  Rejected: "bg-[#E11D48] text-white",
+  Pending: "bg-theme-green-shaded text-white",
+  "Pending Authorization": "bg-theme-green-shaded text-white",
+  Rejected: "bg-theme-red-action text-white",
 };
 
 export default function TransactionsPage() {
@@ -215,7 +216,7 @@ export default function TransactionsPage() {
           <div className="flex items-end gap-2">
             <button
               type="submit"
-              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-theme-green-action px-5 text-sm font-semibold text-white transition hover:brightness-110"
+              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-white/20 px-5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
             >
               Filter
             </button>
@@ -223,7 +224,7 @@ export default function TransactionsPage() {
               <button
                 type="button"
                 onClick={() => setExportOpen((v) => !v)}
-                className="inline-flex h-[42px] items-center gap-1.5 rounded-lg bg-[#1B5E67] px-4 text-sm font-semibold text-white transition hover:brightness-110"
+                className="inline-flex h-[42px] items-center gap-1.5 rounded-lg bg-theme-green-dark px-4 text-sm font-semibold text-white transition hover:brightness-110"
               >
                 Export
                 <ChevronDown className="h-4 w-4" />
@@ -246,7 +247,17 @@ export default function TransactionsPage() {
             </div>
           </div>
         </div>
-        {msg ? <p className="mt-3 text-sm text-theme-green-action">{msg}</p> : null}
+        {msg ? (
+          <BottomMessage
+            title="Export ready"
+            variant="success"
+            onClose={() => setMsg("")}
+            primaryAction={{ label: "OK", onClick: () => setMsg("") }}
+            secondaryAction={{ label: "Close", onClick: () => setMsg("") }}
+          >
+            {msg}
+          </BottomMessage>
+        ) : null}
       </form>
 
       {/* Transaction cards */}
