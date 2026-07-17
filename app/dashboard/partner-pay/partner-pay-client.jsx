@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowLeft, CheckCircle2, Upload } from "lucide-react";
+import BottomMessage from "@/components/dashboard/bottom-message";
+import { ArrowLeft, CheckCircle2, Trash2, Upload } from "lucide-react";
 
 export default function PartnerPayPage() {
   const params = useSearchParams();
@@ -14,11 +15,37 @@ export default function PartnerPayPage() {
   const returnUrl = params.get("returnUrl") || "#";
 
   const [slip, setSlip] = useState("");
+  const [slipPreview, setSlipPreview] = useState("");
   const [status, setStatus] = useState("ready");
   const [error, setError] = useState("");
 
   const referenceId = useMemo(() => `ITLD-${Date.now().toString().slice(-8)}`, []);
   const supportedCurrencies = ["USD", "EUR", "GBP"];
+
+  useEffect(() => {
+    return () => {
+      if (slipPreview) URL.revokeObjectURL(slipPreview);
+    };
+  }, [slipPreview]);
+
+  function clearSlip() {
+    if (slipPreview) URL.revokeObjectURL(slipPreview);
+    setSlip("");
+    setSlipPreview("");
+  }
+
+  function handleSlipChange(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (slipPreview) URL.revokeObjectURL(slipPreview);
+    setSlip(file.name);
+    if (file.type.startsWith("image/")) {
+      setSlipPreview(URL.createObjectURL(file));
+    } else {
+      setSlipPreview("");
+    }
+  }
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -32,6 +59,10 @@ export default function PartnerPayPage() {
     if (!token) {
       setStatus("error");
       setError("Expired Token — please restart payment from the partner platform.");
+      return;
+    }
+    if (!slip) {
+      setError("Please upload a payment slip.");
       return;
     }
 
@@ -76,21 +107,52 @@ export default function PartnerPayPage() {
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div>
               <label className="mb-2 block text-sm font-medium text-white/70">Upload payment slip *</label>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-white/20 bg-white/[0.03] px-4 py-3 text-sm text-white/60 transition hover:border-white/35">
-                <Upload className="h-4 w-4" />
-                {slip || "Choose file"}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  onChange={(e) => setSlip(e.target.files?.[0]?.name || "")}
-                />
-              </label>
+              {!slip ? (
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-dashed border-white/20 bg-white/[0.03] px-4 py-3 text-sm text-white/60 transition hover:border-white/35">
+                  <Upload className="h-4 w-4" />
+                  Choose file
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.pdf"
+                    onChange={handleSlipChange}
+                  />
+                </label>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-theme-green-action/25 bg-theme-green-action/10 p-3">
+                  {slipPreview ? (
+                    <img
+                      src={slipPreview}
+                      alt="Payment slip preview"
+                      className="h-16 w-16 shrink-0 rounded-lg border border-white/10 object-cover"
+                    />
+                  ) : null}
+                  <p className="min-w-0 flex-1 truncate text-sm text-theme-green-action">{slip}</p>
+                  <button
+                    type="button"
+                    onClick={clearSlip}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/5"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Remove
+                  </button>
+                </div>
+              )}
             </div>
-            {error ? <p className="text-sm text-rose-300">{error}</p> : null}
+            {error ? (
+              <BottomMessage
+                title="Payment error"
+                variant="error"
+                onClose={() => setError("")}
+                primaryAction={{ label: "Try Again", onClick: () => setError("") }}
+                secondaryAction={{ label: "Close", onClick: () => setError("") }}
+              >
+                {error}
+              </BottomMessage>
+            ) : null}
             <button
               type="submit"
-              className="rounded-xl bg-theme-green-action px-6 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+              className="rounded-xl bg-white/20 px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
             >
               Submit payment
             </button>
@@ -98,29 +160,38 @@ export default function PartnerPayPage() {
         ) : null}
 
         {status === "pending" ? (
-          <p className="mt-6 rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-200">
+          <BottomMessage
+            title="Payment pending"
+            variant="warning"
+            onClose={() => setStatus("ready")}
+            primaryAction={{ label: "OK", onClick: () => {} }}
+            secondaryAction={{ label: "Close", onClick: () => setStatus("ready") }}
+          >
             Status: Pending — payment submitted, awaiting confirmation…
-          </p>
+          </BottomMessage>
         ) : null}
 
         {status === "completed" ? (
-          <div className="mt-6 rounded-xl border border-theme-green-action/30 bg-theme-green-action/10 p-4">
+          <BottomMessage
+            title="Payment completed"
+            variant="success"
+            onClose={() => setStatus("ready")}
+            primaryAction={{
+              label: "Back to Partner",
+              href: returnUrl === "#" ? "/dashboard" : returnUrl,
+            }}
+            secondaryAction={{ label: "Dashboard", href: "/dashboard" }}
+          >
             <div className="flex items-start gap-3">
-              <CheckCircle2 className="mt-0.5 h-5 w-5 text-theme-green-action" />
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-theme-green-action" />
               <div>
-                <p className="font-semibold text-theme-green-action">Status: Completed</p>
+                <p className="font-semibold text-white">Status: Completed</p>
                 <p className="mt-1 text-sm text-white/60">
-                  Redirect response: Reference ID {referenceId} · Status Completed · Amount {currency} {amount}
+                  Reference ID {referenceId} · Amount {currency} {amount}
                 </p>
-                <a
-                  href={returnUrl === "#" ? "/dashboard" : returnUrl}
-                  className="mt-3 inline-flex text-sm font-medium text-white underline-offset-4 hover:underline"
-                >
-                  Redirect back to Partner Platform
-                </a>
               </div>
             </div>
-          </div>
+          </BottomMessage>
         ) : null}
       </div>
     </div>

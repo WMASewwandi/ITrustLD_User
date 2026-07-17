@@ -131,8 +131,8 @@ export default function HeroSection() {
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-2">
               {stats.map((stat) => (
                 <div key={stat.label} className="flex flex-col items-start gap-2 px-1 sm:items-center sm:px-2 sm:text-center">
-                  <span className="text-theme-green-action/90">{stat.icon}</span>
-                  <p className="text-xl font-semibold text-theme-green-action sm:text-2xl">{stat.value}</p>
+                  <span className="text-white">{stat.icon}</span>
+                  <p className="text-xl font-semibold text-white sm:text-2xl">{stat.value}</p>
                   <p className="text-xs text-white/65">{stat.label}</p>
                 </div>
               ))}

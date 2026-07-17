@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import PageHeader from "@/components/dashboard/page-header";
+import BottomMessage from "@/components/dashboard/bottom-message";
 import { Building2, Plus, Trash2 } from "lucide-react";
 
 const fieldClass =
@@ -118,11 +119,21 @@ export default function ProfilePage() {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            className="rounded-xl bg-theme-green-action px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+            className="rounded-xl bg-white/20 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
           >
             Save profile
           </button>
-          {saved ? <span className="text-sm text-theme-green-action">Profile saved (demo)</span> : null}
+          {saved ? (
+            <BottomMessage
+              title="Profile saved"
+              variant="success"
+              onClose={() => setSaved(false)}
+              primaryAction={{ label: "OK", onClick: () => setSaved(false) }}
+              secondaryAction={{ label: "Close", onClick: () => setSaved(false) }}
+            >
+              Profile saved (demo)
+            </BottomMessage>
+          ) : null}
         </div>
       </form>
 
@@ -163,7 +174,7 @@ export default function ProfilePage() {
               <input name="branch" required className={fieldClass} placeholder="Branch" />
             </div>
             <div className="sm:col-span-2">
-              <button type="submit" className="rounded-xl bg-theme-green-action px-5 py-2.5 text-sm font-semibold text-white">
+              <button type="submit" className="rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30">
                 Save bank account
               </button>
             </div>
@@ -206,7 +217,7 @@ export default function ProfilePage() {
                     e.preventDefault();
                     removeBank(bank.id);
                   }}
-                  className="rounded-lg p-2 text-white/35 transition hover:bg-white/5 hover:text-rose-300"
+                  className="rounded-lg p-2 text-white/35 transition hover:bg-white/5 hover:text-theme-red-action"
                   aria-label="Remove bank"
                 >
                   <Trash2 className="h-4 w-4" />

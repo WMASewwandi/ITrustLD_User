@@ -4,7 +4,7 @@ import { Megaphone } from "lucide-react";
 export default function PromoBanner() {
   return (
     <section className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
-      <div className="relative overflow-hidden rounded-2xl border border-theme-green-action/25 bg-gradient-to-r from-[#0D9F1B]/20 via-[#12182C] to-[#3B82F6]/15 p-5 sm:p-6">
+      <div className="relative overflow-hidden rounded-2xl border border-theme-green-action/25 bg-gradient-to-r from-[#0D9F1B]/20 via-[#12182C] to-theme-green-dark/30 p-5 sm:p-6">
         <div className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-theme-green-action/20" />
         <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
@@ -25,7 +25,7 @@ export default function PromoBanner() {
           </div>
           <Link
             href="/dashboard/loyalty"
-            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-theme-green-action px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
           >
             View Loyalty
           </Link>

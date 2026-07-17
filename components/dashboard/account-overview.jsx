@@ -16,9 +16,9 @@ const DOCS = [
 
 const STATUS_STYLE = {
   Completed: "text-theme-green-action bg-theme-green-action/10 border-theme-green-action/25",
-  "In-Progress": "text-amber-300 bg-amber-400/10 border-amber-400/25",
+  "In-Progress": "text-theme-green-shaded bg-theme-green-shaded/10 border-theme-green-shaded/25",
   Pending: "text-white/60 bg-white/5 border-white/10",
-  Rejected: "text-rose-300 bg-rose-500/10 border-rose-500/25",
+  Rejected: "text-theme-red-action bg-theme-red-action/10 border-theme-red-action/25",
 };
 
 export default function AccountOverview() {
@@ -34,7 +34,7 @@ export default function AccountOverview() {
         <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 lg:col-span-1">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#3B82F6]/15 text-[#60A5FA]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-theme-green-action/15 text-theme-green-action">
                 <ShieldCheck className="h-4 w-4" />
               </span>
               <div>
@@ -50,7 +50,7 @@ export default function AccountOverview() {
             </Link>
           </div>
 
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-400/20 bg-amber-400/8 px-3 py-2.5 text-xs text-amber-200">
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-theme-green-shaded/25 bg-theme-green-shaded/10 px-3 py-2.5 text-xs text-theme-green-shaded">
             <AlertCircle className="h-4 w-4 shrink-0" />
             Complete verification to unlock all deposit methods.
           </div>
@@ -79,7 +79,7 @@ export default function AccountOverview() {
         <article className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 lg:col-span-1">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#F59E0B]/15 text-[#FBBF24]">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-theme-green-action/15 text-theme-green-action">
                 <Trophy className="h-4 w-4" />
               </span>
               <div>
@@ -102,7 +102,7 @@ export default function AccountOverview() {
             </div>
             <p className="text-right">
               <span className="block text-xs text-white/40">Points</span>
-              <span className="text-lg font-semibold text-[#FBBF24]">{points.toLocaleString()}</span>
+              <span className="text-lg font-semibold text-theme-green-action">{points.toLocaleString()}</span>
             </p>
           </div>
 
@@ -111,9 +111,9 @@ export default function AccountOverview() {
               <span>Progress to {nextTier}</span>
               <span>{progress}%</span>
             </div>
-            <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
+              <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-[#F59E0B] to-[#0D9F1B]"
+                className="h-full rounded-full bg-theme-green-action"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -161,7 +161,7 @@ export default function AccountOverview() {
             </div>
             <div className="flex items-center justify-between border-b border-white/8 pb-3">
               <dt className="text-white/45">Pending requests</dt>
-              <dd className="inline-flex items-center gap-1.5 font-medium text-amber-300">
+              <dd className="inline-flex items-center gap-1.5 font-medium text-theme-green-shaded">
                 <Clock3 className="h-3.5 w-3.5" />1 deposit
               </dd>
             </div>
