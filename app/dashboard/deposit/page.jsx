@@ -415,7 +415,7 @@ export default function DepositPage() {
               <p className="mt-1 text-sm text-white/45">Choose how you want to fund your account</p>
               {errors.method ? <p className="mt-2 text-xs text-theme-red-action">{errors.method}</p> : null}
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
                 {METHODS.map((m) => {
                   const active = methodId === m.id;
                   return (
