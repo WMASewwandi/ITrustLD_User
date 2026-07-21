@@ -189,7 +189,7 @@ function UpdateCard({ item }) {
 
       <div className={`relative flex flex-none flex-col px-5 pb-5 ${featured ? "pt-8 sm:px-7 sm:pb-7" : "pt-7"}`}>
         <div
-          className={`absolute left-5 top-0 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-xl shadow-[0_0_16px_rgba(255,0,0,0.35),0_8px_18px_rgba(15,23,42,0.12)] ${item.tone.iconBg} ${item.tone.icon} ${
+          className={`absolute left-5 top-0 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-xl shadow-[0_8px_18px_rgba(15,23,42,0.12)] ${item.tone.iconBg} ${item.tone.icon} ${
             featured ? "left-7" : ""
           }`}
         >
@@ -231,17 +231,6 @@ function UpdateCard({ item }) {
   );
 }
 
-function BackgroundGlows() {
-  return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="why-glow absolute -left-20 top-10 h-[28rem] w-[28rem] rounded-full bg-[#0D9F1B]/18 blur-[110px]" />
-      <div className="why-glow why-glow-delay absolute -right-24 top-20 h-[26rem] w-[26rem] rounded-full bg-[#2563EB]/16 blur-[120px]" />
-      <div className="why-glow absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-[#7C3AED]/14 blur-[100px]" />
-      <div className="why-glow why-glow-delay absolute bottom-8 right-1/4 h-64 w-64 rounded-full bg-[#EA580C]/14 blur-[90px]" />
-    </div>
-  );
-}
-
 export default function LatestUpdatesSlider() {
   const leftTop = updates.find((item) => item.id === "left-top");
   const leftBottom = updates.find((item) => item.id === "left-bottom");
@@ -257,7 +246,6 @@ export default function LatestUpdatesSlider() {
         aria-hidden="true"
       />
       <div className="absolute inset-0 bg-white/40" aria-hidden="true" />
-      <BackgroundGlows />
 
       <div className="relative mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
         <div className="mx-auto max-w-3xl text-center">

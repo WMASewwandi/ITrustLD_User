@@ -62,7 +62,7 @@ export default function ProfilePage() {
       <PageHeader
         eyebrow="Account"
         title="My Profile"
-        description="Update phone number and residential address. Save bank accounts to select during deposit, withdrawal, and loyalty cash redemption."
+        description="Update phone number and residential address. Save bank accounts to select during top-up, cash-out, and loyalty cash redemption."
       />
 
       <form onSubmit={handleSaveProfile} className="mb-10 space-y-6 rounded-2xl border border-white/10 bg-white/[0.04] p-5 sm:p-6">
@@ -142,7 +142,7 @@ export default function ProfilePage() {
           <div>
             <h2 className="text-lg font-semibold text-white">Saved bank accounts</h2>
             <p className="mt-1 text-sm text-white/45">
-              Select a preferred account for top-up, withdrawal, and loyalty rewards.
+              Select a preferred account for top-up, cash-out, and loyalty rewards.
             </p>
           </div>
           <button

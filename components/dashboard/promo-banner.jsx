@@ -19,7 +19,7 @@ export default function PromoBanner() {
                 Earn double Trust Points this week
               </h2>
               <p className="mt-1 max-w-xl text-sm text-white/55">
-                Complete eligible deposits and climb toward Gold, Diamond, VIP, and VVIP tiers faster.
+                Complete eligible top-ups and climb toward Gold, Diamond, VIP, and VVIP tiers faster.
               </p>
             </div>
           </div>

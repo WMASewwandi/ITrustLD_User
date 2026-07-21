@@ -21,13 +21,13 @@ const DAILY_SELLING_RATE_LKR = 300;
 const LOCAL_DEPOSITOR_ID = "67104269";
 
 const METHODS = [
-  { id: "xm", label: "XM", subtitle: "Local cash out", min: 5, max: 20000, icon: "xm" },
-  { id: "redeposit", label: "Re Deposit", subtitle: "XM re-deposit", min: 5, max: 20000, icon: "redeposit" },
+  { id: "xm", label: "XM", subtitle: "Local cash-out", min: 5, max: 20000, icon: "xm" },
+  { id: "redeposit", label: "Re Top-up", subtitle: "XM re top-up", min: 5, max: 20000, icon: "redeposit" },
   { id: "neteller", label: "NETELLER", subtitle: "E-wallet", min: 100, max: 20000, icon: "neteller" },
   { id: "usdt", label: "USDT", subtitle: "Tether crypto", min: 10, max: 20000, icon: "usdt" },
 ];
 
-const PAYMENT_OPTIONS = ["Bank Transfer", "Online Transfer", "ATM Deposit"];
+const PAYMENT_OPTIONS = ["Bank Transfer", "Online Transfer", "ATM Top-up"];
 
 const SAVED_ACCOUNTS = [
   { id: "1", label: "Commercial Bank — 8001234567" },
@@ -38,9 +38,9 @@ const XM_CONDITIONS = [
   `Log in to members area. Go to subscribe to local depositor under Account tab. Enter Member_ID No - ${LOCAL_DEPOSITOR_ID} of our local depositor and subscribe.`,
   `Log in to members area. Account tab එක යටතේ ඇති subscribe to local depositer වෙතට යන්න. අපගේ දේශීය තැන්පත්කරුගේ Member_ID No - ${LOCAL_DEPOSITOR_ID} ඇතුළත් කර subscribe කරන්න.`,
   "If you are sending an online transaction, type the XM Account ID in the description/remark.",
-  "If you deposit money into your account, write your XM Account ID on your slip and send it.",
+  "If you top-up money into your account, write your XM Account ID on your slip and send it.",
   "In the Transaction Photo you send, you must enter the Date, Time, Description/remark, account number.",
-  "The above are mandatory. Otherwise deposits will be rejected. We are non refundable them.",
+  "The above are mandatory. Otherwise top-ups will be rejected. We are non refundable them.",
   "We are not responsible for any irregularities in other banks & platforms.",
   "Your payment proof is valid only for the date mentioned in it.",
   "ඔබ ඔන්ලයින් ගනුදෙනුවක් යවන්නේ නම්, Description / Remark වලට XM Account ID ටයිප් කරන්න.",
@@ -92,7 +92,7 @@ function MethodIcon({ type }) {
 }
 
 function StepIndicator({ step }) {
-  const labels = ["Withdraw", "Details", "Proof"];
+  const labels = ["Cash-out", "Details", "Proof"];
   return (
     <div className="mb-8 flex items-center gap-2 sm:gap-3">
       {labels.map((label, index) => {
@@ -238,7 +238,7 @@ export default function WithdrawalPage() {
         next.amount = `Amount must be between ${currency} ${method.min.toLocaleString()} and ${currency} ${method.max.toLocaleString()}.`;
       }
     }
-    if (!methodId) next.method = "Select a cash out method to continue.";
+    if (!methodId) next.method = "Select a cash-out method to continue.";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -300,15 +300,15 @@ export default function WithdrawalPage() {
       {step === 1 ? (
         <>
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white sm:text-4xl">Withdraw</h1>
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">Cash-out</h1>
             <p className="mt-2 text-sm text-white/50 sm:text-base">
-              Select a cash out method and amount from below to proceed.
+              Select a cash-out method and amount from below to proceed.
             </p>
           </div>
 
           <div className="space-y-0">
             <section className="py-6">
-              <label className="mb-3 block text-sm font-semibold text-white">Cash out Amount</label>
+              <label className="mb-3 block text-sm font-semibold text-white">Cash-out Amount</label>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
@@ -337,7 +337,7 @@ export default function WithdrawalPage() {
             </section>
 
             <section className="border-t border-white/20 py-6">
-              <h2 className="text-lg font-semibold text-white">Cash out Method</h2>
+              <h2 className="text-lg font-semibold text-white">Cash-out Method</h2>
               <p className="mt-1 text-sm text-white/45">Choose where to receive your funds</p>
               {errors.method ? <p className="mt-2 text-xs text-theme-red-action">{errors.method}</p> : null}
 
@@ -392,7 +392,7 @@ export default function WithdrawalPage() {
         <>
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">Withdraw Details</h1>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">Cash-out Details</h1>
               <div className="mt-4 flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-theme-green-dark text-white">
                   <User className="h-5 w-5" />
@@ -414,7 +414,7 @@ export default function WithdrawalPage() {
 
           <p className="mb-6 max-w-3xl text-sm leading-relaxed text-white/55">
             Please choose the option you want to pay us. Choose the currency that is convenient for you. Then enter the
-            amount you want to cash out based on your chosen currency. The amount you will receive will then be
+            amount you want to cash-out based on your chosen currency. The amount you will receive will then be
             displayed. Then click Next and proceed to the next step.
           </p>
 
@@ -632,7 +632,7 @@ export default function WithdrawalPage() {
 
           <section className="border-t border-white/20 py-6">
             <p className="text-sm text-white/55">
-              Select receiving account (Please click on the account you want money to be withdrawn to)
+              Select receiving account (Please click on the account you want money to be cashed out to)
             </p>
             <div className="mt-4 space-y-3">
               {SAVED_ACCOUNTS.map((account) => {
@@ -691,13 +691,13 @@ export default function WithdrawalPage() {
 
             {submitted ? (
               <BottomMessage
-                title="Withdrawal submitted"
+                title="Cash-out submitted"
                 variant="success"
                 onClose={() => setSubmitted(false)}
                 primaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
                 secondaryAction={{ label: "Close", onClick: () => setSubmitted(false) }}
               >
-                Withdrawal request submitted (frontend demo). Status: Pending Authorization · {currency} {amount} via{" "}
+                Cash-out request submitted (frontend demo). Status: Pending Authorization · {currency} {amount} via{" "}
                 {method?.label} · Receiving LKR {receivingLkr.toLocaleString()} · XM {xmAccountId}.
               </BottomMessage>
             ) : null}

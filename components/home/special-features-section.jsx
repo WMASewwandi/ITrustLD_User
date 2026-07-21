@@ -7,8 +7,7 @@ const specialFeatures = [
     deco: "mesh",
     step: "01",
     color: "#0D9F1B",
-    soft: "rgba(13,159,27,0.22)",
-    glow: "rgba(13,159,27,0.45)"
+    soft: "rgba(13,159,27,0.22)"
   },
   {
     title: "Trust Points",
@@ -17,8 +16,7 @@ const specialFeatures = [
     deco: "gift",
     step: "02",
     color: "#3B82F6",
-    soft: "rgba(59,130,246,0.22)",
-    glow: "rgba(59,130,246,0.45)"
+    soft: "rgba(59,130,246,0.22)"
   },
   {
     title: "Trust Partner",
@@ -28,8 +26,7 @@ const specialFeatures = [
     deco: "handshake",
     step: "03",
     color: "#8B5CF6",
-    soft: "rgba(139,92,246,0.22)",
-    glow: "rgba(139,92,246,0.45)"
+    soft: "rgba(139,92,246,0.22)"
   },
   {
     title: "24/7 Chat Support",
@@ -38,8 +35,7 @@ const specialFeatures = [
     deco: "headset",
     step: "04",
     color: "#F59E0B",
-    soft: "rgba(245,158,11,0.22)",
-    glow: "rgba(245,158,11,0.45)"
+    soft: "rgba(245,158,11,0.22)"
   }
 ];
 
@@ -136,8 +132,6 @@ function DecoIcon({ type, color }) {
 function BackgroundDecor() {
   return (
     <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-      <div className="special-glow absolute -left-16 top-8 h-[28rem] w-[28rem] rounded-full bg-theme-green-action/20 blur-[90px]" />
-      <div className="special-glow special-glow-delay absolute -right-20 bottom-8 h-[26rem] w-[26rem] rounded-full bg-cyan-400/15 blur-[100px]" />
       <div className="absolute left-[8%] top-[18%] h-40 w-40 rounded-full border border-theme-green-shaded/20" />
       <div className="absolute left-[10%] top-[22%] h-28 w-28 rounded-full border border-theme-green-shaded/15" />
       <div className="absolute bottom-[12%] right-[10%] h-44 w-44 rounded-full border border-[#3B82F6]/15" />
@@ -154,20 +148,8 @@ function BackgroundDecor() {
 function SpecialCard({ feature }) {
   return (
     <article
-      className="group relative flex min-h-[320px] flex-col overflow-hidden rounded-[1.35rem] border border-white/5 bg-[#0A1120] p-6 transition duration-300 hover:-translate-y-2"
-      style={{
-        boxShadow: `0 18px 40px rgba(15,23,42,0.18), 0 0 0 1px ${feature.soft}, 0 20px 40px ${feature.soft}`
-      }}
+      className="group relative flex min-h-[320px] flex-col overflow-hidden rounded-[1.35rem] border border-white/5 bg-[#0A1120] p-6 shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition duration-300 hover:-translate-y-2"
     >
-      <div
-        className="pointer-events-none absolute -right-8 -top-10 h-36 w-36 rounded-full blur-3xl transition duration-500 group-hover:opacity-100"
-        style={{ backgroundColor: feature.soft }}
-      />
-      <div
-        className="pointer-events-none absolute -bottom-10 left-1/2 h-24 w-40 -translate-x-1/2 rounded-full blur-2xl opacity-70"
-        style={{ backgroundColor: feature.soft }}
-      />
-
       <span
         className="absolute right-4 top-4 rounded-lg px-2.5 py-1 text-[11px] font-bold tracking-[0.12em]"
         style={{ color: feature.color, backgroundColor: feature.soft }}
@@ -178,12 +160,12 @@ function SpecialCard({ feature }) {
       <div className="relative mt-2 flex h-[84px] w-[84px] items-center justify-center">
         <span
           className="absolute inset-0 rounded-full border opacity-35"
-          style={{ borderColor: feature.color, boxShadow: `0 0 18px ${feature.soft}` }}
+          style={{ borderColor: feature.color }}
         />
         <span className="absolute inset-[8px] rounded-full border opacity-55" style={{ borderColor: feature.color }} />
         <span
           className="absolute inset-[16px] rounded-full border opacity-90"
-          style={{ borderColor: feature.color, boxShadow: `0 0 16px ${feature.glow}` }}
+          style={{ borderColor: feature.color }}
         />
         <span className="relative">
           <FeatureIcon type={feature.icon} />

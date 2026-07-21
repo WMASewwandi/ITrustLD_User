@@ -96,13 +96,13 @@ function VideoCard({ item, accent = "green" }) {
         </span>
 
         {item.isNew ? (
-          <span className="absolute right-3 top-3 rounded-md bg-theme-green-action px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-[0_0_16px_rgba(13,159,27,0.45)]">
+          <span className="absolute right-3 top-3 rounded-md bg-theme-green-action px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
             New
           </span>
         ) : null}
 
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/35 bg-white/15 text-white shadow-[0_0_24px_rgba(255,255,255,0.2)] backdrop-blur-md transition duration-300 group-hover:scale-110 group-hover:bg-white/25">
+          <span className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/35 bg-white/15 text-white backdrop-blur-md transition duration-300 group-hover:scale-110 group-hover:bg-white/25">
             <PlayIcon className="ml-0.5 h-5 w-5" />
           </span>
         </div>
@@ -193,9 +193,6 @@ export default function VideoTutorialsSection() {
         aria-hidden="true"
       />
       <div className="absolute inset-0 bg-[#070B16]/55" aria-hidden="true" />
-      <div className="pointer-events-none absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#A855F7]/20 blur-[110px]" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-theme-green-action/15 blur-[120px]" aria-hidden="true" />
-
       <div className="relative mx-auto w-full px-4 sm:px-6 lg:px-8 xl:px-12 2xl:px-16">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-2xl">

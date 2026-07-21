@@ -21,7 +21,7 @@ export default function WelcomeHero({ userName = "there" }) {
             Welcome Back{userName !== "there" ? `, ${userName}` : ""}!
           </h1>
           <p className="mt-4 text-base leading-relaxed text-white/60 sm:text-lg">
-            Deposit and withdraw cryptocurrencies with ease.
+            Top-up and cash-out cryptocurrencies with ease.
           </p>
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">

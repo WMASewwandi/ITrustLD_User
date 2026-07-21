@@ -21,7 +21,7 @@ const DAILY_RATE_LKR = 320;
 const LOCAL_DEPOSITOR_ID = "67104269";
 
 const METHODS = [
-  { id: "xm", label: "XM", subtitle: "Local deposit", min: 5, max: 20000, icon: "xm" },
+  { id: "xm", label: "XM", subtitle: "Local top-up", min: 5, max: 20000, icon: "xm" },
   { id: "usdt", label: "USDT", subtitle: "Tether crypto", min: 10, max: 20000, icon: "usdt" },
   { id: "skrill", label: "Skrill", subtitle: "E-wallet", min: 100, max: 20000, icon: "skrill" },
   { id: "neteller", label: "Neteller", subtitle: "E-wallet", min: 100, max: 20000, icon: "neteller" },
@@ -30,7 +30,7 @@ const METHODS = [
   { id: "bank", label: "Bank Transfer", subtitle: "Local banks", min: 5, max: 20000, icon: "bank" },
 ];
 
-const PAYMENT_OPTIONS = ["Bank Transfer", "Online Transfer", "ATM Deposit"];
+const PAYMENT_OPTIONS = ["Bank Transfer", "Online Transfer", "ATM Top-up"];
 
 const RECEIVER_BANK = {
   accountNumber: "015710000872",
@@ -43,9 +43,9 @@ const XM_CONDITIONS = [
   `Log in to members area. Go to subscribe to local depositor under Account tab. Enter Member_ID No - ${LOCAL_DEPOSITOR_ID} of our local depositor and subscribe.`,
   `Log in to members area. Account tab එක යටතේ ඇති subscribe to local depositer වෙතට යන්න. අපගේ දේශීය තැන්පත්කරුගේ Member_ID No - ${LOCAL_DEPOSITOR_ID} ඇතුළත් කර subscribe කරන්න.`,
   "If you are sending an online transaction, type the XM Account ID in the description/remark.",
-  "If you deposit money into your account, write your XM Account ID on your slip and send it.",
+  "If you top-up money into your account, write your XM Account ID on your slip and send it.",
   "In the Transaction Photo you send, you must enter the Date, Time, Description/remark, account number.",
-  "The above are mandatory. Otherwise deposits will be rejected. We are non refundable them.",
+  "The above are mandatory. Otherwise top-ups will be rejected. We are non refundable them.",
   "We are not responsible for any irregularities in other banks & platforms.",
   "Your payment proof is valid only for the date mentioned in it.",
   "ඔබ ඔන්ලයින් ගනුදෙනුවක් යවන්නේ නම්, Description / Remark වලට XM Account ID ටයිප් කරන්න.",
@@ -112,7 +112,7 @@ function MethodIcon({ type }) {
 }
 
 function StepIndicator({ step }) {
-  const labels = ["Deposit", "Details", "Proof"];
+  const labels = ["Top-up", "Details", "Proof"];
   return (
     <div className="mb-8 flex items-center gap-2 sm:gap-3">
       {labels.map((label, index) => {
@@ -281,7 +281,7 @@ export default function DepositPage() {
         next.amount = `Amount must be between ${currency} ${method.min.toLocaleString()} and ${currency} ${method.max.toLocaleString()}.`;
       }
     }
-    if (!methodId) next.method = "Select a top up method to continue.";
+    if (!methodId) next.method = "Select a top-up method to continue.";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -348,15 +348,15 @@ export default function DepositPage() {
       {step === 1 ? (
         <>
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white sm:text-4xl">Deposit</h1>
+            <h1 className="text-3xl font-bold text-white sm:text-4xl">Top-up</h1>
             <p className="mt-2 text-sm text-white/50 sm:text-base">
-              Select a top up method and amount from below to proceed.
+              Select a top-up method and amount from below to proceed.
             </p>
           </div>
 
           <div className="space-y-0">
             <section className="py-6">
-              <label className="mb-3 block text-sm font-semibold text-white">Topup Amount</label>
+              <label className="mb-3 block text-sm font-semibold text-white">Top-up Amount</label>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
@@ -411,7 +411,7 @@ export default function DepositPage() {
             </section>
 
             <section className="border-t border-white/20 py-6">
-              <h2 className="text-lg font-semibold text-white">Top up Method</h2>
+              <h2 className="text-lg font-semibold text-white">Top-up Method</h2>
               <p className="mt-1 text-sm text-white/45">Choose how you want to fund your account</p>
               {errors.method ? <p className="mt-2 text-xs text-theme-red-action">{errors.method}</p> : null}
 
@@ -466,7 +466,7 @@ export default function DepositPage() {
         <>
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold text-white sm:text-4xl">Deposit Details</h1>
+              <h1 className="text-3xl font-bold text-white sm:text-4xl">Top-up Details</h1>
               <div className="mt-4 flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-theme-green-dark text-white">
                   <User className="h-5 w-5" />
@@ -722,13 +722,13 @@ export default function DepositPage() {
 
             {submitted ? (
               <BottomMessage
-                title="Deposit submitted"
+                title="Top-up submitted"
                 variant="success"
                 onClose={() => setSubmitted(false)}
                 primaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
                 secondaryAction={{ label: "Close", onClick: () => setSubmitted(false) }}
               >
-                Deposit request submitted (frontend demo). Status: Pending · {currency} {amount} via {method?.label} ·
+                Top-up request submitted (frontend demo). Status: Pending · {currency} {amount} via {method?.label} ·
                 Payable LKR {paymentLkr.toLocaleString()} · XM Account {xmAccountId}.
               </BottomMessage>
             ) : null}

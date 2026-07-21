@@ -6,7 +6,6 @@ const whyChooseItems = [
     icon: "security",
     step: "01",
     color: "#0D9F1B",
-    glow: "rgba(13,159,27,0.55)",
     soft: "rgba(13,159,27,0.18)"
   },
   {
@@ -16,7 +15,6 @@ const whyChooseItems = [
     icon: "bank",
     step: "02",
     color: "#22D3EE",
-    glow: "rgba(34,211,238,0.55)",
     soft: "rgba(34,211,238,0.18)"
   },
   {
@@ -26,7 +24,6 @@ const whyChooseItems = [
     icon: "transfer",
     step: "03",
     color: "#A855F7",
-    glow: "rgba(168,85,247,0.55)",
     soft: "rgba(168,85,247,0.18)"
   },
   {
@@ -36,7 +33,6 @@ const whyChooseItems = [
     icon: "globe",
     step: "04",
     color: "#F97316",
-    glow: "rgba(249,115,22,0.55)",
     soft: "rgba(249,115,22,0.18)"
   }
 ];
@@ -91,14 +87,9 @@ function WhyCard({ item }) {
       className="why-cut-card group relative min-h-[210px] overflow-hidden bg-[#0B1220]/55 p-6 backdrop-blur-xl transition duration-300 hover:-translate-y-1 sm:p-7"
       style={{
         borderColor: item.color,
-        boxShadow: `0 0 0 1px ${item.soft}, 0 0 28px ${item.soft}, inset 0 0 24px ${item.soft}`
+        boxShadow: `0 0 0 1px ${item.soft}`
       }}
     >
-      <div
-        className="pointer-events-none absolute -bottom-16 -right-10 h-48 w-48 rounded-full blur-3xl opacity-70 transition duration-500 group-hover:opacity-100"
-        style={{ backgroundColor: item.soft }}
-      />
-
       <span
         className="absolute right-0 top-0 z-20 px-3 py-1 text-[11px] font-bold tracking-[0.12em] text-[#070B16]"
         style={{ backgroundColor: item.color }}
@@ -118,7 +109,7 @@ function WhyCard({ item }) {
         <div className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center sm:h-[96px] sm:w-[96px]">
           <span
             className="absolute inset-0 rounded-full border opacity-40"
-            style={{ borderColor: item.color, boxShadow: `0 0 18px ${item.soft}` }}
+            style={{ borderColor: item.color }}
           />
           <span
             className="absolute inset-[8px] rounded-full border opacity-55"
@@ -126,7 +117,7 @@ function WhyCard({ item }) {
           />
           <span
             className="absolute inset-[16px] rounded-full border opacity-80"
-            style={{ borderColor: item.color, boxShadow: `0 0 16px ${item.soft}` }}
+            style={{ borderColor: item.color }}
           />
           <span className="relative" style={{ color: item.color }}>
             <WhyChooseIcon type={item.icon} />
@@ -135,7 +126,7 @@ function WhyCard({ item }) {
 
         <div className="min-w-0 flex-1 pr-8">
           <h3 className="text-xl font-semibold tracking-tight text-white sm:text-2xl">{item.title}</h3>
-          <div className="mt-3 h-[2px] w-12 rounded-full" style={{ backgroundColor: item.color, boxShadow: `0 0 12px ${item.glow}` }} />
+          <div className="mt-3 h-[2px] w-12 rounded-full" style={{ backgroundColor: item.color }} />
           <p className="mt-4 text-sm leading-7 text-white/65 sm:text-md sm:leading-8">{item.description}</p>
         </div>
       </div>
@@ -152,12 +143,9 @@ export default function WhyChooseSection() {
         aria-hidden="true"
       />
       <div className="absolute inset-0 bg-[#070B16]/50" aria-hidden="true" />
-      <div className="pointer-events-none absolute -left-20 top-10 h-80 w-80 rounded-full bg-[#0D9F1B]/15 blur-[110px]" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-16 bottom-10 h-80 w-80 rounded-full bg-[#A855F7]/15 blur-[120px]" aria-hidden="true" />
-
       <div className="relative mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="inline-flex items-center gap-2 rounded-full border border-theme-green-action/40 bg-theme-green-action/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-theme-green-action shadow-[0_0_20px_rgba(13,159,27,0.2)]">
+          <p className="inline-flex items-center gap-2 rounded-full border border-theme-green-action/40 bg-theme-green-action/10 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-theme-green-action">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M12 3.5L19 6.2V11.7C19 16.1 16.1 20 12 21.5C7.9 20 5 16.1 5 11.7V6.2L12 3.5Z" />
               <path d="M9.5 12.1L11.2 13.8L14.8 10.1" />

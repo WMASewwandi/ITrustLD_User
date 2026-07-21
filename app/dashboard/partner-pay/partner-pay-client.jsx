@@ -92,7 +92,7 @@ export default function PartnerPayPage() {
         <dl className="mt-6 grid gap-3 sm:grid-cols-2">
           {[
             ["Partner User / Account ID", partnerUserId],
-            ["Deposit Amount", `${currency.toUpperCase()} ${amount}`],
+            ["Top-up Amount", `${currency.toUpperCase()} ${amount}`],
             ["Currency", currency.toUpperCase()],
             ["Reference ID", referenceId],
           ].map(([label, value]) => (
