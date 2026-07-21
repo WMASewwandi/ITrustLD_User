@@ -6,7 +6,7 @@ const NEWS = [
     author: "iTrustLD",
     initial: "i",
     date: "2025-06-12",
-    title: "New deposit methods now available",
+    title: "New top-up methods now available",
     excerpt: "We've expanded payment options so you can fund your account faster and more securely.",
     image: "/sec.png",
   },

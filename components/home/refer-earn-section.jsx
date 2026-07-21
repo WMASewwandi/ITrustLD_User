@@ -75,15 +75,9 @@ export default function ReferEarnSection() {
       />
       <div className="absolute inset-0 bg-white/50" aria-hidden="true" />
       <RedCurrencyWatermarks />
-      <div className="pointer-events-none absolute -left-16 top-8 h-[26rem] w-[26rem] rounded-full bg-theme-green-action/15 blur-[110px]" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-20 bottom-0 h-[24rem] w-[24rem] rounded-full bg-theme-blue-dark/10 blur-[120px]" aria-hidden="true" />
-      <div className="pointer-events-none absolute left-1/2 top-1/2 h-56 w-56 -translate-x-1/2 -translate-y-1/2 rounded-full bg-theme-red-action/8 blur-[90px]" aria-hidden="true" />
-
       <div className="relative mx-auto w-full max-w-[1100px] px-4 sm:px-6 lg:px-8">
         <div className="relative overflow-hidden rounded-[1.75rem] border border-[#E6EBF2] bg-white/80 px-6 py-10 shadow-[0_20px_60px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:px-10 sm:py-14">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-theme-blue-dark via-theme-red-action to-theme-green-action" />
-          <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-theme-green-action/10 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-12 -left-8 h-36 w-36 rounded-full bg-theme-blue-dark/10 blur-3xl" />
 
           <div className="relative mx-auto max-w-4xl text-center">
             <p className="inline-flex items-center gap-2 rounded-full border border-theme-green-action/25 bg-[#EAF8EC] px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-theme-green-action shadow-sm">
@@ -93,7 +87,7 @@ export default function ReferEarnSection() {
             <h2 className="mt-5 text-3xl font-semibold tracking-tight text-theme-blue-dark sm:text-4xl lg:text-5-6xl">
               Refer and <span className="text-theme-green-action">Earn</span>
             </h2>
-            <div className="mx-auto mt-5 h-1 w-16 rounded-full bg-theme-blue-dark shadow-[0_0_14px_rgba(37,34,62,0.4)]" />
+            <div className="mx-auto mt-5 h-1 w-16 rounded-full bg-theme-blue-dark" />
 
             <p className="mx-auto mt-5 max-w-2xl text-md leading-7 text-theme-gray sm:text-md-lg sm:leading-8">
               Join our referral program and start earning points by inviting friends to join our platform. Each referral brings
@@ -105,11 +99,6 @@ export default function ReferEarnSection() {
                 className="pointer-events-none absolute left-[16%] right-[16%] top-[34px] hidden h-[3px] rounded-full bg-theme-blue-dark sm:block"
                 aria-hidden="true"
               />
-              <div
-                className="pointer-events-none absolute left-[16%] right-[16%] top-[34px] hidden h-[3px] rounded-full bg-theme-blue-dark/30 blur-[5px] sm:block"
-                aria-hidden="true"
-              />
-
               <div className="grid gap-6 sm:grid-cols-3 sm:gap-4">
                 {benefits.map((item, index) => (
                   <div key={item.title} className="group relative flex flex-col items-center text-center">
@@ -125,7 +114,7 @@ export default function ReferEarnSection() {
                       </span>
                     ) : null}
 
-                    <div className="relative z-10 flex h-[68px] w-[68px] items-center justify-center rounded-full bg-theme-red-action text-white shadow-[0_0_18px_rgba(255,0,0,0.35),0_10px_24px_rgba(255,0,0,0.22)] ring-[6px] ring-white transition duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_0_24px_rgba(255,0,0,0.45)]">
+                    <div className="relative z-10 flex h-[68px] w-[68px] items-center justify-center rounded-full bg-theme-red-action text-white ring-[6px] ring-white transition duration-300 group-hover:-translate-y-1">
                       <FlowIcon type={item.icon} />
                     </div>
 

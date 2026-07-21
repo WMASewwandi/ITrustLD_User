@@ -8,17 +8,14 @@ import {
   ArrowRight,
   ArrowUpFromLine,
   Bell,
-  Clock3,
   Ellipsis,
   FileCheck2,
-  Globe2,
   Headphones,
   Home,
   LogOut,
   Receipt,
   Trophy,
   User,
-  Wallet,
   X,
 } from "lucide-react";
 
@@ -26,16 +23,16 @@ const NAV_LINKS = [
   { href: "/dashboard", label: "Home", icon: Home },
   { href: "/dashboard/transactions", label: "Transactions", icon: Receipt },
   { href: "/dashboard/profile", label: "Profile", icon: User },
-  { href: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
-  { href: "/dashboard/withdrawal", label: "Withdrawal", icon: ArrowUpFromLine },
+  { href: "/dashboard/deposit", label: "Top-up", icon: ArrowDownToLine },
+  { href: "/dashboard/withdrawal", label: "Cash-out", icon: ArrowUpFromLine },
   { href: "/dashboard/loyalty", label: "Loyalty", icon: Trophy },
   { href: "/dashboard/documents", label: "Documents", icon: FileCheck2 },
 ];
 
 const MOBILE_BOTTOM_NAV = [
   { href: "/dashboard", label: "Home", icon: Home },
-  { href: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
-  { href: "/dashboard/withdrawal", label: "Withdraw", icon: ArrowUpFromLine },
+  { href: "/dashboard/deposit", label: "Top-up", icon: ArrowDownToLine },
+  { href: "/dashboard/withdrawal", label: "Cash-out", icon: ArrowUpFromLine },
   { href: "/dashboard/transactions", label: "History", icon: Receipt },
 ];
 
@@ -46,22 +43,20 @@ const MOBILE_MORE_LINKS = [
   { href: "/dashboard/help", label: "Support", icon: Headphones },
 ];
 
-const FUNDING_OPTIONS = [
-  { href: "/dashboard/deposit", label: "Deposit", icon: ArrowUpFromLine },
-  { href: "/dashboard/withdrawal", label: "Withdraw", icon: ArrowDownToLine },
-  { href: "/dashboard/transactions", label: "Transactions History", icon: Clock3 },
-  { href: "/dashboard/help", label: "Subscribe to a Local Depositor", icon: Globe2 },
-  { href: "/dashboard/partner-pay", label: "Transfer from LD to Client", icon: ArrowRight },
+const LOYALTY_OPTIONS = [
+  { href: "/dashboard/loyalty", label: "Loyalty Overview", icon: Trophy },
+  { href: "/dashboard/loyalty", label: "Redeem Trust Points", icon: ArrowRight },
+  { href: "/dashboard/help", label: "Loyalty Help", icon: Headphones },
 ];
 
 const DEMO_NOTIFICATIONS = [
-  { id: 1, title: "Deposit pending", body: "Your deposit request is being reviewed.", time: "2h ago" },
+  { id: 1, title: "Top-up pending", body: "Your top-up request is being reviewed.", time: "2h ago" },
   { id: 2, title: "Document update", body: "National ID (Back) is In-Progress.", time: "1d ago" },
   { id: 3, title: "Loyalty tip", body: "Earn double Trust Points this week.", time: "2d ago" },
 ];
 
-const WALLET_BALANCE = "2,846.75";
-const WALLET_CURRENCY = "USD";
+const LOYALTY_POINTS = "128,450";
+const LOYALTY_TIER = "Silver";
 const WALLET_ACCOUNT_ID = "67104269";
 
 function NavIconLink({ href, label, icon: Icon, active, onNavigate }) {
@@ -186,7 +181,7 @@ export default function NavigationUser() {
               <img
                 src="/assets/img/logos/logo-itrustld-wide.png"
                 alt="iTrustLD"
-                className="h-8 w-auto object-contain sm:h-9"
+                className="h-12 w-auto object-contain sm:h-11"
               />
             </Link>
           </div>
@@ -194,11 +189,11 @@ export default function NavigationUser() {
           <div className="flex shrink-0 items-center gap-0.5 sm:gap-1">
             <button
               type="button"
-              onClick={() => openPanel("wallet")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-theme-green-action transition hover:bg-white/5"
-              aria-label="Wallet"
+              onClick={() => openPanel("loyalty")}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/5"
+              aria-label="Loyalty"
             >
-              <Wallet className="h-5 w-5" strokeWidth={1.75} />
+              <Trophy className="h-5 w-5" strokeWidth={1.75} />
             </button>
             <button
               type="button"
@@ -326,25 +321,23 @@ export default function NavigationUser() {
         </>
       ) : null}
 
-      {/* Right panels: wallet / notifications / profile */}
-      {panel === "wallet" ? (
-        <PanelShell title="Funding" onClose={() => setPanel(null)}>
+      {/* Right panels: loyalty / notifications / profile */}
+      {panel === "loyalty" ? (
+        <PanelShell title="Loyalty" onClose={() => setPanel(null)}>
           <div className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
             <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-white">Standard</p>
-              <span className="rounded-md bg-theme-green-action px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                Real
+              <p className="text-sm font-medium text-white">Trust Points</p>
+              <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold text-black">
+                {LOYALTY_TIER}
               </span>
             </div>
-            <p className="mt-3 text-2xl font-bold tracking-tight text-white">
-              {WALLET_BALANCE} {WALLET_CURRENCY}
-            </p>
-            <p className="mt-1 text-sm text-white/45">#{accountId}</p>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-white">{LOYALTY_POINTS}</p>
+            <p className="mt-1 text-sm text-white/45">Account #{accountId}</p>
           </div>
 
-          <h3 className="mb-3 mt-7 text-base font-semibold text-white">Funding Options</h3>
+          <h3 className="mb-3 mt-7 text-base font-semibold text-white">Loyalty Options</h3>
           <div className="space-y-2.5">
-            {FUNDING_OPTIONS.map(({ href, label, icon: Icon }) => (
+            {LOYALTY_OPTIONS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={label}
                 href={href}

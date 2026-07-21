@@ -9,7 +9,7 @@ const FAQS = [
   },
   {
     q: "Can I reuse saved bank accounts?",
-    a: "Yes. Add banks in My Profile and select them during deposit, withdrawal, and loyalty cash redemption.",
+    a: "Yes. Add banks in My Profile and select them during top-up, cash-out, and loyalty cash redemption.",
   },
   {
     q: "How do Trust Points tiers work?",
@@ -23,7 +23,7 @@ export default function HelpPage() {
       <PageHeader
         eyebrow="Support"
         title="Help Center"
-        description="Guides for KYC, deposits, withdrawals, transactions, and Trust Points. Live chat support is available 24/7."
+        description="Guides for KYC, top-ups, cash-outs, transactions, and Trust Points. Live chat support is available 24/7."
       />
 
       <div className="mb-8 grid gap-3 sm:grid-cols-3">

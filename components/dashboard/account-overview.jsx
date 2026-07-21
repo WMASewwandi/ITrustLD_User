@@ -17,7 +17,7 @@ const DOCS = [
 const STATUS_STYLE = {
   Completed: "text-theme-green-action bg-theme-green-action/10 border-theme-green-action/25",
   "In-Progress": "text-theme-green-shaded bg-theme-green-shaded/10 border-theme-green-shaded/25",
-  Pending: "text-white/60 bg-white/5 border-white/10",
+  Pending: "text-theme-orange bg-theme-orange/10 border-theme-orange/25",
   Rejected: "text-theme-red-action bg-theme-red-action/10 border-theme-red-action/25",
 };
 
@@ -52,7 +52,7 @@ export default function AccountOverview() {
 
           <div className="mb-4 flex items-center gap-2 rounded-xl border border-theme-green-shaded/25 bg-theme-green-shaded/10 px-3 py-2.5 text-xs text-theme-green-shaded">
             <AlertCircle className="h-4 w-4 shrink-0" />
-            Complete verification to unlock all deposit methods.
+            Complete verification to unlock all top-up methods.
           </div>
 
           <ul className="space-y-2.5">
@@ -89,7 +89,7 @@ export default function AccountOverview() {
             </div>
             <Link
               href="/dashboard/loyalty"
-              className="text-xs font-medium text-theme-green-action hover:underline"
+              className="text-xs font-medium text-white hover:underline"
             >
               View tiers
             </Link>
@@ -98,11 +98,13 @@ export default function AccountOverview() {
           <div className="mb-1 flex items-end justify-between">
             <div>
               <p className="text-xs uppercase tracking-wide text-white/40">Current tier</p>
-              <p className="mt-1 text-2xl font-bold text-white">Silver</p>
+              <span className="mt-1 inline-flex rounded-full bg-white px-3 py-1 text-sm font-bold text-black">
+                Silver
+              </span>
             </div>
             <p className="text-right">
               <span className="block text-xs text-white/40">Points</span>
-              <span className="text-lg font-semibold text-theme-green-action">{points.toLocaleString()}</span>
+              <span className="text-lg font-semibold text-white">{points.toLocaleString()}</span>
             </p>
           </div>
 
@@ -113,7 +115,7 @@ export default function AccountOverview() {
             </div>
               <div className="h-2.5 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-theme-green-action"
+                className="h-full rounded-full bg-gradient-to-r from-white to-theme-green-action"
                 style={{ width: `${progress}%` }}
               />
             </div>
@@ -162,7 +164,7 @@ export default function AccountOverview() {
             <div className="flex items-center justify-between border-b border-white/8 pb-3">
               <dt className="text-white/45">Pending requests</dt>
               <dd className="inline-flex items-center gap-1.5 font-medium text-theme-green-shaded">
-                <Clock3 className="h-3.5 w-3.5" />1 deposit
+                <Clock3 className="h-3.5 w-3.5" />1 top-up
               </dd>
             </div>
             <div className="flex items-center justify-between">

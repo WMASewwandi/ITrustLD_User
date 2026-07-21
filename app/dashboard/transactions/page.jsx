@@ -7,75 +7,123 @@ import { ChevronDown, Download, Printer } from "lucide-react";
 const ALL_TX = [
   {
     id: "164210352100",
-    type: "Deposit",
+    type: "Top-up",
     method: "USDT",
     amount: "USD 100.00",
+    fee: "USD 0.00",
+    netAmount: "USD 100.00",
+    currency: "USD",
     date: "2026-04-30",
     time: "14:22:08",
     status: "Completed",
+    account: "TRC20 Wallet",
+    reference: "USDT-TRC20-88421",
+    note: "Crypto top-up confirmed on-chain.",
   },
   {
     id: "100245",
-    type: "Deposit",
+    type: "Top-up",
     method: "Bank Transfer",
     amount: "USD 100.00",
+    fee: "USD 1.50",
+    netAmount: "USD 98.50",
+    currency: "USD",
     date: "2025-06-12",
     time: "14:22:08",
     status: "Completed",
+    account: "Commercial Bank — 8001234567",
+    reference: "BT-452198",
+    note: "Local bank transfer credited successfully.",
   },
   {
     id: "100244",
-    type: "Deposit",
+    type: "Top-up",
     method: "Perfect Money",
     amount: "USD 250.00",
+    fee: "USD 2.00",
+    netAmount: "USD 248.00",
+    currency: "USD",
     date: "2025-06-11",
     time: "09:15:41",
     status: "Completed",
+    account: "U1234567",
+    reference: "PM-778120",
+    note: "Perfect Money top-up processed.",
   },
   {
     id: "100242",
-    type: "Deposit",
+    type: "Top-up",
     method: "Cryptocurrency",
     amount: "USD 500.00",
+    fee: "USD 0.00",
+    netAmount: "USD 500.00",
+    currency: "USD",
     date: "2025-06-09",
     time: "11:47:55",
     status: "Pending",
+    account: "BTC Wallet",
+    reference: "CRYPTO-99102",
+    note: "Awaiting network confirmations.",
   },
   {
     id: "100240",
-    type: "Deposit",
+    type: "Top-up",
     method: "Skrill",
     amount: "USD 180.00",
+    fee: "USD 1.80",
+    netAmount: "USD 178.20",
+    currency: "USD",
     date: "2025-05-28",
     time: "10:02:44",
     status: "Completed",
+    account: "user@email.com",
+    reference: "SKR-33011",
+    note: "E-wallet top-up completed.",
   },
   {
     id: "100239",
-    type: "Deposit",
+    type: "Top-up",
     method: "Neteller",
     amount: "USD 90.00",
+    fee: "USD 0.90",
+    netAmount: "USD 89.10",
+    currency: "USD",
     date: "2025-05-20",
     time: "13:11:02",
     status: "Rejected",
+    account: "neteller@email.com",
+    reference: "NTL-22019",
+    note: "Rejected due to mismatched account name.",
   },
   {
     id: "100243",
-    type: "Withdrawal",
+    type: "Cash-out",
     method: "Bank Transfer",
     amount: "USD 75.00",
+    fee: "USD 2.00",
+    netAmount: "USD 73.00",
+    currency: "USD",
     date: "2025-06-10",
     time: "18:03:19",
     status: "Completed",
+    account: "Hatton National Bank — 0690123456",
+    reference: "WD-BT-11890",
+    note: "Cash-out paid to saved bank account.",
   },
   {
     id: "100241",
-    type: "Withdrawal",
+    type: "Cash-out",
     method: "Perfect Money",
     amount: "USD 120.00",
+    fee: "USD 1.20",
+    netAmount: "USD 118.80",
+    currency: "USD",
     date: "2025-06-05",
     time: "16:20:11",
     status: "Pending Authorization",
+    account: "U7654321",
+    reference: "WD-PM-44120",
+    note: "Waiting for authorization before payout.",
   },
 ];
 
@@ -89,8 +137,8 @@ const METHODS = [
   "Neteller",
   "Cryptocurrency",
   "XM Local",
-  "Perfect Money Deposits",
-  "Perfect Money Withdrawals",
+  "Perfect Money Top-ups",
+  "Perfect Money Cash-outs",
 ];
 
 const fieldClass =
@@ -99,13 +147,13 @@ const labelClass = "mb-1.5 block text-xs font-medium text-white/55";
 
 const STATUS_STYLE = {
   Completed: "bg-theme-green-action text-white",
-  Pending: "bg-theme-green-shaded text-white",
-  "Pending Authorization": "bg-theme-green-shaded text-white",
+  Pending: "bg-theme-orange text-white",
+  "Pending Authorization": "bg-theme-orange text-white",
   Rejected: "bg-theme-red-action text-white",
 };
 
 export default function TransactionsPage() {
-  const [tab, setTab] = useState("Deposit");
+  const [tab, setTab] = useState("Top-up");
   const [criteria, setCriteria] = useState("All");
   const [method, setMethod] = useState("All Methods");
   const [from, setFrom] = useState("");
@@ -113,16 +161,17 @@ export default function TransactionsPage() {
   const [applied, setApplied] = useState({ criteria: "All", method: "All Methods", from: "", to: "" });
   const [msg, setMsg] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState(null);
 
   const filtered = useMemo(() => {
     return ALL_TX.filter((tx) => {
       if (tx.type !== tab) return false;
 
-      if (applied.method === "Perfect Money Deposits") {
-        return tx.method === "Perfect Money" && tx.type === "Deposit";
+      if (applied.method === "Perfect Money Top-ups") {
+        return tx.method === "Perfect Money" && tx.type === "Top-up";
       }
-      if (applied.method === "Perfect Money Withdrawals") {
-        return tx.method === "Perfect Money" && tx.type === "Withdrawal";
+      if (applied.method === "Perfect Money Cash-outs") {
+        return tx.method === "Perfect Money" && tx.type === "Cash-out";
       }
       if (applied.method !== "All Methods" && tx.method !== applied.method) return false;
 
@@ -156,7 +205,7 @@ export default function TransactionsPage() {
 
       {/* Tabs */}
       <div className="mt-6 flex gap-6 border-b border-white/10">
-        {["Deposit", "Withdrawal"].map((item) => {
+        {["Top-up", "Cash-out"].map((item) => {
           const active = tab === item;
           return (
             <button
@@ -165,6 +214,7 @@ export default function TransactionsPage() {
               onClick={() => {
                 setTab(item);
                 setMsg("");
+                setExpandedId(null);
               }}
               className={`relative pb-3 text-sm font-semibold transition ${
                 active ? "text-white" : "text-white/45 hover:text-white/75"
@@ -262,41 +312,92 @@ export default function TransactionsPage() {
 
       {/* Transaction cards */}
       <div className="mt-6 space-y-3">
-        {filtered.map((tx) => (
-          <article
-            key={tx.id}
-            className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-4 shadow-[0_12px_30px_rgba(0,0,0,0.28)] sm:flex-row sm:items-center sm:justify-between sm:px-6"
-          >
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-white sm:text-base">
-                Transaction ID - <span className="text-white/85">{tx.id}</span>
-              </p>
-              <p className="mt-1 text-sm text-white/65">Transaction Method - {tx.method}</p>
-              <button
-                type="button"
-                onClick={() => handlePrint(tx.id)}
-                className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#0B1020]/80 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:border-theme-green-action/40 hover:text-theme-green-action"
-              >
-                <Printer className="h-3.5 w-3.5" />
-                Print
-              </button>
-            </div>
+        {filtered.map((tx) => {
+          const expanded = expandedId === tx.id;
+          return (
+            <article
+              key={tx.id}
+              className="overflow-hidden rounded-2xl border border-white/10 bg-[#141A2E] shadow-[0_12px_30px_rgba(0,0,0,0.28)]"
+            >
+              <div className="relative px-5 py-4 sm:px-6">
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(expanded ? null : tx.id)}
+                  className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70 transition hover:border-white/30 hover:bg-white/10 hover:text-white sm:right-4 sm:top-4"
+                  aria-label={expanded ? "Collapse transaction details" : "Expand transaction details"}
+                  aria-expanded={expanded}
+                >
+                  <ChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+                  />
+                </button>
 
-            <div className="flex flex-col items-start gap-2 sm:items-end">
-              <span
-                className={`inline-flex rounded-md px-3 py-1 text-xs font-semibold ${
-                  STATUS_STYLE[tx.status] || "bg-white/15 text-white"
-                }`}
-              >
-                {tx.status}
-              </span>
-              <p className="text-sm text-white/55">
-                {tx.date} {tx.time}
-              </p>
-              <p className="text-xl font-bold text-white sm:text-2xl">{tx.amount}</p>
-            </div>
-          </article>
-        ))}
+                <div className="flex flex-col gap-4 pr-12 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-white sm:text-base">
+                      Transaction ID - <span className="text-white/85">{tx.id}</span>
+                    </p>
+                    <p className="mt-1 text-sm text-white/65">Transaction Method - {tx.method}</p>
+                    <button
+                      type="button"
+                      onClick={() => handlePrint(tx.id)}
+                      className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#0B1020]/80 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:border-theme-green-action/40 hover:text-theme-green-action"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      Print
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <span
+                      className={`inline-flex rounded-md px-3 py-1 text-xs font-semibold ${
+                        STATUS_STYLE[tx.status] || "bg-white/15 text-white"
+                      }`}
+                    >
+                      {tx.status}
+                    </span>
+                    <p className="text-sm text-white/55">
+                      {tx.date} {tx.time}
+                    </p>
+                    <p className="text-xl font-bold text-white sm:text-2xl">{tx.amount}</p>
+                  </div>
+                </div>
+              </div>
+
+              {expanded ? (
+                <div className="border-t border-white/10 bg-[#0B1020]/55 px-5 py-4 sm:px-6">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-white/45">
+                    Transaction details
+                  </p>
+                  <dl className="divide-y divide-white/8">
+                    {[
+                      ["Type", tx.type],
+                      ["Method", tx.method],
+                      ["Status", tx.status],
+                      ["Currency", tx.currency],
+                      ["Amount", tx.amount],
+                      ["Fee", tx.fee],
+                      ["Net amount", tx.netAmount],
+                      ["Date", tx.date],
+                      ["Time", tx.time],
+                      ["Account", tx.account],
+                      ["Reference", tx.reference],
+                      ["Note", tx.note],
+                    ].map(([label, value]) => (
+                      <div
+                        key={label}
+                        className="flex items-start justify-between gap-4 py-2.5 first:pt-0 last:pb-0"
+                      >
+                        <dt className="shrink-0 text-sm text-white/45">{label}</dt>
+                        <dd className="text-right text-sm font-medium text-white">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
 
         {filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 bg-[#0B1020]/60 px-5 py-12 text-center text-sm text-white/45">

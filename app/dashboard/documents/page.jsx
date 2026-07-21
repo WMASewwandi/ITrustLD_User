@@ -42,7 +42,7 @@ const INITIAL_DOCS = [
 const STATUS_STYLE = {
   Completed: "text-theme-green-action bg-theme-green-action/10 border-theme-green-action/25",
   "In-Progress": "text-theme-green-shaded bg-theme-green-shaded/10 border-theme-green-shaded/25",
-  Pending: "text-white/60 bg-white/5 border-white/10",
+  Pending: "text-theme-orange bg-theme-orange/10 border-theme-orange/25",
   Rejected: "text-theme-red-action bg-theme-red-action/10 border-theme-red-action/25",
 };
 
