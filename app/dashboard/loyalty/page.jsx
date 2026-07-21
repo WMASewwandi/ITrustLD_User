@@ -66,12 +66,12 @@ export default function LoyaltyPage() {
       return;
     }
     if (!account) {
-      setError("Please select an account to withdraw to.");
+      setError("Please select an account to cash out to.");
       return;
     }
     setError("");
     setSuccess(
-      `Loyalty withdrawal of ${Number(points).toLocaleString()} points submitted (demo). Status: Pending.`
+      `Loyalty cash-out of ${Number(points).toLocaleString()} points submitted (demo). Status: Pending.`
     );
   }
 
@@ -105,7 +105,7 @@ export default function LoyaltyPage() {
                 : "border border-white/15 bg-white/5 text-white/70 hover:bg-white/10 hover:text-white"
             }`}
           >
-            Loyalty Withdraw
+            Loyalty Cash-out
           </button>
         </div>
       </div>
@@ -150,7 +150,7 @@ export default function LoyaltyPage() {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                  Earn Trust Points from eligible deposits and referrals
+                  Earn Trust Points from eligible top-ups and referrals
                 </li>
               </ul>
             </section>
@@ -207,7 +207,7 @@ export default function LoyaltyPage() {
               onClick={openWithdraw}
               className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white/20 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
             >
-              Loyalty Withdraw
+              Loyalty Cash-out
             </button>
           </aside>
         </div>
@@ -215,7 +215,7 @@ export default function LoyaltyPage() {
         <div className="mt-8">
           <div className="flex gap-6 border-b border-white/10">
             {[
-              { id: "withdraw", label: "Withdraw" },
+              { id: "withdraw", label: "Cash-out" },
               { id: "history", label: "Transaction History" },
             ].map((item) => {
               const active = withdrawTab === item.id;
@@ -246,7 +246,7 @@ export default function LoyaltyPage() {
               <form onSubmit={handleWithdraw} className="space-y-6">
                 <section>
                   <h2 className="text-lg font-semibold text-white sm:text-xl">
-                    Enter number of points to withdraw
+                    Enter number of points to cash out
                   </h2>
                   <div className="mt-4 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-6">
                     <label className="mb-2 block text-sm font-medium text-white/70">Points</label>
@@ -271,7 +271,7 @@ export default function LoyaltyPage() {
                 <section>
                   <h2 className="text-lg font-semibold text-white sm:text-xl">Select account details</h2>
                   <p className="mt-1 text-sm text-white/45">
-                    (Please click on the account you want points to be withdrawn to)
+                    (Please click on the account you want points to be cashed out to)
                   </p>
                   <div className="mt-4 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-6">
                     <label className="mb-2 block text-sm font-medium text-white/70">Select Option</label>
@@ -304,7 +304,7 @@ export default function LoyaltyPage() {
 
                 {error ? (
                   <BottomMessage
-                    title="Unable to withdraw"
+                    title="Unable to cash out"
                     variant="error"
                     onClose={() => setError("")}
                     primaryAction={{ label: "Try Again", onClick: () => setError("") }}
@@ -315,7 +315,7 @@ export default function LoyaltyPage() {
                 ) : null}
                 {success ? (
                   <BottomMessage
-                    title="Loyalty withdraw submitted"
+                    title="Loyalty cash-out submitted"
                     variant="success"
                     onClose={() => setSuccess("")}
                     primaryAction={{ label: "View History", onClick: () => { setSuccess(""); setWithdrawTab("history"); } }}
@@ -329,7 +329,7 @@ export default function LoyaltyPage() {
                   type="submit"
                   className="rounded-xl bg-white/20 px-10 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
                 >
-                  Withdraw
+                  Cash-out
                 </button>
               </form>
 
@@ -365,7 +365,7 @@ export default function LoyaltyPage() {
                   className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <p className="text-sm font-medium text-white">Loyalty Withdrawal - {row.id}</p>
+                    <p className="text-sm font-medium text-white">Loyalty Cash-out - {row.id}</p>
                     <p className="mt-1 text-sm text-white/50">{row.points} points</p>
                   </div>
                   <div className="text-left sm:text-right">
@@ -373,7 +373,7 @@ export default function LoyaltyPage() {
                       className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold ${
                         row.status === "Completed"
                           ? "bg-theme-green-action text-white"
-                          : "bg-theme-green-shaded text-white"
+                          : "bg-theme-orange text-white"
                       }`}
                     >
                       {row.status}

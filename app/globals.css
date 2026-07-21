@@ -85,16 +85,6 @@ body {
   }
 }
 
-@keyframes heroGlowPulse {
-  0%,
-  100% {
-    opacity: 0.55;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
 .hero-copy {
   animation: heroFadeUp 0.7s ease-out both;
 }
@@ -105,58 +95,6 @@ body {
 
 .hero-card {
   animation: heroCardFloat 6.5s ease-in-out infinite;
-}
-
-.hero-visual > div:first-child {
-  animation: heroGlowPulse 4.5s ease-in-out infinite;
-}
-
-.hero-green-glow {
-  background-image: linear-gradient(90deg, #9cff7a 0%, #0d9f1b 45%, #5dff8a 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  filter: drop-shadow(0 0 10px rgba(57, 255, 20, 0.45)) drop-shadow(0 0 22px rgba(13, 159, 27, 0.55));
-}
-
-@keyframes specialGlowPulse {
-  0%,
-  100% {
-    opacity: 0.65;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.06);
-  }
-}
-
-.special-glow {
-  animation: specialGlowPulse 7s ease-in-out infinite;
-}
-
-.special-glow-delay {
-  animation-delay: 1.8s;
-}
-
-@keyframes whyGlowPulse {
-  0%,
-  100% {
-    opacity: 0.55;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-}
-
-.why-glow {
-  animation: whyGlowPulse 8s ease-in-out infinite;
-}
-
-.why-glow-delay {
-  animation-delay: 2s;
 }
 
 .why-cut-card {
@@ -259,9 +197,6 @@ body {
   .hero-copy,
   .hero-visual,
   .hero-card,
-  .hero-visual > div:first-child,
-  .special-glow,
-  .why-glow,
   .dash-fade-up,
   .dash-fade-up-delay,
   .dash-float-a,
@@ -269,17 +204,5 @@ body {
   .coin-glow-ring,
   .coin-glow-ring-soft {
     animation: none;
-  }
-}
-
-@media (max-height: 900px) {
-  .register-fit {
-    zoom: 0.92;
-  }
-}
-
-@media (max-height: 820px) {
-  .register-fit {
-    zoom: 0.86;
   }
 }

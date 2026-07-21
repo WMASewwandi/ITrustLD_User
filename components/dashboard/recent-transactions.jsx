@@ -67,9 +67,15 @@ export default function RecentTransactions() {
                   Transaction ID — <span className="text-white/80">{tx.id}</span>
                 </p>
                 <p className="mt-1 text-sm text-white/60">
-                  {tx.type === "withdrawal" ? "Withdrawal" : "Deposit"} · {tx.method}
+                  {tx.type === "withdrawal" ? "Cash-out" : "Top-up"} · {tx.method}
                 </p>
-                <p className="mt-1 text-xs text-white/50">{tx.status}</p>
+                <p
+                  className={`mt-1 text-xs ${
+                    tx.status === "Completed" ? "text-white/50" : "text-theme-orange"
+                  }`}
+                >
+                  {tx.status}
+                </p>
               </div>
               <div className="flex items-end justify-between gap-4 sm:flex-col sm:items-end">
                 <p className="text-xs text-white/50 sm:text-sm">{tx.datetime}</p>
