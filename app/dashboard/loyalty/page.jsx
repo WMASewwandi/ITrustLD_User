@@ -1,23 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import BottomMessage from "@/components/dashboard/bottom-message";
-import { Crown, Medal, Sparkles, Star, Trophy } from "lucide-react";
+import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
+import PartnerLoyaltyPanel from "@/components/dashboard/partner-loyalty-panel";
+import { getPartnerTiers } from "@/lib/loyalty";
+import { getMembershipProgress } from "@/lib/membership-tiers";
+import { Medal, Star, Trophy } from "lucide-react";
 
 const AVAILABLE = 811;
 const TOTAL_EARNED = 812;
 const USD_VALUE = (TOTAL_EARNED / 1000).toFixed(2);
-const LEVEL_PROGRESS = 8;
-const CURRENT_LEVEL = "Normal Level";
-
-const TIERS = [
-  { name: "Silver", points: 0 },
-  { name: "Gold", points: 250000 },
-  { name: "Diamond", points: 400000 },
-  { name: "VIP", points: 500000 },
-  { name: "VVIP", points: 1000000 },
-];
+const TRUST_POINTS = 128450;
+const { current: CURRENT_TIER, progressPct: LEVEL_PROGRESS } = getMembershipProgress(TRUST_POINTS);
+const CURRENT_LEVEL = `${CURRENT_TIER.name} Level`;
 
 const ACCOUNTS = [
   { id: "1", label: "Commercial Bank — 8001234567" },
@@ -42,6 +40,34 @@ export default function LoyaltyPage() {
   const [account, setAccount] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [isPartner, setIsPartner] = useState(false);
+  const [partnerTier, setPartnerTier] = useState("Normal");
+  const [partnerPoints, setPartnerPoints] = useState(0);
+  const [partnerTiers, setPartnerTiers] = useState([]);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("itrustld_user");
+      if (raw) {
+        const user = JSON.parse(raw);
+        setIsPartner(user?.userType === "partner");
+        const tier = user?.partnerTier === "Bronze" ? "Normal" : user?.partnerTier || "Normal";
+        setPartnerTier(tier);
+        setPartnerPoints(Number(user?.partnerPoints) || 0);
+        // Keep session in sync with renamed starting tier
+        if (user?.partnerTier === "Bronze" || user?.partnerTier === "Platinum") {
+          const next = {
+            ...user,
+            partnerTier: user.partnerTier === "Platinum" ? "Diamond" : "Normal",
+          };
+          localStorage.setItem("itrustld_user", JSON.stringify(next));
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setPartnerTiers(getPartnerTiers());
+  }, []);
 
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
@@ -76,7 +102,7 @@ export default function LoyaltyPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1200px] px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full min-w-0 max-w-[1200px] px-4 py-10 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-white sm:text-4xl">Loyalty Points</h1>
@@ -110,75 +136,82 @@ export default function LoyaltyPage() {
         </div>
       </div>
 
+      {section === "overview" && isPartner ? (
+        <div className="mt-8">
+          <PartnerLoyaltyPanel
+            partnerTier={partnerTier}
+            partnerPoints={partnerPoints}
+            tiers={partnerTiers}
+          />
+        </div>
+      ) : null}
+
       {section === "overview" ? (
-        <div className="mt-8 grid gap-6 lg:grid-cols-[1.35fr_0.65fr] lg:items-start">
-          <div className="space-y-5">
+        <div
+          className={`${isPartner ? "mt-2" : "mt-8"} grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:items-start lg:gap-6`}
+        >
+          <div className="min-w-0 space-y-5">
             <section className="rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-6">
-              <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
-                <div className="flex items-center gap-4">
-                  <div className="relative flex h-16 w-16 items-center justify-center">
-                    <div className="absolute inset-0 rounded-2xl bg-theme-green-action/15 ring-1 ring-theme-green-action/30" />
-                    <Trophy className="relative h-8 w-8 text-theme-green-action drop-shadow-[0_0_16px_rgba(13,159,27,0.5)]" />
-                    <Star className="absolute -right-1 -top-1 h-4 w-4 fill-theme-green-action text-theme-green-action" />
-                  </div>
-                  <div>
-                    <p className="text-sm text-white/50">Available Balance</p>
-                    <p className="mt-1 text-4xl font-bold tracking-tight text-white">{AVAILABLE}</p>
-                  </div>
+              <div className="flex min-w-0 items-start gap-4">
+                <div className="relative flex h-14 w-14 shrink-0 items-center justify-center sm:h-16 sm:w-16">
+                  <div className="absolute inset-0 rounded-2xl bg-theme-green-action/15 ring-1 ring-theme-green-action/30" />
+                  <Trophy className="relative h-7 w-7 text-theme-green-action drop-shadow-[0_0_16px_rgba(13,159,27,0.5)] sm:h-8 sm:w-8" />
+                  <Star className="absolute -right-1 -top-1 h-4 w-4 fill-theme-green-action text-theme-green-action" />
                 </div>
 
-                <div className="hidden h-16 w-px bg-white/10 sm:block" />
+                <div className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-[1fr_auto_1fr] sm:items-center sm:gap-6">
+                  <div className="min-w-0">
+                    <p className="text-sm text-white/50">Available Balance</p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                      {AVAILABLE}
+                    </p>
+                  </div>
 
-                <div>
-                  <p className="text-sm text-white/50">Total Earned Points</p>
-                  <p className="mt-1 text-4xl font-bold tracking-tight text-white">{TOTAL_EARNED}</p>
-                  <p className="mt-1 text-sm text-white/45">{USD_VALUE} USD</p>
+                  <div className="hidden h-16 w-px bg-white/10 sm:block" />
+
+                  <div className="min-w-0">
+                    <p className="text-sm text-white/50">Total Earned Points</p>
+                    <p className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                      {TOTAL_EARNED}
+                    </p>
+                    <p className="mt-1 text-sm text-white/45">{USD_VALUE} USD</p>
+                  </div>
                 </div>
               </div>
             </section>
 
-            <div className="rounded-xl bg-theme-green-dark px-5 py-4 text-center text-sm font-semibold text-white shadow-[0_12px_28px_rgba(20,83,91,0.35)] sm:text-base">
+            <div className="w-full rounded-xl bg-theme-green-dark px-4 py-4 text-center text-sm font-semibold text-white shadow-[0_12px_28px_rgba(20,83,91,0.35)] sm:px-5 sm:text-base">
               ($) 10,000 Trust Points = 10 USD
             </div>
 
-            <section className="rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
+            <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
               <h2 className="text-base font-semibold text-white">Standard user with affiliate</h2>
               <ul className="mt-3 space-y-2 text-sm text-white/55">
-                <li className="flex items-start gap-2">
+                <li className="flex min-w-0 items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                  Recognized with affiliate users
+                  <span className="min-w-0 break-words">Recognized with affiliate users</span>
                 </li>
-                <li className="flex items-start gap-2">
+                <li className="flex min-w-0 items-start gap-2">
                   <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                  Earn Trust Points from eligible top-ups and referrals
+                  <span className="min-w-0 break-words">
+                    Earn Trust Points from eligible top-ups and referrals
+                  </span>
                 </li>
               </ul>
+              <div className="mt-5 min-w-0 border-t border-white/10 pt-5">
+                <AffiliateLinkCard />
+              </div>
             </section>
 
-            <section className="rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
-              <h2 className="mb-4 text-base font-semibold text-white">Membership tiers</h2>
-              <div className="grid gap-2 sm:grid-cols-5">
-                {TIERS.map((tier) => (
-                  <div
-                    key={tier.name}
-                    className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-center"
-                  >
-                    <div className="mb-1 flex items-center justify-center gap-1 text-theme-green-action">
-                      {tier.name === "VIP" || tier.name === "VVIP" ? (
-                        <Sparkles className="h-3.5 w-3.5" />
-                      ) : (
-                        <Crown className="h-3.5 w-3.5" />
-                      )}
-                    </div>
-                    <p className="text-sm font-semibold text-white">{tier.name}</p>
-                    <p className="mt-1 text-[11px] text-white/40">{tier.points.toLocaleString()}+</p>
-                  </div>
-                ))}
-              </div>
+            <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
+              <LoyaltyLevels
+                currentTier={CURRENT_TIER.name}
+                initialTier={CURRENT_TIER.name}
+              />
             </section>
           </div>
 
-          <aside className="rounded-2xl border border-white/12 bg-[#0B1020]/85 p-6 text-center shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-8">
+          <aside className="min-w-0 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-6 text-center shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-8">
             <div className="relative mx-auto h-48 w-48">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-hidden>
                 <circle cx="90" cy="90" r={radius} fill="none" stroke="rgba(13,159,27,0.25)" strokeWidth="14" />
@@ -205,7 +238,7 @@ export default function LoyaltyPage() {
             <button
               type="button"
               onClick={openWithdraw}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white/20 px-5 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/30"
             >
               Loyalty Cash-out
             </button>
@@ -327,7 +360,7 @@ export default function LoyaltyPage() {
 
                 <button
                   type="submit"
-                  className="rounded-xl bg-white/20 px-10 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+                  className="rounded-xl bg-white/20 px-10 py-3 text-sm font-semibold text-white transition hover:bg-white/30"
                 >
                   Cash-out
                 </button>

@@ -452,7 +452,7 @@ export default function DepositPage() {
               <button
                 type="button"
                 onClick={goNext}
-                className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(13,159,27,0.3)] transition hover:brightness-110"
+                className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white transition hover:brightness-110"
               >
                 Next
                 <ArrowRight className="h-4 w-4" />
@@ -597,7 +597,7 @@ export default function DepositPage() {
             <button
               type="button"
               onClick={goNext}
-              className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(13,159,27,0.3)] transition hover:brightness-110"
+              className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Next
               <ArrowRight className="h-4 w-4" />
@@ -745,7 +745,7 @@ export default function DepositPage() {
             <button
               type="button"
               onClick={goNext}
-              className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(13,159,27,0.3)] transition hover:brightness-110"
+              className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Next
               <ArrowRight className="h-4 w-4" />

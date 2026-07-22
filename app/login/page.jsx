@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
+import { resolveSessionUser } from "@/lib/accounts";
 import { isValidEmail } from "@/lib/validation";
 
 const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45";
@@ -28,10 +29,11 @@ export default function LoginPage() {
     }
     setError("");
     const name = email.split("@")[0] || "User";
-    localStorage.setItem(
-      "itrustld_user",
-      JSON.stringify({ name: name.charAt(0).toUpperCase() + name.slice(1), email })
-    );
+    const sessionUser = resolveSessionUser({
+      email,
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+    });
+    localStorage.setItem("itrustld_user", JSON.stringify(sessionUser));
     router.push("/dashboard");
   }
 
@@ -55,7 +57,8 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 autoComplete="email"
-                defaultValue="john12@gmail.com"
+                defaultValue="partner@itrustld.com"
+                placeholder="partner@itrustld.com"
                 onChange={() => setError("")}
                 className={fieldClass}
               />
@@ -95,7 +98,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="mt-1 w-full rounded-xl bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white shadow-[0_10px_22px_rgba(13,159,27,0.35)] transition hover:brightness-110"
+              className="mt-1 w-full rounded-xl bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:brightness-110"
             >
               Sign In
             </button>

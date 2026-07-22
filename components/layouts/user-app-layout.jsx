@@ -14,8 +14,8 @@ export default function UserAppLayout({ children }) {
         aria-hidden
       />
       <NavigationUser />
-      <div className="relative flex min-h-0 flex-1 flex-col pb-[72px] lg:pl-[60px] lg:pb-0">
-        <main className="relative flex-1">{children}</main>
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden pb-[calc(72px+env(safe-area-inset-bottom))] lg:pl-[60px] lg:pb-0">
+        <main className="relative min-w-0 flex-1 overflow-x-hidden">{children}</main>
         <div className="hidden lg:block">
           <FooterGuest />
         </div>

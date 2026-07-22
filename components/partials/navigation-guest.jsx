@@ -23,7 +23,7 @@ function AuthButtonGroup({ className = "", onNavigate, pathname = "" }) {
         onClick={onNavigate}
         className={`inline-flex min-w-[5.5rem] items-center justify-center rounded-[4px] px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-theme-green-action ${
           loginActive || (!loginActive && !registerActive)
-            ? "bg-theme-green-action shadow-[0_6px_16px_rgba(13,159,27,0.35)] hover:brightness-110"
+            ? "bg-theme-green-action hover:brightness-110"
             : "border border-white/30 bg-transparent hover:bg-white/10"
         }`}
       >
@@ -32,7 +32,7 @@ function AuthButtonGroup({ className = "", onNavigate, pathname = "" }) {
       <Link
         href="/register"
         onClick={onNavigate}
-        className={`inline-flex min-w-[5.5rem] items-center justify-center rounded-xl px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
+        className={`inline-flex min-w-[5.5rem] items-center justify-center rounded-xl px-5 py-2 text-xs font-semibold uppercase tracking-wide text-white transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/40 ${
           registerActive ? "bg-white/30 hover:bg-white/40" : "bg-white/20 hover:bg-white/30"
         }`}
       >
@@ -98,11 +98,12 @@ export default function NavigationGuest() {
       <header
         className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
           isOpen
-            ? "border-b border-white/10 bg-[#0B1020]"
+            ? "border-b border-white/10"
             : solidHeader
-              ? "border-b border-white/10 bg-theme-blue-dark shadow-[0_12px_40px_rgba(8,12,30,0.45)]"
+              ? "border-b border-white/10 shadow-[0_12px_40px_rgba(8,12,30,0.45)]"
               : "border-b border-transparent bg-transparent shadow-none"
         }`}
+        style={isOpen || solidHeader ? { backgroundColor: "#060C1F" } : undefined}
       >
         <div className="container-shell flex h-16 items-center justify-between sm:h-20">
           <BrandLogo className="h-12 sm:h-11" />
@@ -165,9 +166,10 @@ export default function NavigationGuest() {
         aria-hidden={!isOpen}
       >
         <div
-          className={`absolute inset-0 bg-[#0B1020] transition-all duration-300 ${
+          className={`absolute inset-0 transition-all duration-300 ${
             isOpen ? "translate-y-0 opacity-100" : "-translate-y-3 opacity-0"
           }`}
+          style={{ backgroundColor: "#060C1F" }}
         >
           <div className="container-shell flex h-full flex-col gap-6 overflow-y-auto pb-8 pt-20">
             <nav className="flex flex-col gap-1 border-b border-white/10 pb-5" aria-label="Mobile">
@@ -199,13 +201,16 @@ export default function NavigationGuest() {
               pathname={pathname}
             />
 
-            <div className="mt-auto rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.08] to-white/[0.02] p-5 text-white">
+            <div
+              className="mt-auto rounded-2xl border border-white/10 p-5 text-white"
+              style={{ backgroundColor: "#060C1F" }}
+            >
               <p className="text-base font-semibold">News and Promos</p>
               <p className="mt-1 text-sm text-white/70">Learn about our exciting promos and latest news.</p>
               <Link
                 href="/"
                 onClick={() => setIsOpen(false)}
-                className="mt-4 inline-flex items-center justify-center rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+                className="mt-4 inline-flex items-center justify-center rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/30"
               >
                 Explore
               </Link>
