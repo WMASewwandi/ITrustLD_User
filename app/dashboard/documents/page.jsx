@@ -41,7 +41,7 @@ const INITIAL_DOCS = [
 
 const STATUS_STYLE = {
   Completed: "text-theme-green-action bg-theme-green-action/10 border-theme-green-action/25",
-  "In-Progress": "text-theme-green-shaded bg-theme-green-shaded/10 border-theme-green-shaded/25",
+  "In-Progress": "text-theme-orange bg-theme-orange/10 border-theme-orange/25",
   Pending: "text-theme-orange bg-theme-orange/10 border-theme-orange/25",
   Rejected: "text-theme-red-action bg-theme-red-action/10 border-theme-red-action/25",
 };
@@ -87,12 +87,27 @@ export default function DocumentsPage() {
 
       <div className="mb-8 grid gap-4 lg:grid-cols-3">
         {[
-          { label: "Pending", count: docs.filter((d) => d.status === "Pending").length, icon: Clock3 },
-          { label: "In-Progress", count: docs.filter((d) => d.status === "In-Progress").length, icon: Clock3 },
-          { label: "Completed", count: docs.filter((d) => d.status === "Completed").length, icon: CheckCircle2 },
+          {
+            label: "Pending",
+            count: docs.filter((d) => d.status === "Pending").length,
+            icon: Clock3,
+            tone: "text-theme-orange",
+          },
+          {
+            label: "In-Progress",
+            count: docs.filter((d) => d.status === "In-Progress").length,
+            icon: Clock3,
+            tone: "text-theme-orange",
+          },
+          {
+            label: "Completed",
+            count: docs.filter((d) => d.status === "Completed").length,
+            icon: CheckCircle2,
+            tone: "text-theme-green-action",
+          },
         ].map((item) => (
           <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-            <div className="flex items-center gap-2 text-white/50">
+            <div className={`flex items-center gap-2 ${item.tone}`}>
               <item.icon className="h-4 w-4" />
               <span className="text-xs uppercase tracking-wide">{item.label}</span>
             </div>
@@ -105,7 +120,7 @@ export default function DocumentsPage() {
         <Upload className="mx-auto h-8 w-8 text-theme-green-action" />
         <h2 className="mt-3 text-lg font-semibold text-white">Upload verification document</h2>
         <p className="mt-1 text-sm text-white/45">JPG, PNG or PDF — max 5MB (frontend demo)</p>
-        <label className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30">
+        <label className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/30">
           Choose file
           <input
             type="file"

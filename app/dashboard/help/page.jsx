@@ -13,7 +13,7 @@ const FAQS = [
   },
   {
     q: "How do Trust Points tiers work?",
-    a: "Tiers progress with activity: Silver → Gold → Diamond → VIP (500k points) → VVIP (1M points). Track progress on the Loyalty page.",
+    a: "Tiers progress with activity: Normal → Silver → Gold → Diamond → VIP (500k points) → VVIP (1M points). Tap a level on the Loyalty page to see benefits.",
   },
 ];
 

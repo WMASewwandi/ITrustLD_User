@@ -113,9 +113,9 @@ export default function HeroSection() {
           <div className="mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
             <Link
               href="/register"
-              className="group inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+              className="group inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/30"
             >
-              Get Started
+              Open Account
               <ArrowIcon className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </Link>
             <Link

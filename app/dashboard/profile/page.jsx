@@ -119,7 +119,7 @@ export default function ProfilePage() {
         <div className="flex items-center gap-3">
           <button
             type="submit"
-            className="rounded-xl bg-white/20 px-6 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+            className="rounded-xl bg-white/20 px-6 py-2.5 text-sm font-semibold text-white transition hover:bg-white/30"
           >
             Save profile
           </button>
@@ -174,7 +174,7 @@ export default function ProfilePage() {
               <input name="branch" required className={fieldClass} placeholder="Branch" />
             </div>
             <div className="sm:col-span-2">
-              <button type="submit" className="rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30">
+              <button type="submit" className="rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/30">
                 Save bank account
               </button>
             </div>

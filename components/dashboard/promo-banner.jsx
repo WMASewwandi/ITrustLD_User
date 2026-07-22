@@ -19,13 +19,13 @@ export default function PromoBanner() {
                 Earn double Trust Points this week
               </h2>
               <p className="mt-1 max-w-xl text-sm text-white/55">
-                Complete eligible top-ups and climb toward Gold, Diamond, VIP, and VVIP tiers faster.
+                Complete eligible top-ups and climb Normal → Silver → Gold → Diamond → VIP → VVIP faster.
               </p>
             </div>
           </div>
           <Link
             href="/dashboard/loyalty"
-            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+            className="inline-flex shrink-0 items-center justify-center rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/30"
           >
             View Loyalty
           </Link>

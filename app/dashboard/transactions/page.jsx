@@ -149,6 +149,7 @@ const STATUS_STYLE = {
   Completed: "bg-theme-green-action text-white",
   Pending: "bg-theme-orange text-white",
   "Pending Authorization": "bg-theme-orange text-white",
+  "In-Progress": "bg-theme-orange text-white",
   Rejected: "bg-theme-red-action text-white",
 };
 
@@ -266,7 +267,7 @@ export default function TransactionsPage() {
           <div className="flex items-end gap-2">
             <button
               type="submit"
-              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-white/20 px-5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-white/20 px-5 text-sm font-semibold text-white transition hover:bg-white/30"
             >
               Filter
             </button>

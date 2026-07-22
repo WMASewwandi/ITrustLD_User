@@ -129,7 +129,7 @@ export default function ReferEarnSection() {
             <div className="mt-8 flex items-center justify-center">
               <Link
                 href="/register"
-                className="inline-flex items-center gap-2 rounded-[4px] bg-theme-green-action px-12 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(13,159,27,0.35)] transition hover:brightness-110"
+                className="inline-flex items-center gap-2 rounded-[4px] bg-theme-green-action px-12 py-3.5 text-sm font-semibold text-white transition hover:brightness-110"
               >
                 Start Now
                 <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

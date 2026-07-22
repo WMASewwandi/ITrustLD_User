@@ -152,7 +152,7 @@ export default function PartnerPayPage() {
             ) : null}
             <button
               type="submit"
-              className="rounded-xl bg-white/20 px-6 py-3 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+              className="rounded-xl bg-white/20 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/30"
             >
               Submit payment
             </button>

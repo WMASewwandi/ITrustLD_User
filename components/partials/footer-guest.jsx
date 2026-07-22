@@ -143,7 +143,7 @@ export default function FooterGuest() {
 
                 <Link
                   href="/register"
-                  className="relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.12em] text-[#0B1020] shadow-[0_10px_30px_rgba(255,255,255,0.18)] transition duration-300 hover:bg-white/90 hover:shadow-[0_14px_36px_rgba(255,255,255,0.25)]"
+                  className="relative mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-xs font-bold uppercase tracking-[0.12em] text-[#0B1020] transition duration-300 hover:bg-white/90"
                 >
                   Sign Up Now
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

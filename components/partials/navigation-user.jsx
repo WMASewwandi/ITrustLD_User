@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
+import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
+import { getMembershipTierByPoints } from "@/lib/membership-tiers";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -18,6 +22,8 @@ import {
   User,
   X,
 } from "lucide-react";
+
+const NAV_SOLID = "#060C1F";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Home", icon: Home },
@@ -55,8 +61,9 @@ const DEMO_NOTIFICATIONS = [
   { id: 3, title: "Loyalty tip", body: "Earn double Trust Points this week.", time: "2d ago" },
 ];
 
-const LOYALTY_POINTS = "128,450";
-const LOYALTY_TIER = "Silver";
+const LOYALTY_POINTS_NUM = 128450;
+const LOYALTY_POINTS = LOYALTY_POINTS_NUM.toLocaleString();
+const LOYALTY_TIER = getMembershipTierByPoints(LOYALTY_POINTS_NUM).name;
 const WALLET_ACCOUNT_ID = "67104269";
 
 function NavIconLink({ href, label, icon: Icon, active, onNavigate }) {
@@ -83,17 +90,22 @@ function NavIconLink({ href, label, icon: Icon, active, onNavigate }) {
 }
 
 function PanelShell({ title, onClose, children }) {
-  return (
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const ui = (
     <>
       <button
         type="button"
-        className="fixed inset-0 z-[70] bg-black/55"
+        className="fixed inset-0 z-[70]"
+        style={{ backgroundColor: NAV_SOLID }}
         aria-label="Close panel"
         onClick={onClose}
       />
       <aside
         data-lenis-prevent
-        className="fixed inset-0 z-[80] flex w-full flex-col bg-[#0B1020] lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[380px] lg:border-l lg:border-white/10 lg:shadow-[-20px_0_60px_rgba(0,0,0,0.45)]"
+        className="fixed inset-0 z-[80] flex w-full flex-col lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[380px] lg:border-l lg:border-white/10"
+        style={{ backgroundColor: NAV_SOLID }}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -115,14 +127,20 @@ function PanelShell({ title, onClose, children }) {
       </aside>
     </>
   );
+
+  if (!mounted) return null;
+  return createPortal(ui, document.body);
 }
 
 export default function NavigationUser() {
   const pathname = usePathname();
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [panel, setPanel] = useState(null);
   const [userName, setUserName] = useState("User");
+
+  useEffect(() => setMounted(true), []);
   const [accountId, setAccountId] = useState(WALLET_ACCOUNT_ID);
 
   const moreActive = MOBILE_MORE_LINKS.some((item) =>
@@ -174,7 +192,10 @@ export default function NavigationUser() {
   return (
     <>
       {/* Top bar */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#050A14]/95 backdrop-blur-md lg:pl-[60px]">
+      <header
+        className="sticky top-0 z-50 border-b border-white/10 lg:pl-[60px]"
+        style={{ backgroundColor: NAV_SOLID }}
+      >
         <div className="flex h-14 w-full items-center justify-between gap-3 px-3 sm:h-16 sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <Link href="/dashboard" className="inline-flex shrink-0 items-center">
@@ -216,7 +237,10 @@ export default function NavigationUser() {
       </header>
 
       {/* Desktop left sidebar */}
-      <aside className="fixed bottom-0 left-0 top-0 z-40 hidden w-[60px] flex-col border-r border-white/10 bg-[#050A14]/95 backdrop-blur-md lg:flex">
+      <aside
+        className="fixed bottom-0 left-0 top-0 z-40 hidden w-[60px] flex-col border-r border-white/10 lg:flex"
+        style={{ backgroundColor: NAV_SOLID }}
+      >
         <div className="flex h-14 items-center justify-center border-b border-white/10 sm:h-16">
           <Link href="/dashboard" className="flex h-9 w-9 items-center justify-center" aria-label="iTrustLD Home">
             <img src="/assets/img/logos/logo-itrustld.svg" alt="" className="h-7 w-7 object-contain" />
@@ -243,83 +267,103 @@ export default function NavigationUser() {
         </div>
       </aside>
 
-      {/* Mobile bottom app navigation */}
-      <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/10 bg-[#050A14]/95 px-1 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-        <div className="mx-auto flex h-[64px] max-w-lg items-stretch justify-between">
-          {MOBILE_BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
-            const active = isActive(href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition ${
-                  active ? "text-theme-green-action" : "text-white/50"
-                }`}
+      {/* Mobile bottom nav portaled to body so Lenis transforms cannot make it translucent */}
+      {mounted
+        ? createPortal(
+            <>
+              <nav
+                className="fixed inset-x-0 bottom-0 z-[9998] border-t border-white/15 px-1 pb-[env(safe-area-inset-bottom)] lg:hidden"
+                style={{ backgroundColor: NAV_SOLID, opacity: 1 }}
               >
-                <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 1.75} />
-                <span className="truncate">{label}</span>
-              </Link>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => {
-              setPanel(null);
-              setMoreOpen(true);
-            }}
-            className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition ${
-              moreOpen || moreActive ? "text-theme-green-action" : "text-white/50"
-            }`}
-          >
-            <Ellipsis className="h-5 w-5" strokeWidth={moreOpen || moreActive ? 2.25 : 1.75} />
-            <span className="truncate">More</span>
-          </button>
-        </div>
-      </nav>
-
-      {moreOpen ? (
-        <>
-          <button
-            type="button"
-            className="fixed inset-0 z-[55] bg-black/55 lg:hidden"
-            aria-label="Close more menu"
-            onClick={() => setMoreOpen(false)}
-          />
-          <div className="fixed inset-x-0 bottom-[64px] z-[56] border-t border-white/10 bg-[#0B1020] px-4 pb-4 pt-3 shadow-[0_-12px_40px_rgba(0,0,0,0.4)] lg:hidden">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-sm font-semibold text-white">More</p>
-              <button
-                type="button"
-                onClick={() => setMoreOpen(false)}
-                className="rounded-lg p-1.5 text-white/60 hover:bg-white/5 hover:text-white"
-                aria-label="Close"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              {MOBILE_MORE_LINKS.map(({ href, label, icon: Icon }) => {
-                const active = isActive(href);
-                return (
-                  <Link
-                    key={href}
-                    href={href}
-                    onClick={() => setMoreOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-sm font-medium transition ${
-                      active
-                        ? "border-theme-green-action/40 bg-theme-green-action/10 text-theme-green-action"
-                        : "border-white/15 text-white hover:bg-white/5"
+                <div
+                  className="mx-auto flex h-[64px] max-w-lg items-stretch justify-between"
+                  style={{ backgroundColor: NAV_SOLID }}
+                >
+                  {MOBILE_BOTTOM_NAV.map(({ href, label, icon: Icon }) => {
+                    const active = isActive(href);
+                    return (
+                      <Link
+                        key={href}
+                        href={href}
+                        className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition ${
+                          active ? "text-theme-green-action" : "text-white"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" strokeWidth={active ? 2.25 : 1.75} />
+                        <span className="truncate">{label}</span>
+                      </Link>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPanel(null);
+                      setMoreOpen(true);
+                    }}
+                    className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-1 text-[10px] font-medium transition ${
+                      moreOpen || moreActive ? "text-theme-green-action" : "text-white"
                     }`}
                   >
-                    <Icon className="h-4 w-4 shrink-0" />
-                    {label}
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        </>
-      ) : null}
+                    <Ellipsis
+                      className="h-5 w-5"
+                      strokeWidth={moreOpen || moreActive ? 2.25 : 1.75}
+                    />
+                    <span className="truncate">More</span>
+                  </button>
+                </div>
+              </nav>
+
+              {moreOpen ? (
+                <>
+                  <button
+                    type="button"
+                    className="fixed inset-0 z-[9997] lg:hidden"
+                    style={{ backgroundColor: NAV_SOLID }}
+                    aria-label="Close more menu"
+                    onClick={() => setMoreOpen(false)}
+                  />
+                  <div
+                    className="fixed inset-x-0 bottom-[64px] z-[9999] border-t border-white/15 px-4 pb-4 pt-3 lg:hidden"
+                    style={{ backgroundColor: NAV_SOLID }}
+                  >
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-white">More</p>
+                      <button
+                        type="button"
+                        onClick={() => setMoreOpen(false)}
+                        className="rounded-lg p-1.5 text-white/60 hover:bg-white/5 hover:text-white"
+                        aria-label="Close"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {MOBILE_MORE_LINKS.map(({ href, label, icon: Icon }) => {
+                        const active = isActive(href);
+                        return (
+                          <Link
+                            key={href}
+                            href={href}
+                            onClick={() => setMoreOpen(false)}
+                            className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-sm font-medium transition ${
+                              active
+                                ? "border-theme-green-action/40 bg-theme-green-action/10 text-theme-green-action"
+                                : "border-white/15 text-white hover:bg-white/5"
+                            }`}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            {label}
+                          </Link>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </>,
+            document.body
+          )
+        : null}
 
       {/* Right panels: loyalty / notifications / profile */}
       {panel === "loyalty" ? (
@@ -333,6 +377,20 @@ export default function NavigationUser() {
             </div>
             <p className="mt-3 text-2xl font-bold tracking-tight text-white">{LOYALTY_POINTS}</p>
             <p className="mt-1 text-sm text-white/45">Account #{accountId}</p>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-3 py-4">
+            <LoyaltyLevels
+              variant="compact"
+              currentTier={LOYALTY_TIER}
+              initialTier={LOYALTY_TIER}
+              showBenefits
+              showPointsHint
+            />
+          </div>
+
+          <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
+            <AffiliateLinkCard />
           </div>
 
           <h3 className="mb-3 mt-7 text-base font-semibold text-white">Loyalty Options</h3>

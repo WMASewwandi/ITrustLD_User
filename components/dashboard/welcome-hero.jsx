@@ -27,14 +27,14 @@ export default function WelcomeHero({ userName = "there" }) {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <Link
               href="/dashboard/deposit"
-              className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/30"
             >
               <ArrowDownToLine className="h-4 w-4" />
               Top-up
             </Link>
             <Link
               href="/dashboard/withdrawal"
-              className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white shadow-[0_12px_28px_rgba(255,255,255,0.08)] transition hover:bg-white/30"
+              className="inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/30"
             >
               <ArrowUpFromLine className="h-4 w-4" />
               Cash-out
