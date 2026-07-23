@@ -1,8 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
+import ListFilters from "@/components/dashboard/list-filters";
 import PageHeader from "@/components/dashboard/page-header";
-import { AlertTriangle, CheckCircle2, Clock3, Trash2, Upload } from "lucide-react";
+import UploadSlot from "@/components/verify/upload-slot";
+import { inDateRange, rowMatchesSearch } from "@/lib/filter-utils";
+import {
+  ADDRESS_DOC_TYPES,
+  IDENTITY_DOC_TYPES,
+  isNationalId,
+} from "@/lib/verification";
+import { AlertTriangle, CheckCircle2, Clock3 } from "lucide-react";
+
+const DOC_FILTER_DEFAULTS = {
+  search: "",
+  status: "All Statuses",
+  type: "All Types",
+  from: "",
+  to: "",
+};
 
 const INITIAL_DOCS = [
   {
@@ -46,39 +62,118 @@ const STATUS_STYLE = {
   Rejected: "text-theme-red-action bg-theme-red-action/10 border-theme-red-action/25",
 };
 
+const selectClass =
+  "w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none transition focus:border-theme-green-action/50";
+
 export default function DocumentsPage() {
-  const [docs] = useState(INITIAL_DOCS);
-  const [uploadedName, setUploadedName] = useState("");
-  const [uploadedPreview, setUploadedPreview] = useState("");
+  const [docs, setDocs] = useState(INITIAL_DOCS);
+  const [identityType, setIdentityType] = useState("");
+  const [addressType, setAddressType] = useState("");
+  const [identityFront, setIdentityFront] = useState(null);
+  const [identityBack, setIdentityBack] = useState(null);
+  const [identityFile, setIdentityFile] = useState(null);
+  const [addressFile, setAddressFile] = useState(null);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [filters, setFilters] = useState(DOC_FILTER_DEFAULTS);
 
-  useEffect(() => {
-    return () => {
-      if (uploadedPreview) URL.revokeObjectURL(uploadedPreview);
-    };
-  }, [uploadedPreview]);
+  const nationalId = isNationalId(identityType);
 
-  function clearUpload() {
-    if (uploadedPreview) URL.revokeObjectURL(uploadedPreview);
-    setUploadedName("");
-    setUploadedPreview("");
-  }
+  const filteredDocs = useMemo(() => {
+    return docs.filter((doc) => {
+      if (!rowMatchesSearch(doc, filters.search, ["name", "type", "status", "updated", "reason"])) {
+        return false;
+      }
+      if (filters.status !== "All Statuses" && doc.status !== filters.status) return false;
+      if (filters.type !== "All Types" && doc.type !== filters.type) return false;
+      if (doc.updated && doc.updated !== "—" && !inDateRange(doc.updated, filters.from, filters.to)) {
+        return false;
+      }
+      if ((filters.from || filters.to) && (!doc.updated || doc.updated === "—")) {
+        return false;
+      }
+      return true;
+    });
+  }, [docs, filters]);
 
-  function handleUpload(e) {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      clearUpload();
-      setUploadedName(file.name);
+  function submitUploads() {
+    setError("");
+    setSuccess("");
+
+    if (!identityType) {
+      setError("Select an identity document type.");
       return;
     }
-    if (uploadedPreview) URL.revokeObjectURL(uploadedPreview);
-    setUploadedName(file.name);
-    setUploadedPreview(URL.createObjectURL(file));
+    if (!addressType) {
+      setError("Select an address document type.");
+      return;
+    }
+    if (nationalId) {
+      if (!identityFront || !identityBack) {
+        setError("Upload both front and back of your National ID.");
+        return;
+      }
+    } else if (!identityFile) {
+      setError("Upload your identity document.");
+      return;
+    }
+    if (!addressFile) {
+      setError("Upload your address document.");
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const nextRows = [];
+
+    if (nationalId) {
+      nextRows.push(
+        {
+          id: Date.now() + 1,
+          name: `National ID — Front (${identityFront.name})`,
+          type: "Identity",
+          status: "Pending",
+          updated: today,
+          reason: null,
+        },
+        {
+          id: Date.now() + 2,
+          name: `National ID — Back (${identityBack.name})`,
+          type: "Identity",
+          status: "Pending",
+          updated: today,
+          reason: null,
+        }
+      );
+    } else {
+      nextRows.push({
+        id: Date.now() + 1,
+        name: `${identityType} (${identityFile.name})`,
+        type: "Identity",
+        status: "Pending",
+        updated: today,
+        reason: null,
+      });
+    }
+
+    nextRows.push({
+      id: Date.now() + 3,
+      name: `${addressType} (${addressFile.name})`,
+      type: "Residential",
+      status: "Pending",
+      updated: today,
+      reason: null,
+    });
+
+    setDocs((prev) => [...nextRows, ...prev]);
+    setIdentityFront(null);
+    setIdentityBack(null);
+    setIdentityFile(null);
+    setAddressFile(null);
+    setSuccess("Documents submitted for review (demo). Status set to Pending.");
   }
 
   return (
-    <div className="mx-auto w-full max-w-[1400px] px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full min-w-0 max-w-[1400px] px-4 py-10 sm:px-6 lg:px-8">
       <PageHeader
         eyebrow="KYC"
         title="Document Verification"
@@ -116,40 +211,136 @@ export default function DocumentsPage() {
         ))}
       </div>
 
-      <div className="mb-8 rounded-2xl border border-dashed border-white/20 bg-white/[0.03] p-6 text-center">
-        <Upload className="mx-auto h-8 w-8 text-theme-green-action" />
-        <h2 className="mt-3 text-lg font-semibold text-white">Upload verification document</h2>
-        <p className="mt-1 text-sm text-white/45">JPG, PNG or PDF — max 5MB (frontend demo)</p>
-        <label className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/30">
-          Choose file
-          <input
-            type="file"
-            className="hidden"
-            accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.pdf"
-            onChange={handleUpload}
-          />
-        </label>
-        {uploadedName ? (
-          <div className="mx-auto mt-4 flex max-w-md flex-wrap items-center justify-center gap-3 rounded-2xl border border-theme-green-action/25 bg-theme-green-action/10 p-3">
-            {uploadedPreview ? (
-              <img
-                src={uploadedPreview}
-                alt="Upload preview"
-                className="h-16 w-16 shrink-0 rounded-lg border border-white/10 object-cover"
-              />
-            ) : null}
-            <p className="min-w-0 truncate text-sm text-theme-green-action">{uploadedName}</p>
-            <button
-              type="button"
-              onClick={clearUpload}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-white/5"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-              Remove
-            </button>
+      <section className="mb-8 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
+        <div className="relative mb-8">
+          <div className="absolute inset-0 flex items-center" aria-hidden>
+            <div className="w-full border-t border-white/10" />
           </div>
-        ) : null}
-      </div>
+          <div className="relative flex justify-center">
+            <span className="bg-[#0B1020] px-4 text-sm font-medium text-white/50">Document Verification</span>
+          </div>
+        </div>
+
+        <div className="grid min-w-0 gap-8 lg:grid-cols-2">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-white">Confirm your identity</h2>
+            <select
+              className={`${selectClass} mt-3`}
+              value={identityType}
+              onChange={(e) => {
+                setIdentityType(e.target.value);
+                setIdentityFront(null);
+                setIdentityBack(null);
+                setIdentityFile(null);
+                setError("");
+                setSuccess("");
+              }}
+            >
+              <option value="">Select Document Type</option>
+              {IDENTITY_DOC_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+
+            {identityType ? (
+              nationalId ? (
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <UploadSlot
+                    theme="dark"
+                    label="Front"
+                    value={identityFront}
+                    onChange={setIdentityFront}
+                  />
+                  <UploadSlot
+                    theme="dark"
+                    label="Back"
+                    value={identityBack}
+                    onChange={setIdentityBack}
+                  />
+                </div>
+              ) : (
+                <div className="mt-4">
+                  <UploadSlot theme="dark" value={identityFile} onChange={setIdentityFile} />
+                </div>
+              )
+            ) : (
+              <p className="mt-4 text-sm text-white/40">Select a document type to upload identity files.</p>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-white">Confirm your address identity</h2>
+            <select
+              className={`${selectClass} mt-3`}
+              value={addressType}
+              onChange={(e) => {
+                setAddressType(e.target.value);
+                setAddressFile(null);
+                setError("");
+                setSuccess("");
+              }}
+            >
+              <option value="">Select Document Type</option>
+              {ADDRESS_DOC_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {type}
+                </option>
+              ))}
+            </select>
+
+            {addressType ? (
+              <div className="mt-4">
+                <UploadSlot theme="dark" value={addressFile} onChange={setAddressFile} />
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-white/40">Select a document type to upload proof of address.</p>
+            )}
+          </div>
+        </div>
+
+        <p className="mt-5 text-sm text-white/45">JPG, PNG or PDF — max 5MB (frontend demo)</p>
+        {error ? <p className="mt-3 text-sm text-theme-red-action">{error}</p> : null}
+        {success ? <p className="mt-3 text-sm text-theme-green-action">{success}</p> : null}
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={submitUploads}
+            className="rounded-xl bg-theme-green-action px-6 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+          >
+            Submit
+          </button>
+        </div>
+      </section>
+
+      <ListFilters
+        search={filters.search}
+        onSearchChange={(v) => setFilters((p) => ({ ...p, search: v }))}
+        searchPlaceholder="Search document name, type, notes…"
+        filters={[
+          {
+            key: "status",
+            label: "Status",
+            options: ["All Statuses", "Pending", "In-Progress", "Completed", "Rejected"],
+          },
+          {
+            key: "type",
+            label: "Type",
+            options: ["All Types", "Identity", "Residential"],
+          },
+        ]}
+        values={filters}
+        onFilterChange={(key, value) => setFilters((p) => ({ ...p, [key]: value }))}
+        showDates
+        from={filters.from}
+        to={filters.to}
+        onFromChange={(v) => setFilters((p) => ({ ...p, from: v }))}
+        onToChange={(v) => setFilters((p) => ({ ...p, to: v }))}
+        onReset={() => setFilters(DOC_FILTER_DEFAULTS)}
+        resultCount={filteredDocs.length}
+      />
 
       <div className="overflow-hidden rounded-2xl border border-white/10">
         <div className="border-b border-white/10 bg-white/[0.04] px-5 py-3">
@@ -167,30 +358,38 @@ export default function DocumentsPage() {
               </tr>
             </thead>
             <tbody>
-              {docs.map((doc) => (
-                <tr key={doc.id} className="border-t border-white/8 text-white/80">
-                  <td className="px-5 py-4 font-medium text-white">{doc.name}</td>
-                  <td className="px-5 py-4">{doc.type}</td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[doc.status]}`}
-                    >
-                      {doc.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-white/50">{doc.updated}</td>
-                  <td className="px-5 py-4">
-                    {doc.reason ? (
-                      <span className="inline-flex items-start gap-1.5 text-theme-red-action">
-                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                        {doc.reason}
-                      </span>
-                    ) : (
-                      <span className="text-white/30">—</span>
-                    )}
+              {filteredDocs.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-5 py-8 text-sm text-white/55">
+                    No documents match your search or filters.
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredDocs.map((doc) => (
+                  <tr key={doc.id} className="border-t border-white/8 text-white/80">
+                    <td className="px-5 py-4 font-medium text-white">{doc.name}</td>
+                    <td className="px-5 py-4">{doc.type}</td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${STATUS_STYLE[doc.status]}`}
+                      >
+                        {doc.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-white/50">{doc.updated}</td>
+                    <td className="px-5 py-4">
+                      {doc.reason ? (
+                        <span className="inline-flex items-start gap-1.5 text-theme-red-action">
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                          {doc.reason}
+                        </span>
+                      ) : (
+                        <span className="text-white/30">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

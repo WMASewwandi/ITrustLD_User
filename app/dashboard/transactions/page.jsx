@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import BottomMessage from "@/components/dashboard/bottom-message";
-import { ChevronDown, Download, Printer } from "lucide-react";
+import { matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils";
+import { ChevronDown, Download, Printer, Search } from "lucide-react";
 
 const ALL_TX = [
   {
@@ -155,11 +156,12 @@ const STATUS_STYLE = {
 
 export default function TransactionsPage() {
   const [tab, setTab] = useState("Top-up");
+  const [search, setSearch] = useState("");
   const [criteria, setCriteria] = useState("All");
   const [method, setMethod] = useState("All Methods");
+  const [status, setStatus] = useState("All Statuses");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [applied, setApplied] = useState({ criteria: "All", method: "All Methods", from: "", to: "" });
   const [msg, setMsg] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
@@ -168,24 +170,51 @@ export default function TransactionsPage() {
     return ALL_TX.filter((tx) => {
       if (tx.type !== tab) return false;
 
-      if (applied.method === "Perfect Money Top-ups") {
-        return tx.method === "Perfect Money" && tx.type === "Top-up";
+      if (
+        !rowMatchesSearch(tx, search, [
+          "id",
+          "method",
+          "amount",
+          "status",
+          "account",
+          "reference",
+          "note",
+        ])
+      ) {
+        return false;
       }
-      if (applied.method === "Perfect Money Cash-outs") {
-        return tx.method === "Perfect Money" && tx.type === "Cash-out";
-      }
-      if (applied.method !== "All Methods" && tx.method !== applied.method) return false;
 
-      if (applied.from && tx.date < applied.from) return false;
-      if (applied.to && tx.date > applied.to) return false;
+      if (status !== "All Statuses" && tx.status !== status) return false;
+
+      if (method === "Perfect Money Top-ups") {
+        if (!(tx.method === "Perfect Money" && tx.type === "Top-up")) return false;
+      } else if (method === "Perfect Money Cash-outs") {
+        if (!(tx.method === "Perfect Money" && tx.type === "Cash-out")) return false;
+      } else if (method !== "All Methods" && tx.method !== method) {
+        return false;
+      }
+
+      if (criteria === "Custom" || from || to) {
+        if (from && tx.date < from) return false;
+        if (to && tx.date > to) return false;
+        if (criteria !== "Custom" && criteria !== "All" && !from && !to) {
+          if (!matchesPeriod(tx.date, criteria)) return false;
+        }
+      } else if (!matchesPeriod(tx.date, criteria)) {
+        return false;
+      }
 
       return true;
     });
-  }, [tab, applied]);
+  }, [tab, search, criteria, method, status, from, to]);
 
-  function handleFilter(e) {
-    e.preventDefault();
-    setApplied({ criteria, method, from, to });
+  function handleResetFilters() {
+    setSearch("");
+    setCriteria("All");
+    setMethod("All Methods");
+    setStatus("All Statuses");
+    setFrom("");
+    setTo("");
     setMsg("");
   }
 
@@ -230,18 +259,37 @@ export default function TransactionsPage() {
         })}
       </div>
 
-      {/* Filters */}
-      <form
-        onSubmit={handleFilter}
-        className="mt-6 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-5"
-      >
-        <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_1fr_1.2fr_auto]">
+      {/* Filters — live update on change */}
+      <div className="mt-6 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-5">
+        <div className="grid gap-3 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1.1fr_auto]">
+          <div>
+            <label className={labelClass}>Search</label>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="ID, method, account, reference…"
+                className={`${fieldClass} pl-9`}
+              />
+            </div>
+          </div>
           <div>
             <label className={labelClass}>Filter Criteria</label>
             <select value={criteria} onChange={(e) => setCriteria(e.target.value)} className={fieldClass}>
               {CRITERIA.map((c) => (
                 <option key={c} value={c} className="bg-[#141A2E]">
                   {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Status</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
+              {["All Statuses", "Completed", "Pending", "Pending Authorization", "Rejected"].map((s) => (
+                <option key={s} value={s} className="bg-[#141A2E]">
+                  {s}
                 </option>
               ))}
             </select>
@@ -264,12 +312,13 @@ export default function TransactionsPage() {
               ))}
             </select>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 lg:col-span-full">
             <button
-              type="submit"
-              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-white/20 px-5 text-sm font-semibold text-white transition hover:bg-white/30"
+              type="button"
+              onClick={handleResetFilters}
+              className="inline-flex h-[42px] items-center justify-center rounded-lg border border-white/15 px-4 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
             >
-              Filter
+              Reset
             </button>
             <div className="relative">
               <button
@@ -296,6 +345,9 @@ export default function TransactionsPage() {
                 </div>
               ) : null}
             </div>
+            <p className="ml-auto self-center text-xs text-white/40">
+              Showing {filtered.length} result{filtered.length === 1 ? "" : "s"}
+            </p>
           </div>
         </div>
         {msg ? (
@@ -309,7 +361,7 @@ export default function TransactionsPage() {
             {msg}
           </BottomMessage>
         ) : null}
-      </form>
+      </div>
 
       {/* Transaction cards */}
       <div className="mt-6 space-y-3">

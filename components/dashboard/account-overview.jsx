@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getMembershipProgress } from "@/lib/membership-tiers";
+import { DEMO_TRUST_POINTS, getMembershipProgress } from "@/lib/membership-tiers";
 import {
   AlertCircle,
   CheckCircle2,
@@ -26,10 +26,9 @@ const STATUS_STYLE = {
 };
 
 export default function AccountOverview() {
-  const points = 128450;
-  const { current, next, required, progressPct } = getMembershipProgress(points);
+  const points = DEMO_TRUST_POINTS;
+  const { current, next, remaining, progressPct } = getMembershipProgress(points);
   const nextTier = next?.name || current.name;
-  const nextNeeded = required;
   const progress = progressPct;
   const [userType, setUserType] = useState("normal");
 
@@ -143,7 +142,7 @@ export default function AccountOverview() {
             </div>
             <p className="mt-2 break-words text-xs text-white/40">
               {next
-                ? `Need ${(nextNeeded - points).toLocaleString()} more points for ${nextTier}`
+                ? `Need ${remaining.toLocaleString()} more points for ${nextTier}`
                 : "Max membership tier reached"}
             </p>
           </div>

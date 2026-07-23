@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Gem, Hexagon, Star } from "lucide-react";
-import { MEMBERSHIP_TIERS } from "@/lib/membership-tiers";
+import { getMembershipTierByPoints, MEMBERSHIP_TIERS } from "@/lib/membership-tiers";
 
 function TierIcon({ tier, className = "h-6 w-6" }) {
   if (tier.icon === "gem") {
@@ -27,15 +27,26 @@ export default function LoyaltyLevels({
   title = "Loyalty Levels",
   initialTier = "Normal",
   currentTier = null,
+  points = null,
   showBenefits = true,
   showPointsHint = true,
   variant = "full",
   className = "",
 }) {
-  const defaultName = currentTier || initialTier || MEMBERSHIP_TIERS[0].name;
-  const [selectedTier, setSelectedTier] = useState(defaultName);
+  const resolvedCurrent =
+    currentTier ||
+    (points != null ? getMembershipTierByPoints(points).name : null) ||
+    initialTier ||
+    MEMBERSHIP_TIERS[0].name;
+
+  const [selectedTier, setSelectedTier] = useState(resolvedCurrent);
   const selected = MEMBERSHIP_TIERS.find((t) => t.name === selectedTier) || MEMBERSHIP_TIERS[0];
   const compact = variant === "compact";
+  const currentIndex = MEMBERSHIP_TIERS.findIndex((t) => t.name === resolvedCurrent);
+
+  useEffect(() => {
+    setSelectedTier(resolvedCurrent);
+  }, [resolvedCurrent]);
 
   return (
     <div className={`min-w-0 ${className}`}>
@@ -46,9 +57,10 @@ export default function LoyaltyLevels({
       ) : null}
 
       <div className="flex min-w-0 gap-2 overflow-x-auto pb-2 [scrollbar-width:thin] sm:gap-2 sm:justify-between">
-        {MEMBERSHIP_TIERS.map((tier) => {
+        {MEMBERSHIP_TIERS.map((tier, index) => {
           const active = selectedTier === tier.name;
-          const isCurrent = currentTier === tier.name;
+          const isCurrent = resolvedCurrent === tier.name;
+          const reached = index <= currentIndex;
           return (
             <button
               key={tier.name}
@@ -58,15 +70,18 @@ export default function LoyaltyLevels({
                 compact ? "w-12 sm:w-14" : "w-16 sm:w-auto sm:min-w-0 sm:flex-1"
               }`}
               aria-pressed={active}
+              aria-current={isCurrent ? "step" : undefined}
             >
               <span
-                className={`flex items-center justify-center rounded-full border-[3px] transition ${
+                className={`relative flex items-center justify-center rounded-full border-[3px] transition ${
                   compact ? "h-10 w-10 sm:h-12 sm:w-12" : "h-16 w-16"
-                } ${active ? "scale-105 ring-2 ring-white/25" : "opacity-85 hover:opacity-100"}`}
+                } ${active || isCurrent ? "scale-105 ring-2 ring-white/30" : ""} ${
+                  reached ? "opacity-100" : "opacity-45"
+                }`}
                 style={{
                   borderColor: tier.ring,
-                  backgroundColor: tier.filled ? tier.ring : "#FFFFFF",
-                  color: tier.filled ? "#FFFFFF" : tier.color,
+                  backgroundColor: isCurrent || tier.filled ? tier.ring : reached ? "#FFFFFF" : "#1A2236",
+                  color: isCurrent || tier.filled ? "#FFFFFF" : reached ? tier.color : "rgba(255,255,255,0.35)",
                 }}
               >
                 <TierIcon
@@ -76,11 +91,18 @@ export default function LoyaltyLevels({
               </span>
               <span
                 className={`font-semibold ${compact ? "text-[9px] sm:text-[10px]" : "text-xs"} ${
-                  active || isCurrent ? "text-white" : "text-white/55"
+                  isCurrent || active ? "text-white" : reached ? "text-white/75" : "text-white/40"
                 }`}
               >
                 {tier.name}
               </span>
+              {isCurrent ? (
+                <span className="rounded-full bg-theme-green-action/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-theme-green-action">
+                  Current
+                </span>
+              ) : (
+                <span className="h-4" aria-hidden />
+              )}
             </button>
           );
         })}
@@ -90,6 +112,9 @@ export default function LoyaltyLevels({
         <div key={selected.name} className="mt-5 min-w-0 rounded-2xl bg-white/[0.06] px-4 py-4 sm:px-5">
           <h3 className={`font-bold text-white ${compact ? "text-xs" : "text-sm sm:text-base"}`}>
             Benefits – {selected.name} Level
+            {selected.name === resolvedCurrent ? (
+              <span className="ml-2 text-xs font-semibold text-theme-green-action">(Your tier)</span>
+            ) : null}
           </h3>
           <ul className="mt-3 space-y-2.5">
             {selected.benefits.map((item) => (
