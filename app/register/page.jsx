@@ -70,7 +70,8 @@ export default function RegisterPage() {
       country: country.name,
     };
     localStorage.setItem("itrustld_user", JSON.stringify(sessionUser));
-    router.push("/dashboard");
+    localStorage.removeItem("itrustld_verification");
+    router.push("/verify");
   }
 
   return (
