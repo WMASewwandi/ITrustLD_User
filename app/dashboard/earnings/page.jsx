@@ -177,14 +177,33 @@ function ClaimList({ items, emptyLabel, columns, onView }) {
 }
 
 function ClaimDetailModal({ open, title, onClose, onClaim, children }) {
+  const [platformId, setPlatformId] = useState("");
+  const [error, setError] = useState("");
+
   useEffect(() => {
     if (!open) return undefined;
+    setPlatformId("");
+    setError("");
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
   }, [open]);
+
+  function handleClaim() {
+    const value = platformId.trim();
+    if (!value) {
+      setError("Platform ID is required to claim.");
+      return;
+    }
+    if (!/^\d{7,9}$/.test(value)) {
+      setError("Platform ID must be 7–9 digits.");
+      return;
+    }
+    setError("");
+    onClaim?.(value);
+  }
 
   if (!open) return null;
 
@@ -209,6 +228,26 @@ function ClaimDetailModal({ open, title, onClose, onClaim, children }) {
           </button>
         </div>
         <div className="mt-4">{children}</div>
+
+        <div className="mt-5">
+          <label className="mb-1.5 block text-xs font-medium text-white/55">
+            Platform ID <span className="text-theme-red-action">*</span>
+          </label>
+          <input
+            type="text"
+            inputMode="numeric"
+            value={platformId}
+            onChange={(e) => {
+              setPlatformId(e.target.value.replace(/\D/g, "").slice(0, 9));
+              setError("");
+            }}
+            placeholder="Enter Platform ID (7–9 digits)"
+            className="w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35 focus:border-theme-green-action/50"
+          />
+          {error ? <p className="mt-2 text-sm text-theme-red-action">{error}</p> : null}
+          <p className="mt-2 text-xs text-white/40">Enter your Platform ID before claiming.</p>
+        </div>
+
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <button
             type="button"
@@ -219,7 +258,7 @@ function ClaimDetailModal({ open, title, onClose, onClaim, children }) {
           </button>
           <button
             type="button"
-            onClick={onClaim}
+            onClick={handleClaim}
             className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
           >
             <Check className="h-4 w-4" />
@@ -289,17 +328,17 @@ export default function MyEarningsPage() {
     });
   }, [claimsState.history, historyFilter]);
 
-  function handleClaimVoucher(id) {
-    setClaimsState((prev) => claimVoucherById(prev, id));
+  function handleClaimVoucher(id, platformId) {
+    setClaimsState((prev) => claimVoucherById(prev, id, platformId));
     setViewVoucher(null);
-    setClaimMsg("Voucher claimed successfully.");
+    setClaimMsg(`Voucher claimed successfully for Platform ID ${platformId}.`);
     setTimeout(() => setClaimMsg(""), 2500);
   }
 
-  function handleClaimBonus(id) {
-    setClaimsState((prev) => claimBonusById(prev, id));
+  function handleClaimBonus(id, platformId) {
+    setClaimsState((prev) => claimBonusById(prev, id, platformId));
     setViewBonus(null);
-    setClaimMsg("Bonus claimed successfully.");
+    setClaimMsg(`Bonus claimed successfully for Platform ID ${platformId}.`);
     setTimeout(() => setClaimMsg(""), 2500);
   }
 
@@ -568,7 +607,7 @@ export default function MyEarningsPage() {
           open={Boolean(viewVoucher)}
           title="Claim Voucher"
           onClose={() => setViewVoucher(null)}
-          onClaim={() => viewVoucher && handleClaimVoucher(viewVoucher.id)}
+          onClaim={(platformId) => viewVoucher && handleClaimVoucher(viewVoucher.id, platformId)}
         >
           {viewVoucher ? (
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -604,7 +643,7 @@ export default function MyEarningsPage() {
           open={Boolean(viewBonus)}
           title="Claim Bonus"
           onClose={() => setViewBonus(null)}
-          onClaim={() => viewBonus && handleClaimBonus(viewBonus.id)}
+          onClaim={(platformId) => viewBonus && handleClaimBonus(viewBonus.id, platformId)}
         >
           {viewBonus ? (
             <div>
@@ -656,6 +695,7 @@ export default function MyEarningsPage() {
               columns={[
                 { key: "type", label: "Type" },
                 { key: "ref", label: "Reference" },
+                { key: "platformId", label: "Platform ID" },
                 { key: "amount", label: "Amount" },
                 { key: "claimedAt", label: "Claimed At" },
                 { key: "status", label: "Status" },
