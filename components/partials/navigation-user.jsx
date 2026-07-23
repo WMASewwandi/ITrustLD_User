@@ -6,7 +6,11 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
-import { getMembershipTierByPoints } from "@/lib/membership-tiers";
+import {
+  CLAIMS_UPDATED_EVENT,
+  getReadyClaimsCount,
+} from "@/lib/earnings";
+import { DEMO_TRUST_POINTS, getMembershipTierByPoints } from "@/lib/membership-tiers";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -20,6 +24,7 @@ import {
   Receipt,
   Trophy,
   User,
+  Wallet,
   X,
 } from "lucide-react";
 
@@ -32,6 +37,7 @@ const NAV_LINKS = [
   { href: "/dashboard/deposit", label: "Top-up", icon: ArrowDownToLine },
   { href: "/dashboard/withdrawal", label: "Cash-out", icon: ArrowUpFromLine },
   { href: "/dashboard/loyalty", label: "Loyalty", icon: Trophy },
+  { href: "/dashboard/earnings", label: "My Earnings", icon: Wallet },
   { href: "/dashboard/documents", label: "Documents", icon: FileCheck2 },
 ];
 
@@ -44,6 +50,7 @@ const MOBILE_BOTTOM_NAV = [
 
 const MOBILE_MORE_LINKS = [
   { href: "/dashboard/loyalty", label: "Loyalty", icon: Trophy },
+  { href: "/dashboard/earnings", label: "My Earnings", icon: Wallet },
   { href: "/dashboard/documents", label: "Documents", icon: FileCheck2 },
   { href: "/dashboard/profile", label: "Profile", icon: User },
   { href: "/dashboard/help", label: "Support", icon: Headphones },
@@ -61,26 +68,32 @@ const DEMO_NOTIFICATIONS = [
   { id: 3, title: "Loyalty tip", body: "Earn double Trust Points this week.", time: "2d ago" },
 ];
 
-const LOYALTY_POINTS_NUM = 128450;
+const LOYALTY_POINTS_NUM = DEMO_TRUST_POINTS;
 const LOYALTY_POINTS = LOYALTY_POINTS_NUM.toLocaleString();
 const LOYALTY_TIER = getMembershipTierByPoints(LOYALTY_POINTS_NUM).name;
 const WALLET_ACCOUNT_ID = "67104269";
 
-function NavIconLink({ href, label, icon: Icon, active, onNavigate }) {
+function NavIconLink({ href, label, icon: Icon, active, onNavigate, badgeCount = 0 }) {
+  const badge = Number(badgeCount) || 0;
   return (
     <Link
       href={href}
       onClick={onNavigate}
       className="group relative flex h-11 w-11 items-center justify-center rounded-xl transition"
-      aria-label={label}
+      aria-label={badge > 0 ? `${label}, ${badge} pending claims` : label}
     >
       <Icon
         className={`h-5 w-5 transition ${
           active ? "text-theme-green-action" : "text-white/55 group-hover:text-white"
         }`}
       />
+      {badge > 0 ? (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-theme-red-action px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[#060C1F]">
+          {badge > 99 ? "99+" : badge}
+        </span>
+      ) : null}
       <span className="pointer-events-none absolute left-full z-50 ml-3 whitespace-nowrap rounded-lg bg-white px-2.5 py-1.5 text-xs font-semibold text-[#0B1020] opacity-0 shadow-lg transition group-hover:opacity-100">
-        {label}
+        {badge > 0 ? `${label} (${badge})` : label}
       </span>
       {active ? (
         <span className="absolute left-0 h-5 w-0.5 rounded-full bg-theme-green-action" aria-hidden />
@@ -139,9 +152,25 @@ export default function NavigationUser() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [panel, setPanel] = useState(null);
   const [userName, setUserName] = useState("User");
+  const [claimsCount, setClaimsCount] = useState(0);
 
   useEffect(() => setMounted(true), []);
   const [accountId, setAccountId] = useState(WALLET_ACCOUNT_ID);
+
+  useEffect(() => {
+    function refreshClaimsCount() {
+      setClaimsCount(getReadyClaimsCount());
+    }
+    refreshClaimsCount();
+    window.addEventListener(CLAIMS_UPDATED_EVENT, refreshClaimsCount);
+    window.addEventListener("storage", refreshClaimsCount);
+    window.addEventListener("focus", refreshClaimsCount);
+    return () => {
+      window.removeEventListener(CLAIMS_UPDATED_EVENT, refreshClaimsCount);
+      window.removeEventListener("storage", refreshClaimsCount);
+      window.removeEventListener("focus", refreshClaimsCount);
+    };
+  }, [pathname]);
 
   const moreActive = MOBILE_MORE_LINKS.some((item) =>
     item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
@@ -254,6 +283,7 @@ export default function NavigationUser() {
               label={item.label}
               icon={item.icon}
               active={isActive(item.href)}
+              badgeCount={item.href === "/dashboard/earnings" ? claimsCount : 0}
             />
           ))}
         </nav>
@@ -340,18 +370,26 @@ export default function NavigationUser() {
                     <div className="grid grid-cols-2 gap-2">
                       {MOBILE_MORE_LINKS.map(({ href, label, icon: Icon }) => {
                         const active = isActive(href);
+                        const badge = href === "/dashboard/earnings" ? claimsCount : 0;
                         return (
                           <Link
                             key={href}
                             href={href}
                             onClick={() => setMoreOpen(false)}
-                            className={`flex items-center gap-2.5 rounded-xl border px-3 py-3 text-sm font-medium transition ${
+                            className={`relative flex items-center gap-2.5 rounded-xl border px-3 py-3 text-sm font-medium transition ${
                               active
                                 ? "border-theme-green-action/40 bg-theme-green-action/10 text-theme-green-action"
                                 : "border-white/15 text-white hover:bg-white/5"
                             }`}
                           >
-                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="relative shrink-0">
+                              <Icon className="h-4 w-4" />
+                              {badge > 0 ? (
+                                <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-theme-red-action px-1 text-[10px] font-bold leading-none text-white">
+                                  {badge > 99 ? "99+" : badge}
+                                </span>
+                              ) : null}
+                            </span>
                             {label}
                           </Link>
                         );
@@ -384,6 +422,7 @@ export default function NavigationUser() {
               variant="compact"
               currentTier={LOYALTY_TIER}
               initialTier={LOYALTY_TIER}
+              points={LOYALTY_POINTS_NUM}
               showBenefits
               showPointsHint
             />

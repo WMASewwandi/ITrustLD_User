@@ -1,20 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import BottomMessage from "@/components/dashboard/bottom-message";
+import ListFilters from "@/components/dashboard/list-filters";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import PartnerLoyaltyPanel from "@/components/dashboard/partner-loyalty-panel";
+import { inDateRange, rowMatchesSearch } from "@/lib/filter-utils";
 import { getPartnerTiers } from "@/lib/loyalty";
-import { getMembershipProgress } from "@/lib/membership-tiers";
+import { DEMO_TRUST_POINTS, getMembershipProgress } from "@/lib/membership-tiers";
 import { Medal, Star, Trophy } from "lucide-react";
+
+const HISTORY_FILTER_DEFAULTS = {
+  search: "",
+  status: "All Statuses",
+  from: "",
+  to: "",
+};
 
 const AVAILABLE = 811;
 const TOTAL_EARNED = 812;
 const USD_VALUE = (TOTAL_EARNED / 1000).toFixed(2);
-const TRUST_POINTS = 128450;
-const { current: CURRENT_TIER, progressPct: LEVEL_PROGRESS } = getMembershipProgress(TRUST_POINTS);
+const TRUST_POINTS = DEMO_TRUST_POINTS;
+const {
+  current: CURRENT_TIER,
+  next: NEXT_TIER,
+  remaining: POINTS_TO_NEXT,
+  progressPct: LEVEL_PROGRESS,
+} = getMembershipProgress(TRUST_POINTS);
 const CURRENT_LEVEL = `${CURRENT_TIER.name} Level`;
 
 const ACCOUNTS = [
@@ -44,6 +58,18 @@ export default function LoyaltyPage() {
   const [partnerTier, setPartnerTier] = useState("Normal");
   const [partnerPoints, setPartnerPoints] = useState(0);
   const [partnerTiers, setPartnerTiers] = useState([]);
+  const [historyFilter, setHistoryFilter] = useState(HISTORY_FILTER_DEFAULTS);
+
+  const filteredHistory = useMemo(() => {
+    return POINT_HISTORY.filter((row) => {
+      if (!rowMatchesSearch(row, historyFilter.search, ["id", "points", "amount", "date", "status"])) {
+        return false;
+      }
+      if (historyFilter.status !== "All Statuses" && row.status !== historyFilter.status) return false;
+      if (!inDateRange(row.date, historyFilter.from, historyFilter.to)) return false;
+      return true;
+    });
+  }, [historyFilter]);
 
   useEffect(() => {
     try {
@@ -207,11 +233,18 @@ export default function LoyaltyPage() {
               <LoyaltyLevels
                 currentTier={CURRENT_TIER.name}
                 initialTier={CURRENT_TIER.name}
+                points={TRUST_POINTS}
               />
             </section>
           </div>
 
           <aside className="min-w-0 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-6 text-center shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-8">
+            <div className="mb-4 flex items-center justify-center gap-2">
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-black">
+                {CURRENT_TIER.name}
+              </span>
+              <span className="text-xs text-white/45">{TRUST_POINTS.toLocaleString()} pts</span>
+            </div>
             <div className="relative mx-auto h-48 w-48">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-hidden>
                 <circle cx="90" cy="90" r={radius} fill="none" stroke="rgba(13,159,27,0.25)" strokeWidth="14" />
@@ -234,7 +267,11 @@ export default function LoyaltyPage() {
               </div>
             </div>
             <p className="mt-4 text-base font-semibold text-theme-green-shaded">{CURRENT_LEVEL}</p>
-            <p className="mt-2 text-sm text-white/45">Progress based on activity & engagement</p>
+            <p className="mt-2 text-sm text-white/45">
+              {NEXT_TIER
+                ? `${POINTS_TO_NEXT.toLocaleString()} pts to ${NEXT_TIER.name}`
+                : "Max membership tier reached"}
+            </p>
             <button
               type="button"
               onClick={openWithdraw}
@@ -391,31 +428,60 @@ export default function LoyaltyPage() {
               </aside>
             </div>
           ) : (
-            <div className="mt-8 space-y-3">
-              {POINT_HISTORY.map((row) => (
-                <article
-                  key={row.id}
-                  className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-white">Loyalty Cash-out - {row.id}</p>
-                    <p className="mt-1 text-sm text-white/50">{row.points} points</p>
+            <div className="mt-8">
+              <ListFilters
+                search={historyFilter.search}
+                onSearchChange={(v) => setHistoryFilter((p) => ({ ...p, search: v }))}
+                searchPlaceholder="Search ID, points, amount…"
+                filters={[
+                  {
+                    key: "status",
+                    label: "Status",
+                    options: ["All Statuses", "Completed", "Pending", "Rejected"],
+                  },
+                ]}
+                values={historyFilter}
+                onFilterChange={(key, value) => setHistoryFilter((p) => ({ ...p, [key]: value }))}
+                showDates
+                from={historyFilter.from}
+                to={historyFilter.to}
+                onFromChange={(v) => setHistoryFilter((p) => ({ ...p, from: v }))}
+                onToChange={(v) => setHistoryFilter((p) => ({ ...p, to: v }))}
+                onReset={() => setHistoryFilter(HISTORY_FILTER_DEFAULTS)}
+                resultCount={filteredHistory.length}
+              />
+              <div className="space-y-3">
+                {filteredHistory.length === 0 ? (
+                  <div className="rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-10">
+                    <p className="text-sm font-medium text-white/80">No cash-out history found.</p>
                   </div>
-                  <div className="text-left sm:text-right">
-                    <span
-                      className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold ${
-                        row.status === "Completed"
-                          ? "bg-theme-green-action text-white"
-                          : "bg-theme-orange text-white"
-                      }`}
+                ) : (
+                  filteredHistory.map((row) => (
+                    <article
+                      key={row.id}
+                      className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
                     >
-                      {row.status}
-                    </span>
-                    <p className="mt-2 text-sm text-white/45">{row.date}</p>
-                    <p className="text-lg font-bold text-white">{row.amount}</p>
-                  </div>
-                </article>
-              ))}
+                      <div>
+                        <p className="text-sm font-medium text-white">Loyalty Cash-out - {row.id}</p>
+                        <p className="mt-1 text-sm text-white/50">{row.points} points</p>
+                      </div>
+                      <div className="text-left sm:text-right">
+                        <span
+                          className={`inline-flex rounded-md px-2.5 py-1 text-[11px] font-semibold ${
+                            row.status === "Completed"
+                              ? "bg-theme-green-action text-white"
+                              : "bg-theme-orange text-white"
+                          }`}
+                        >
+                          {row.status}
+                        </span>
+                        <p className="mt-2 text-sm text-white/45">{row.date}</p>
+                        <p className="text-lg font-bold text-white">{row.amount}</p>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>
