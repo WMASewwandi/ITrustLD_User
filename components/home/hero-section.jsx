@@ -1,18 +1,7 @@
 import Link from "next/link";
+import { fetchCommunityStats, formatCompactCount } from "@/lib/community-stats";
 
-const stats = [
-  {
-    label: "Members",
-    value: "82K+",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="9" cy="8" r="3" />
-        <circle cx="16.5" cy="9" r="2.2" />
-        <path d="M3.5 18.5C4.2 15.8 6.3 14.2 9 14.2C11.7 14.2 13.8 15.8 14.5 18.5" />
-        <path d="M14.2 18.5C14.7 16.6 16.2 15.5 18.2 15.5C19.7 15.5 20.9 16.3 21.5 17.6" />
-      </svg>
-    )
-  },
+const STATIC_STATS = [
   {
     label: "Deposits",
     value: "2.4M",
@@ -22,7 +11,7 @@ const stats = [
         <path d="M4 10H20" />
         <circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none" />
       </svg>
-    )
+    ),
   },
   {
     label: "Withdrawals",
@@ -34,7 +23,7 @@ const stats = [
         <path d="M17 15.5H6.5" />
         <path d="M9.5 12.5L6.5 15.5L9.5 18.5" />
       </svg>
-    )
+    ),
   },
   {
     label: "Support",
@@ -46,9 +35,18 @@ const stats = [
         <path d="M19 12H17.5C16.7 12 16 12.7 16 13.5V16.5C16 17.3 16.7 18 17.5 18H19V12Z" />
         <path d="M19 16.5V17.5C19 19.4 17.4 21 15.5 21H13" />
       </svg>
-    )
-  }
+    ),
+  },
 ];
+
+const membersIcon = (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="8" r="3" />
+    <circle cx="16.5" cy="9" r="2.2" />
+    <path d="M3.5 18.5C4.2 15.8 6.3 14.2 9 14.2C11.7 14.2 13.8 15.8 14.5 18.5" />
+    <path d="M14.2 18.5C14.7 16.6 16.2 15.5 18.2 15.5C19.7 15.5 20.9 16.3 21.5 17.6" />
+  </svg>
+);
 
 function Sparkline({ className = "" }) {
   return (
@@ -73,7 +71,17 @@ function ArrowIcon({ className = "h-4 w-4" }) {
   );
 }
 
-export default function HeroSection() {
+export default async function HeroSection() {
+  const communityStats = await fetchCommunityStats();
+  const stats = [
+    {
+      label: "Members",
+      value: formatCompactCount(communityStats.displayedCount),
+      icon: membersIcon,
+    },
+    ...STATIC_STATS,
+  ];
+
   return (
     <section id="home-hero" className="relative isolate overflow-hidden">
       <div
