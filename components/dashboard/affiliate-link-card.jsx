@@ -16,6 +16,14 @@ export default function AffiliateLinkCard({
     try {
       const raw = localStorage.getItem("itrustld_user");
       const user = raw ? JSON.parse(raw) : null;
+      const affiliateCode =
+        user?.account_holder?.affiliate_code ||
+        user?.affiliate_code ||
+        null;
+      if (affiliateCode) {
+        setLink(getAffiliateLink(affiliateCode));
+        return;
+      }
       const codeSeed = seed || user?.accountId || user?.email || "itrustld";
       const code = getOrCreateAffiliateCode(codeSeed);
       setLink(getAffiliateLink(code));

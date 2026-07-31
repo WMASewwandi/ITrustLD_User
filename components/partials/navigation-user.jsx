@@ -11,7 +11,11 @@ import {
   getReadyClaimsCount,
 } from "@/lib/earnings";
 import { getUserSession, logoutUser } from "@/lib/auth";
-import { DEMO_TRUST_POINTS, getMembershipTierByPoints } from "@/lib/membership-tiers";
+import {
+  DASHBOARD_UPDATED_EVENT,
+  deriveNotificationsFromUser,
+} from "@/lib/dashboard";
+import { getMembershipTierByPoints } from "@/lib/membership-tiers";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -63,17 +67,6 @@ const LOYALTY_OPTIONS = [
   { href: "/dashboard/help", label: "Loyalty Help", icon: Headphones },
 ];
 
-const DEMO_NOTIFICATIONS = [
-  { id: 1, title: "Top-up pending", body: "Your top-up request is being reviewed.", time: "2h ago" },
-  { id: 2, title: "Document update", body: "National ID (Back) is In-Progress.", time: "1d ago" },
-  { id: 3, title: "Loyalty tip", body: "Earn double Trust Points this week.", time: "2d ago" },
-];
-
-const LOYALTY_POINTS_NUM = DEMO_TRUST_POINTS;
-const LOYALTY_POINTS = LOYALTY_POINTS_NUM.toLocaleString();
-const LOYALTY_TIER = getMembershipTierByPoints(LOYALTY_POINTS_NUM).name;
-const WALLET_ACCOUNT_ID = "67104269";
-
 function NavIconLink({ href, label, icon: Icon, active, onNavigate, badgeCount = 0 }) {
   const badge = Number(badgeCount) || 0;
   return (
@@ -111,14 +104,13 @@ function PanelShell({ title, onClose, children }) {
     <>
       <button
         type="button"
-        className="fixed inset-0 z-[70]"
-        style={{ backgroundColor: NAV_SOLID }}
+        className="fixed inset-0 z-[70] bg-black/45 backdrop-blur-[2px]"
         aria-label="Close panel"
         onClick={onClose}
       />
       <aside
         data-lenis-prevent
-        className="fixed inset-0 z-[80] flex w-full flex-col lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[380px] lg:border-l lg:border-white/10"
+        className="fixed inset-y-0 right-0 z-[80] flex w-full max-w-[380px] flex-col border-l border-white/10 shadow-2xl"
         style={{ backgroundColor: NAV_SOLID }}
         role="dialog"
         aria-modal="true"
@@ -154,9 +146,27 @@ export default function NavigationUser() {
   const [panel, setPanel] = useState(null);
   const [userName, setUserName] = useState("User");
   const [claimsCount, setClaimsCount] = useState(0);
+  const [accountId, setAccountId] = useState("");
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+
+  function syncFromSession() {
+    try {
+      const parsed = getUserSession();
+      if (parsed?.name) setUserName(parsed.name);
+      if (parsed?.accountId) setAccountId(String(parsed.accountId));
+      else if (parsed?.account_holder?.account_number) {
+        setAccountId(String(parsed.account_holder.account_number));
+      }
+      const points = Number(parsed?.trust_points) || 0;
+      setLoyaltyPoints(points);
+      setNotifications(deriveNotificationsFromUser(parsed));
+    } catch {
+      // ignore
+    }
+  }
 
   useEffect(() => setMounted(true), []);
-  const [accountId, setAccountId] = useState(WALLET_ACCOUNT_ID);
 
   useEffect(() => {
     function refreshClaimsCount() {
@@ -178,17 +188,24 @@ export default function NavigationUser() {
   );
 
   useEffect(() => {
-    try {
-      const parsed = getUserSession();
-      if (parsed?.name) setUserName(parsed.name);
-      if (parsed?.accountId) setAccountId(String(parsed.accountId));
-      else if (parsed?.account_holder?.account_number) {
-        setAccountId(String(parsed.account_holder.account_number));
+    syncFromSession();
+    function onDashboardUpdated(event) {
+      const detail = event?.detail;
+      if (detail?.notifications) {
+        setNotifications(detail.notifications);
       }
-    } catch {
-      // ignore
+      if (detail?.user) {
+        if (detail.user.name) setUserName(detail.user.name);
+        setLoyaltyPoints(Number(detail.user.trust_points) || 0);
+        if (detail.user.accountId) setAccountId(String(detail.user.accountId));
+      }
     }
+    window.addEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
+    return () => window.removeEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
   }, []);
+
+  const loyaltyTier = getMembershipTierByPoints(loyaltyPoints).name;
+  const loyaltyPointsLabel = loyaltyPoints.toLocaleString();
 
   useEffect(() => {
     setMoreOpen(false);
@@ -411,19 +428,21 @@ export default function NavigationUser() {
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-white">Trust Points</p>
               <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold text-black">
-                {LOYALTY_TIER}
+                {loyaltyTier}
               </span>
             </div>
-            <p className="mt-3 text-2xl font-bold tracking-tight text-white">{LOYALTY_POINTS}</p>
-            <p className="mt-1 text-sm text-white/45">Account #{accountId}</p>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-white">{loyaltyPointsLabel}</p>
+            <p className="mt-1 text-sm text-white/45">
+              {accountId ? `Account #${accountId}` : "Account"}
+            </p>
           </div>
 
           <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-3 py-4">
             <LoyaltyLevels
               variant="compact"
-              currentTier={LOYALTY_TIER}
-              initialTier={LOYALTY_TIER}
-              points={LOYALTY_POINTS_NUM}
+              currentTier={loyaltyTier}
+              initialTier={loyaltyTier}
+              points={loyaltyPoints}
               showBenefits
               showPointsHint
             />
@@ -453,15 +472,21 @@ export default function NavigationUser() {
       {panel === "notifications" ? (
         <PanelShell title="Notifications" onClose={() => setPanel(null)}>
           <div className="space-y-3">
-            {DEMO_NOTIFICATIONS.map((item) => (
-              <div key={item.id} className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-white">{item.title}</p>
-                  <span className="shrink-0 text-[11px] text-white/40">{item.time}</span>
+            {notifications.length === 0 ? (
+              <p className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-6 text-center text-sm text-white/50">
+                No notifications right now.
+              </p>
+            ) : (
+              notifications.map((item) => (
+                <div key={item.id} className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">{item.title}</p>
+                    <span className="shrink-0 text-[11px] text-white/40">{item.time}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-white/55">{item.body}</p>
                 </div>
-                <p className="mt-1 text-sm text-white/55">{item.body}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </PanelShell>
       ) : null}
@@ -475,7 +500,7 @@ export default function NavigationUser() {
               </span>
               <div>
                 <p className="font-semibold text-white">{userName}</p>
-                <p className="text-sm text-white/45">#{accountId}</p>
+                <p className="text-sm text-white/45">{accountId ? `#${accountId}` : "—"}</p>
               </div>
             </div>
           </div>
