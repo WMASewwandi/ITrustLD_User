@@ -4,7 +4,9 @@ import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
-import { checkEmailAvailable, registerUser, setUserSession } from "@/lib/auth";
+import TurnstileWidget from "@/components/auth/turnstile-widget";
+import PasswordInput from "@/components/ui/password-input";
+import { checkEmailAvailable, checkMobileAvailable, registerUser, setUserSession } from "@/lib/auth";
 import {
   COUNTRIES,
   isOldEnough,
@@ -39,6 +41,10 @@ function RegisterForm() {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileRequired, setTurnstileRequired] = useState(
+    Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+  );
 
   const filteredCountries = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -82,6 +88,9 @@ function RegisterForm() {
     if (!form.terms.checked) {
       next.terms = "You must accept the Terms and Conditions.";
     }
+    if (turnstileRequired && !turnstileToken) {
+      next.turnstile = "Please complete the security check.";
+    }
 
     setErrors(next);
     if (Object.keys(next).length) return;
@@ -96,6 +105,13 @@ function RegisterForm() {
         return;
       }
 
+      const mobile = `${country.code}${phone}`;
+      const mobileCheck = await checkMobileAvailable(mobile);
+      if (mobileCheck.exists) {
+        setErrors({ phone: "This mobile number is already registered." });
+        return;
+      }
+
       const result = await registerUser({
         first_name: first,
         last_name: last,
@@ -103,7 +119,7 @@ function RegisterForm() {
         password,
         password_confirmation: passwordConfirmation,
         language,
-        mobile_number: `${country.code}${phone}`,
+        mobile_number: mobile,
         date_of_birth: dob,
         address_number: addressNumber,
         street,
@@ -112,6 +128,7 @@ function RegisterForm() {
         zip_code: zipCode,
         is_affiliated: Boolean(affiliateCode),
         affiliate_code: affiliateCode || undefined,
+        cf_turnstile_response: turnstileToken || undefined,
       });
 
       setUserSession({ token: result.token, user: result.user });
@@ -302,24 +319,24 @@ function RegisterForm() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Password *</label>
-                  <input
+                  <PasswordInput
                     name="password"
-                    type="password"
-                    className={fieldClass}
                     placeholder="Enter password"
                     autoComplete="new-password"
+                    className={fieldClass}
+                    toggleClassName="text-theme-gray hover:text-theme-blue-dark"
                     required
                   />
                   {errors.password ? <p className="mt-1 text-xs text-theme-red-action">{errors.password}</p> : null}
                 </div>
                 <div>
                   <label className={labelClass}>Confirm Password *</label>
-                  <input
+                  <PasswordInput
                     name="passwordConfirmation"
-                    type="password"
-                    className={fieldClass}
                     placeholder="Re-enter password"
                     autoComplete="new-password"
+                    className={fieldClass}
+                    toggleClassName="text-theme-gray hover:text-theme-blue-dark"
                     required
                   />
                   {errors.passwordConfirmation ? (
@@ -338,6 +355,15 @@ function RegisterForm() {
                 I accept Terms and Conditions
               </label>
               {errors.terms ? <p className="text-xs text-theme-red-action">{errors.terms}</p> : null}
+
+              <TurnstileWidget
+                onReady={() => setTurnstileRequired(true)}
+                onToken={(token) => {
+                  setTurnstileToken(token);
+                }}
+                onExpire={() => setTurnstileToken("")}
+              />
+              {errors.turnstile ? <p className="text-xs text-theme-red-action">{errors.turnstile}</p> : null}
 
               <button
                 type="submit"

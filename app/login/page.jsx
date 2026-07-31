@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
+import PasswordInput from "@/components/ui/password-input";
 import { loginUser, setUserSession } from "@/lib/auth";
 import { isValidEmail } from "@/lib/validation";
 
@@ -92,13 +93,13 @@ function LoginForm() {
               <label htmlFor="password" className={labelClass}>
                 Password
               </label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 placeholder="Enter your password"
                 className={fieldClass}
+                toggleClassName="text-white/40 hover:text-white/70"
                 required
               />
             </div>
