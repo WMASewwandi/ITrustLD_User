@@ -10,6 +10,7 @@ import {
   CLAIMS_UPDATED_EVENT,
   getReadyClaimsCount,
 } from "@/lib/earnings";
+import { getUserSession, logoutUser } from "@/lib/auth";
 import { DEMO_TRUST_POINTS, getMembershipTierByPoints } from "@/lib/membership-tiers";
 import {
   ArrowDownToLine,
@@ -178,11 +179,11 @@ export default function NavigationUser() {
 
   useEffect(() => {
     try {
-      const raw = localStorage.getItem("itrustld_user");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.name) setUserName(parsed.name);
-        if (parsed?.accountId) setAccountId(String(parsed.accountId));
+      const parsed = getUserSession();
+      if (parsed?.name) setUserName(parsed.name);
+      if (parsed?.accountId) setAccountId(String(parsed.accountId));
+      else if (parsed?.account_holder?.account_number) {
+        setAccountId(String(parsed.account_holder.account_number));
       }
     } catch {
       // ignore
@@ -203,9 +204,9 @@ export default function NavigationUser() {
     };
   }, [panel, moreOpen]);
 
-  function handleLogout() {
-    localStorage.removeItem("itrustld_user");
-    router.push("/");
+  async function handleLogout() {
+    await logoutUser();
+    router.push("/login");
   }
 
   function isActive(href) {

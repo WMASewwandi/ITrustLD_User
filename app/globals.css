@@ -12,6 +12,28 @@ body {
   @apply font-poppins bg-white text-theme-black;
 }
 
+/* Lenis smooth scroll (replaces lenis/dist/lenis.css import) */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
+}
+
 .container-shell {
   @apply mx-auto w-full max-w-[1280px] px-4 sm:px-6 lg:px-8;
 }

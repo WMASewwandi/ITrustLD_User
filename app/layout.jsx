@@ -3,7 +3,6 @@ import { Poppins } from "next/font/google";
 import ThemeHead from "@/components/layouts/theme-head";
 import AlpineInit from "@/components/alpine-init";
 import SmoothScroll from "@/components/smooth-scroll";
-import "lenis/dist/lenis.css";
 
 const poppins = Poppins({
   subsets: ["latin"],

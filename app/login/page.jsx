@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
-import { resolveSessionUser } from "@/lib/accounts";
+import { loginUser, setUserSession } from "@/lib/auth";
 import { isValidEmail } from "@/lib/validation";
 
 const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45";
@@ -12,29 +12,47 @@ const fieldClass =
   "w-full rounded-xl border border-white/20 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none ring-0 transition placeholder:text-white/30 focus:border-theme-green-action/50";
 
 export default function LoginPage() {
-  const router = useRouter();
-  const [error, setError] = useState("");
+  return (
+    <Suspense fallback={<div className="admin-canvas-dark flex min-h-dvh items-center justify-center text-white/50">Loading…</div>}>
+      <LoginForm />
+    </Suspense>
+  );
+}
 
-  function handleSignIn(e) {
+function LoginForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSignIn(e) {
     e.preventDefault();
     const form = e.currentTarget;
     const email = form.email?.value?.trim() || "";
+    const password = form.password?.value || "";
+
     if (!isValidEmail(email)) {
       setError("Enter a valid email with @ and a domain. Spaces are not allowed.");
       return;
     }
-    if (email.toLowerCase() === "unknown@email.com") {
-      setError("This email address is not registered in the system.");
+    if (!password) {
+      setError("Password is required.");
       return;
     }
+
     setError("");
-    const name = email.split("@")[0] || "User";
-    const sessionUser = resolveSessionUser({
-      email,
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-    });
-    localStorage.setItem("itrustld_user", JSON.stringify(sessionUser));
-    router.push("/dashboard");
+    setLoading(true);
+
+    try {
+      const result = await loginUser(email, password);
+      setUserSession({ token: result.token, user: result.user });
+      const redirectTo = searchParams.get("redirect") || result.redirect_to || "/dashboard";
+      router.push(redirectTo);
+    } catch (err) {
+      setError(err.message || "Sign in failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -48,6 +66,12 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-white/55">Sign in to continue to your secure iTrustLD dashboard.</p>
 
           <form className="mt-8 space-y-5" onSubmit={handleSignIn} noValidate>
+            {error ? (
+              <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
+                {error}
+              </p>
+            ) : null}
+
             <div>
               <label htmlFor="email" className={labelClass}>
                 Email Address
@@ -57,12 +81,11 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 autoComplete="email"
-                defaultValue="partner@itrustld.com"
-                placeholder="partner@itrustld.com"
+                placeholder="you@email.com"
                 onChange={() => setError("")}
                 className={fieldClass}
+                required
               />
-              {error ? <p className="mt-1 text-xs text-theme-red-action">{error}</p> : null}
             </div>
 
             <div>
@@ -74,8 +97,9 @@ export default function LoginPage() {
                 name="password"
                 type="password"
                 autoComplete="current-password"
-                defaultValue="........"
+                placeholder="Enter your password"
                 className={fieldClass}
+                required
               />
             </div>
 
@@ -83,8 +107,8 @@ export default function LoginPage() {
               <label className="inline-flex items-center gap-2 text-xs text-white/55">
                 <input
                   type="checkbox"
+                  name="remember"
                   className="h-4 w-4 rounded border-white/30 bg-transparent text-theme-green-action"
-                  defaultChecked
                 />
                 Remember me
               </label>
@@ -98,9 +122,10 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              className="mt-1 w-full rounded-xl bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:brightness-110"
+              disabled={loading}
+              className="mt-1 w-full rounded-xl bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              Sign In
+              {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
 
