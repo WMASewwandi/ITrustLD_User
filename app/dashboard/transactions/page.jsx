@@ -1,101 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import BottomMessage from "@/components/dashboard/bottom-message";
+import {
+  criteriaToFilterTemplate,
+  downloadDepositTransactionsExport,
+  fetchDepositTransactions,
+} from "@/lib/deposits";
+import { hasUserSession } from "@/lib/auth";
 import { matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils";
-import { ChevronDown, Download, Printer, Search } from "lucide-react";
+import { ChevronDown, Download, Loader2, Printer, Search } from "lucide-react";
 
-const ALL_TX = [
-  {
-    id: "164210352100",
-    type: "Top-up",
-    method: "USDT",
-    amount: "USD 100.00",
-    fee: "USD 0.00",
-    netAmount: "USD 100.00",
-    currency: "USD",
-    date: "2026-04-30",
-    time: "14:22:08",
-    status: "Completed",
-    account: "TRC20 Wallet",
-    reference: "USDT-TRC20-88421",
-    note: "Crypto top-up confirmed on-chain.",
-  },
-  {
-    id: "100245",
-    type: "Top-up",
-    method: "Bank Transfer",
-    amount: "USD 100.00",
-    fee: "USD 1.50",
-    netAmount: "USD 98.50",
-    currency: "USD",
-    date: "2025-06-12",
-    time: "14:22:08",
-    status: "Completed",
-    account: "Commercial Bank — 8001234567",
-    reference: "BT-452198",
-    note: "Local bank transfer credited successfully.",
-  },
-  {
-    id: "100244",
-    type: "Top-up",
-    method: "Perfect Money",
-    amount: "USD 250.00",
-    fee: "USD 2.00",
-    netAmount: "USD 248.00",
-    currency: "USD",
-    date: "2025-06-11",
-    time: "09:15:41",
-    status: "Completed",
-    account: "U1234567",
-    reference: "PM-778120",
-    note: "Perfect Money top-up processed.",
-  },
-  {
-    id: "100242",
-    type: "Top-up",
-    method: "Cryptocurrency",
-    amount: "USD 500.00",
-    fee: "USD 0.00",
-    netAmount: "USD 500.00",
-    currency: "USD",
-    date: "2025-06-09",
-    time: "11:47:55",
-    status: "Pending",
-    account: "BTC Wallet",
-    reference: "CRYPTO-99102",
-    note: "Awaiting network confirmations.",
-  },
-  {
-    id: "100240",
-    type: "Top-up",
-    method: "Skrill",
-    amount: "USD 180.00",
-    fee: "USD 1.80",
-    netAmount: "USD 178.20",
-    currency: "USD",
-    date: "2025-05-28",
-    time: "10:02:44",
-    status: "Completed",
-    account: "user@email.com",
-    reference: "SKR-33011",
-    note: "E-wallet top-up completed.",
-  },
-  {
-    id: "100239",
-    type: "Top-up",
-    method: "Neteller",
-    amount: "USD 90.00",
-    fee: "USD 0.90",
-    netAmount: "USD 89.10",
-    currency: "USD",
-    date: "2025-05-20",
-    time: "13:11:02",
-    status: "Rejected",
-    account: "neteller@email.com",
-    reference: "NTL-22019",
-    note: "Rejected due to mismatched account name.",
-  },
+const MOCK_WITHDRAWALS = [
   {
     id: "100243",
     type: "Cash-out",
@@ -129,18 +46,6 @@ const ALL_TX = [
 ];
 
 const CRITERIA = ["All", "Daily", "Weekly", "Monthly", "Custom"];
-const METHODS = [
-  "All Methods",
-  "USDT",
-  "Bank Transfer",
-  "Perfect Money",
-  "Skrill",
-  "Neteller",
-  "Cryptocurrency",
-  "XM Local",
-  "Perfect Money Top-ups",
-  "Perfect Money Cash-outs",
-];
 
 const fieldClass =
   "w-full rounded-lg border border-white/12 bg-[#0B1020]/70 px-3 py-2.5 text-sm text-white outline-none transition focus:border-theme-green-action/50";
@@ -154,11 +59,21 @@ const STATUS_STYLE = {
   Rejected: "bg-theme-red-action text-white",
 };
 
+function buildPrintUrl(params) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && String(value).trim() !== "") search.set(key, String(value));
+  });
+  const query = search.toString();
+  return `/dashboard/transactions/print${query ? `?${query}` : ""}`;
+}
+
 export default function TransactionsPage() {
+  const router = useRouter();
   const [tab, setTab] = useState("Top-up");
   const [search, setSearch] = useState("");
   const [criteria, setCriteria] = useState("All");
-  const [method, setMethod] = useState("All Methods");
+  const [method, setMethod] = useState("");
   const [status, setStatus] = useState("All Statuses");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
@@ -166,10 +81,65 @@ export default function TransactionsPage() {
   const [exportOpen, setExportOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
 
-  const filtered = useMemo(() => {
-    return ALL_TX.filter((tx) => {
-      if (tx.type !== tab) return false;
+  const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
+  const [deposits, setDeposits] = useState([]);
+  const [topupMethods, setTopupMethods] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, total_pages: 1, total: 0 });
 
+  const loadDeposits = useCallback(async (page = 1) => {
+    if (!hasUserSession()) {
+      router.replace("/login");
+      return;
+    }
+
+    setLoading(true);
+    setPageError("");
+    try {
+      const filterTemplate = criteriaToFilterTemplate(criteria);
+      const params = {
+        page,
+        per_page: 10,
+        filter_template: filterTemplate || undefined,
+        from_date: criteria === "Custom" || criteria === "Daily" ? from || undefined : undefined,
+        to_date: criteria === "Custom" || criteria === "Daily" ? to || undefined : undefined,
+        topup_method_id: method || undefined,
+      };
+
+      if (criteria === "Daily" && !from && !to) {
+        const today = new Date();
+        const ymd = today.toISOString().slice(0, 10);
+        params.from_date = ymd;
+        params.to_date = ymd;
+      }
+
+      const data = await fetchDepositTransactions(params);
+      setDeposits(data.transactions || []);
+      setTopupMethods(data.topup_methods || []);
+      setPagination(data.pagination || { page: 1, total_pages: 1, total: 0 });
+    } catch (err) {
+      if (err.status === 403) {
+        setPageError("You do not have permission to view deposit transactions.");
+      } else if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
+        router.replace("/verify");
+      } else {
+        setPageError(err.message || "Failed to load deposit transactions.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [criteria, from, to, method, router]);
+
+  useEffect(() => {
+    if (tab === "Top-up") {
+      loadDeposits(1);
+    }
+  }, [tab, loadDeposits]);
+
+  const source = tab === "Top-up" ? deposits : MOCK_WITHDRAWALS;
+
+  const filtered = useMemo(() => {
+    return source.filter((tx) => {
       if (
         !rowMatchesSearch(tx, search, [
           "id",
@@ -179,6 +149,7 @@ export default function TransactionsPage() {
           "account",
           "reference",
           "note",
+          "paymentOption",
         ])
       ) {
         return false;
@@ -186,54 +157,89 @@ export default function TransactionsPage() {
 
       if (status !== "All Statuses" && tx.status !== status) return false;
 
-      if (method === "Perfect Money Top-ups") {
-        if (!(tx.method === "Perfect Money" && tx.type === "Top-up")) return false;
-      } else if (method === "Perfect Money Cash-outs") {
-        if (!(tx.method === "Perfect Money" && tx.type === "Cash-out")) return false;
-      } else if (method !== "All Methods" && tx.method !== method) {
-        return false;
-      }
-
-      if (criteria === "Custom" || from || to) {
-        if (from && tx.date < from) return false;
-        if (to && tx.date > to) return false;
-        if (criteria !== "Custom" && criteria !== "All" && !from && !to) {
-          if (!matchesPeriod(tx.date, criteria)) return false;
+      if (tab === "Cash-out") {
+        if (criteria === "Custom" || from || to) {
+          if (from && tx.date < from) return false;
+          if (to && tx.date > to) return false;
+        } else if (!matchesPeriod(tx.date, criteria)) {
+          return false;
         }
-      } else if (!matchesPeriod(tx.date, criteria)) {
-        return false;
       }
 
       return true;
     });
-  }, [tab, search, criteria, method, status, from, to]);
+  }, [source, search, status, tab, criteria, from, to]);
 
   function handleResetFilters() {
     setSearch("");
     setCriteria("All");
-    setMethod("All Methods");
+    setMethod("");
     setStatus("All Statuses");
     setFrom("");
     setTo("");
     setMsg("");
+    if (tab === "Top-up") loadDeposits(1);
   }
 
   function handlePrint(id) {
+    if (tab === "Top-up") {
+      window.open(buildPrintUrl({ transactionId: id }), "_blank", "noopener,noreferrer");
+      return;
+    }
     setMsg(`PDF receipt prepared for transaction ${id} (demo).`);
     setTimeout(() => setMsg(""), 3000);
   }
 
-  function handleExport(type) {
+  function handlePrintFiltered() {
+    if (tab !== "Top-up") return;
+    const filterTemplate = criteriaToFilterTemplate(criteria);
+    window.open(
+      buildPrintUrl({
+        from_date: from || undefined,
+        to_date: to || undefined,
+        topup_method_id: method || undefined,
+        filter_template: filterTemplate || undefined,
+      }),
+      "_blank",
+      "noopener,noreferrer",
+    );
     setExportOpen(false);
-    setMsg(`Export as ${type} prepared (demo).`);
-    setTimeout(() => setMsg(""), 3000);
+  }
+
+  async function handleExport(type) {
+    setExportOpen(false);
+    if (tab !== "Top-up") {
+      setMsg(`Export as ${type} prepared (demo).`);
+      setTimeout(() => setMsg(""), 3000);
+      return;
+    }
+
+    if (type === "CSV" || type === "Excel") {
+      try {
+        const { blob, filename } = await downloadDepositTransactionsExport();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+        setMsg("Deposit transactions exported successfully.");
+      } catch (err) {
+        setMsg(err.message || "Export failed.");
+      }
+      setTimeout(() => setMsg(""), 3000);
+      return;
+    }
+
+    if (type === "PDF") {
+      handlePrintFiltered();
+    }
   }
 
   return (
     <div className="mx-auto w-full max-w-[1400px] px-4 py-10 sm:px-6 lg:px-8">
       <h1 className="text-3xl font-bold text-white sm:text-4xl">Transactions</h1>
 
-      {/* Tabs */}
       <div className="mt-6 flex gap-6 border-b border-white/10">
         {["Top-up", "Cash-out"].map((item) => {
           const active = tab === item;
@@ -259,7 +265,6 @@ export default function TransactionsPage() {
         })}
       </div>
 
-      {/* Filters — live update on change */}
       <div className="mt-6 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-4 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-5">
         <div className="grid gap-3 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1.1fr_auto]">
           <div>
@@ -287,7 +292,7 @@ export default function TransactionsPage() {
           <div>
             <label className={labelClass}>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
-              {["All Statuses", "Completed", "Pending", "Pending Authorization", "Rejected"].map((s) => (
+              {["All Statuses", "Completed", "Pending", "Rejected"].map((s) => (
                 <option key={s} value={s} className="bg-[#141A2E]">
                   {s}
                 </option>
@@ -305,9 +310,12 @@ export default function TransactionsPage() {
           <div>
             <label className={labelClass}>Transaction Method</label>
             <select value={method} onChange={(e) => setMethod(e.target.value)} className={fieldClass}>
-              {METHODS.map((m) => (
-                <option key={m} value={m} className="bg-[#141A2E]">
-                  {m}
+              <option value="" className="bg-[#141A2E]">
+                All Methods
+              </option>
+              {(tab === "Top-up" ? topupMethods : []).map((m) => (
+                <option key={m.id} value={m.id} className="bg-[#141A2E]">
+                  {m.name}
                 </option>
               ))}
             </select>
@@ -320,6 +328,15 @@ export default function TransactionsPage() {
             >
               Reset
             </button>
+            {tab === "Top-up" ? (
+              <button
+                type="button"
+                onClick={() => loadDeposits(1)}
+                className="inline-flex h-[42px] items-center justify-center rounded-lg bg-theme-green-action px-4 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                Filter
+              </button>
+            ) : null}
             <div className="relative">
               <button
                 type="button"
@@ -347,6 +364,7 @@ export default function TransactionsPage() {
             </div>
             <p className="ml-auto self-center text-xs text-white/40">
               Showing {filtered.length} result{filtered.length === 1 ? "" : "s"}
+              {tab === "Top-up" && pagination.total ? ` of ${pagination.total}` : ""}
             </p>
           </div>
         </div>
@@ -363,7 +381,19 @@ export default function TransactionsPage() {
         ) : null}
       </div>
 
-      {/* Transaction cards */}
+      {pageError ? (
+        <div className="mt-6 rounded-xl border border-theme-red-action/30 bg-theme-red-action/10 px-4 py-3 text-sm text-theme-red-action">
+          {pageError}
+        </div>
+      ) : null}
+
+      {loading && tab === "Top-up" ? (
+        <div className="mt-10 flex items-center justify-center text-white/50">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          Loading transactions…
+        </div>
+      ) : null}
+
       <div className="mt-6 space-y-3">
         {filtered.map((tx) => {
           const expanded = expandedId === tx.id;
@@ -426,16 +456,19 @@ export default function TransactionsPage() {
                     {[
                       ["Type", tx.type],
                       ["Method", tx.method],
+                      ["Payment Option", tx.paymentOption || "—"],
                       ["Status", tx.status],
                       ["Currency", tx.currency],
                       ["Amount", tx.amount],
-                      ["Fee", tx.fee],
-                      ["Net amount", tx.netAmount],
+                      ["Payment Amount", tx.paymentAmount || tx.amount],
+                      ["Fee", tx.fee || "—"],
+                      ["Net amount", tx.netAmount || tx.amount],
                       ["Date", tx.date],
                       ["Time", tx.time],
                       ["Account", tx.account],
-                      ["Reference", tx.reference],
-                      ["Note", tx.note],
+                      ["Reference", tx.reference || tx.id],
+                      ["Note", tx.note || "—"],
+                      ...(tx.rejectedReason ? [["Rejected Reason", tx.rejectedReason]] : []),
                     ].map(([label, value]) => (
                       <div
                         key={label}
@@ -452,12 +485,36 @@ export default function TransactionsPage() {
           );
         })}
 
-        {filtered.length === 0 ? (
+        {!loading && filtered.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 bg-[#0B1020]/60 px-5 py-12 text-center text-sm text-white/45">
             No Results Found
           </div>
         ) : null}
       </div>
+
+      {tab === "Top-up" && pagination.total_pages > 1 ? (
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            disabled={pagination.page <= 1 || loading}
+            onClick={() => loadDeposits(pagination.page - 1)}
+            className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70 disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-white/50">
+            Page {pagination.page} of {pagination.total_pages}
+          </span>
+          <button
+            type="button"
+            disabled={pagination.page >= pagination.total_pages || loading}
+            onClick={() => loadDeposits(pagination.page + 1)}
+            className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70 disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

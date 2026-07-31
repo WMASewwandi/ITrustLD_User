@@ -584,7 +584,7 @@ export default function WithdrawalPage() {
             <div
               data-lenis-prevent
               data-lenis-prevent-wheel
-              className="mt-4 max-h-[280px] space-y-3 overflow-y-auto overscroll-contain pr-2 text-sm leading-relaxed text-white/85"
+              className="custom-scrollbar mt-4 max-h-[280px] space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm leading-relaxed text-white/85"
             >
               {XM_CONDITIONS.map((line, index) => (
                 <p key={index}>* {line}</p>
