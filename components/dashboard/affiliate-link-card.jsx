@@ -2,35 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { getAffiliateLink, getOrCreateAffiliateCode } from "@/lib/affiliate";
+import { getAffiliateLink } from "@/lib/affiliate";
+import { getUserAffiliateCode, getUserSession } from "@/lib/auth";
 
 export default function AffiliateLinkCard({
-  seed = "",
+  affiliateCode: affiliateCodeProp = null,
   title = "Copy and promote your affiliate link",
   className = "",
 }) {
-  const [link, setLink] = useState("https://www.itrustld.com/join/Q8ZYIOPB");
+  const [link, setLink] = useState("");
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      const user = raw ? JSON.parse(raw) : null;
-      const affiliateCode =
-        user?.account_holder?.affiliate_code ||
-        user?.affiliate_code ||
-        null;
-      if (affiliateCode) {
-        setLink(getAffiliateLink(affiliateCode));
-        return;
-      }
-      const codeSeed = seed || user?.accountId || user?.email || "itrustld";
-      const code = getOrCreateAffiliateCode(codeSeed);
-      setLink(getAffiliateLink(code));
-    } catch {
-      setLink(getAffiliateLink(getOrCreateAffiliateCode(seed || "itrustld")));
+    const code = affiliateCodeProp || getUserAffiliateCode(getUserSession());
+    if (!code) {
+      setLink("");
+      return;
     }
-  }, [seed]);
+    setLink(getAffiliateLink(code));
+  }, [affiliateCodeProp]);
+
+  if (!link) return null;
 
   async function copyLink() {
     try {
@@ -38,7 +30,7 @@ export default function AffiliateLinkCard({
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* demo fallback */
+      /* ignore */
     }
   }
 

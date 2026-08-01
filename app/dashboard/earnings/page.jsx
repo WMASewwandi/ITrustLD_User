@@ -9,11 +9,17 @@ import {
   getReadyBonusClaims,
   getReadyVoucherClaims,
   loadClaimsState,
-  MY_CLIENTS,
-  SUB_CLIENTS,
 } from "@/lib/earnings";
 import { inDateRange, matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils";
 import { getPartnerProgress, getPartnerTiers, getTierColor } from "@/lib/loyalty";
+import {
+  fetchLoyaltySummary,
+  fetchPartnerClients,
+  fetchSubPartnerClients,
+  mapAffiliateClientRows,
+} from "@/lib/loyalty-api";
+import { hasUserSession, isPartnerUser, getUserSession, patchUserSessionAccountHolder } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 import { Check, Eye, Gift, Ticket, Wallet, X } from "lucide-react";
 
 const TABS = [
@@ -118,9 +124,9 @@ function filterClients(rows, applied) {
       if (!matchesPeriod(row.lastTransaction, applied.period)) return false;
     }
     if (!inDateRange(row.lastTransaction, applied.from, applied.to)) return false;
-    if (applied.points === "100+ pts" && Number(row.points) < 100) return false;
-    if (applied.points === "200+ pts" && Number(row.points) < 200) return false;
-    if (applied.points === "400+ pts" && Number(row.points) < 400) return false;
+    if (applied.points === "100+ pts" && Number(row.pointsRaw ?? row.points) < 100) return false;
+    if (applied.points === "200+ pts" && Number(row.pointsRaw ?? row.points) < 200) return false;
+    if (applied.points === "400+ pts" && Number(row.pointsRaw ?? row.points) < 400) return false;
     return true;
   });
 }
@@ -271,11 +277,16 @@ function ClaimDetailModal({ open, title, onClose, onClaim, children }) {
 }
 
 export default function MyEarningsPage() {
+  const router = useRouter();
   const [tab, setTab] = useState("overview");
+  const [isPartner, setIsPartner] = useState(false);
   const [partnerTier, setPartnerTier] = useState("Normal");
-  const [partnerPoints, setPartnerPoints] = useState(45);
+  const [partnerPoints, setPartnerPoints] = useState(0);
   const [tiers, setTiers] = useState([]);
   const [claimsState, setClaimsState] = useState({ vouchers: [], bonuses: [], history: [] });
+  const [myClients, setMyClients] = useState([]);
+  const [subClients, setSubClients] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(false);
   const [viewVoucher, setViewVoucher] = useState(null);
   const [viewBonus, setViewBonus] = useState(null);
   const [claimMsg, setClaimMsg] = useState("");
@@ -285,20 +296,50 @@ export default function MyEarningsPage() {
   const [historyFilter, setHistoryFilter] = useState(HISTORY_DEFAULTS);
 
   useEffect(() => {
+    if (!hasUserSession()) {
+      router.replace("/login");
+      return;
+    }
+
+    setIsPartner(isPartnerUser(getUserSession()));
     setTiers(getPartnerTiers());
     setClaimsState(loadClaimsState());
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      if (raw) {
-        const user = JSON.parse(raw);
-        const tier = user?.partnerTier === "Bronze" ? "Normal" : user?.partnerTier || "Normal";
-        setPartnerTier(tier);
-        setPartnerPoints(Number(user?.partnerPoints) || 45);
+
+    async function loadPartnerData() {
+      setClientsLoading(true);
+      try {
+        const [summaryData, clientsData, subClientsData] = await Promise.all([
+          fetchLoyaltySummary(),
+          fetchPartnerClients({ perPage: 100 }),
+          fetchSubPartnerClients({ perPage: 100 }),
+        ]);
+        const pointSummary = summaryData.point_summary || {};
+        setIsPartner(Boolean(summaryData.is_partner));
+        setPartnerTier(summaryData.partner_tier || pointSummary.level_label || "Normal");
+        setPartnerPoints(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
+        setMyClients(mapAffiliateClientRows(clientsData.clients || []));
+        setSubClients(mapAffiliateClientRows(subClientsData.clients || []));
+        patchUserSessionAccountHolder({
+          is_patner: summaryData.is_partner ? "YES" : "NO",
+          affiliate_code: summaryData.affiliate_code || null,
+        });
+      } catch (err) {
+        if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
+          router.replace("/verify");
+        }
+      } finally {
+        setClientsLoading(false);
       }
-    } catch {
-      /* ignore */
     }
-  }, []);
+
+    loadPartnerData();
+  }, [router]);
+
+  useEffect(() => {
+    if (!isPartner && (tab === "clients" || tab === "sub-clients")) {
+      setTab("overview");
+    }
+  }, [isPartner, tab]);
 
   const { current, next, currentPts, required, remaining, progressPct } = useMemo(
     () => getPartnerProgress(partnerPoints, partnerTier, tiers.length ? tiers : getPartnerTiers()),
@@ -313,8 +354,15 @@ export default function MyEarningsPage() {
   const readyVouchers = useMemo(() => getReadyVoucherClaims(claimsState), [claimsState]);
   const readyBonuses = useMemo(() => getReadyBonusClaims(claimsState), [claimsState]);
 
-  const filteredClients = useMemo(() => filterClients(MY_CLIENTS, clientFilter), [clientFilter]);
-  const filteredSubClients = useMemo(() => filterClients(SUB_CLIENTS, subFilter), [subFilter]);
+  const visibleTabs = useMemo(() => {
+    if (!isPartner) {
+      return TABS.filter((item) => !["clients", "sub-clients"].includes(item.id));
+    }
+    return TABS;
+  }, [isPartner]);
+
+  const filteredClients = useMemo(() => filterClients(myClients, clientFilter), [myClients, clientFilter]);
+  const filteredSubClients = useMemo(() => filterClients(subClients, subFilter), [subClients, subFilter]);
 
   const filteredHistory = useMemo(() => {
     return (claimsState.history || []).filter((row) => {
@@ -395,7 +443,7 @@ export default function MyEarningsPage() {
 
       <div className="overflow-x-auto border-b border-white/10">
         <div className="flex min-w-max gap-6">
-          {TABS.map((item) => {
+          {visibleTabs.map((item) => {
             const active = tab === item.id;
             const badge =
               item.id === "claim-vouchers"

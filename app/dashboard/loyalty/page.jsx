@@ -8,7 +8,7 @@ import BottomMessage from "@/components/dashboard/bottom-message";
 import ListFilters from "@/components/dashboard/list-filters";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import PartnerLoyaltyPanel from "@/components/dashboard/partner-loyalty-panel";
-import { hasUserSession } from "@/lib/auth";
+import { hasUserSession, patchUserSessionAccountHolder } from "@/lib/auth";
 import { inDateRange, rowMatchesSearch } from "@/lib/filter-utils";
 import {
   createLoyaltyWithdrawal,
@@ -20,7 +20,7 @@ import {
 } from "@/lib/loyalty-api";
 import { fetchPaymentAccounts } from "@/lib/payment-accounts";
 import { getPartnerTiers } from "@/lib/loyalty";
-import { getMembershipProgress } from "@/lib/membership-tiers";
+import { getMembershipProgress, MEMBERSHIP_TIERS } from "@/lib/membership-tiers";
 import { Medal, Star, Trophy } from "lucide-react";
 
 const HISTORY_FILTER_DEFAULTS = {
@@ -53,16 +53,53 @@ export default function LoyaltyPage() {
   const [accounts, setAccounts] = useState([]);
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
   const [isPartner, setIsPartner] = useState(false);
+  const [hasAffiliateLink, setHasAffiliateLink] = useState(false);
+  const [affiliateCode, setAffiliateCode] = useState("");
   const [partnerTier, setPartnerTier] = useState("Normal");
   const [partnerPoints, setPartnerPoints] = useState(0);
+  const [partnerProgress, setPartnerProgress] = useState(null);
   const [partnerTiers, setPartnerTiers] = useState([]);
+  const [tierLabel, setTierLabel] = useState("Normal");
   const [historyFilter, setHistoryFilter] = useState(HISTORY_FILTER_DEFAULTS);
 
-  const membership = useMemo(() => getMembershipProgress(trustPointsForTier), [trustPointsForTier]);
-  const currentTier = membership.current;
-  const nextTier = membership.next;
-  const pointsToNext = membership.remaining;
+  const tierDisplay = useMemo(() => {
+    if (partnerProgress?.current_tier) {
+      const current =
+        MEMBERSHIP_TIERS.find(
+          (tier) => tier.name.toLowerCase() === String(partnerProgress.current_tier).toLowerCase(),
+        ) || MEMBERSHIP_TIERS[0];
+      const next = partnerProgress.next_tier
+        ? MEMBERSHIP_TIERS.find(
+            (tier) => tier.name.toLowerCase() === String(partnerProgress.next_tier).toLowerCase(),
+          ) || null
+        : null;
+      return {
+        current,
+        next,
+        currentPts: Number(partnerProgress.period_points ?? trustPointsForTier) || 0,
+        remaining: Number(partnerProgress.points_to_next) || 0,
+        progressPct: Math.min(100, Math.max(0, Number(partnerProgress.progress_percentage) || 0)),
+      };
+    }
+
+    const membership = getMembershipProgress(trustPointsForTier, tierLabel);
+    return {
+      current: membership.current,
+      next: membership.next,
+      currentPts: membership.currentPts,
+      remaining: membership.remaining,
+      progressPct: Math.min(
+        100,
+        Math.max(0, Number(levelProgress) || membership.progressPct),
+      ),
+    };
+  }, [partnerProgress, trustPointsForTier, tierLabel, levelProgress]);
+
+  const currentTier = tierDisplay.current;
+  const nextTier = tierDisplay.next;
+  const pointsToNext = tierDisplay.remaining;
   const currentLevel = `${currentTier.name} Level`;
+  const safeLevelProgress = tierDisplay.progressPct;
 
   const filteredHistory = useMemo(() => {
     return withdrawalHistory.filter((row) => {
@@ -91,8 +128,23 @@ export default function LoyaltyPage() {
       setRateLabel(summaryData.rate_label || "($) 10,000 Trust Points = 10 USD");
       setMinPoints(Number(summaryData.minimum_points) || 10000);
       setLevelProgress(Number(pointSummary.percentage) || 0);
+      setTierLabel(pointSummary.level_label || "Normal");
       setTrustPointsForTier(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
       setIsPartner(Boolean(summaryData.is_partner));
+      setAffiliateCode(summaryData.affiliate_code || "");
+      setHasAffiliateLink(Boolean(summaryData.has_affiliate_link || summaryData.affiliate_code));
+      setPartnerTier(
+        summaryData.partner_tier || pointSummary.level_label || (summaryData.is_partner ? "Normal" : "Normal"),
+      );
+      setPartnerPoints(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
+      setPartnerProgress(summaryData.partner_progress || null);
+      if (summaryData.partner_progress?.tiers?.length) {
+        setPartnerTiers(summaryData.partner_progress.tiers);
+      }
+      patchUserSessionAccountHolder({
+        is_patner: summaryData.is_partner ? "YES" : "NO",
+        affiliate_code: summaryData.affiliate_code || null,
+      });
       setAccounts(flattenAccountGroups(accountsData.account_groups || []));
       setWithdrawalHistory(mapWithdrawalRows(historyData.transactions || []));
     } catch (err) {
@@ -111,31 +163,13 @@ export default function LoyaltyPage() {
       router.replace("/login");
       return;
     }
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      if (raw) {
-        const user = JSON.parse(raw);
-        const tier = user?.partnerTier === "Bronze" ? "Normal" : user?.partnerTier || "Normal";
-        setPartnerTier(tier);
-        setPartnerPoints(Number(user?.partnerPoints) || 0);
-        if (user?.partnerTier === "Bronze" || user?.partnerTier === "Platinum") {
-          const next = {
-            ...user,
-            partnerTier: user.partnerTier === "Platinum" ? "Diamond" : "Normal",
-          };
-          localStorage.setItem("itrustld_user", JSON.stringify(next));
-        }
-      }
-    } catch {
-      // ignore
-    }
     setPartnerTiers(getPartnerTiers());
     loadLoyaltyData();
   }, [loadLoyaltyData, router]);
 
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (levelProgress / 100) * circumference;
+  const offset = circumference - (safeLevelProgress / 100) * circumference;
 
   function openWithdraw() {
     setSection("withdraw");
@@ -249,8 +283,10 @@ export default function LoyaltyPage() {
       {section === "overview" && isPartner ? (
         <div className="mt-8">
           <PartnerLoyaltyPanel
+            affiliateCode={affiliateCode}
             partnerTier={partnerTier}
             partnerPoints={partnerPoints}
+            partnerProgress={partnerProgress}
             tiers={partnerTiers}
           />
         </div>
@@ -295,21 +331,42 @@ export default function LoyaltyPage() {
             </div>
 
             <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
-              <h2 className="text-base font-semibold text-white">Standard user with affiliate</h2>
+              <h2 className="text-base font-semibold text-white">
+                {isPartner ? "Partner loyalty benefits" : "Standard user with affiliate"}
+              </h2>
               <ul className="mt-3 space-y-2 text-sm text-white/55">
-                <li className="flex min-w-0 items-start gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                  <span className="min-w-0 break-words">Recognized with affiliate users</span>
-                </li>
-                <li className="flex min-w-0 items-start gap-2">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                  <span className="min-w-0 break-words">
-                    Earn Trust Points from eligible top-ups and referrals
-                  </span>
-                </li>
+                {isPartner ? (
+                  <>
+                    <li className="flex min-w-0 items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                      <span className="min-w-0 break-words">
+                        Earn referral points when your clients&apos; deposits are approved
+                      </span>
+                    </li>
+                    <li className="flex min-w-0 items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                      <span className="min-w-0 break-words">
+                        Partner cash-out rate: 10,000 Trust Points = 35 USD
+                      </span>
+                    </li>
+                  </>
+                ) : (
+                  <>
+                    <li className="flex min-w-0 items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                      <span className="min-w-0 break-words">Recognized with affiliate users</span>
+                    </li>
+                    <li className="flex min-w-0 items-start gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                      <span className="min-w-0 break-words">
+                        Earn Trust Points from eligible top-ups and referrals
+                      </span>
+                    </li>
+                  </>
+                )}
               </ul>
               <div className="mt-5 min-w-0 border-t border-white/10 pt-5">
-                <AffiliateLinkCard />
+                {hasAffiliateLink ? <AffiliateLinkCard affiliateCode={affiliateCode} /> : null}
               </div>
             </section>
 
@@ -329,7 +386,7 @@ export default function LoyaltyPage() {
               </span>
               <span className="text-xs text-white/45">{trustPointsForTier.toLocaleString()} pts</span>
             </div>
-            <div className="relative mx-auto h-48 w-48">
+            <div className="relative mx-auto h-48 w-48 overflow-visible">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-hidden>
                 <circle cx="90" cy="90" r={radius} fill="none" stroke="rgba(13,159,27,0.25)" strokeWidth="14" />
                 <circle
@@ -343,11 +400,12 @@ export default function LoyaltyPage() {
                   strokeDasharray={circumference}
                   strokeDashoffset={offset}
                   className="transition-all duration-700"
+                  style={{ maxWidth: "100%" }}
                 />
               </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <div className="absolute inset-0 flex flex-col items-center justify-center px-2">
                 <Star className="mb-1 h-5 w-5 fill-theme-green-action text-theme-green-action" />
-                <p className="text-3xl font-bold text-white">{levelProgress}%</p>
+                <p className="text-3xl font-bold leading-none text-white">{safeLevelProgress}%</p>
               </div>
             </div>
             <p className="mt-4 text-base font-semibold text-theme-green-shaded">{currentLevel}</p>

@@ -10,7 +10,7 @@ import {
   CLAIMS_UPDATED_EVENT,
   getReadyClaimsCount,
 } from "@/lib/earnings";
-import { getUserSession, logoutUser } from "@/lib/auth";
+import { getUserAffiliateCode, getUserSession, isPartnerUser, logoutUser } from "@/lib/auth";
 import {
   DASHBOARD_UPDATED_EVENT,
   deriveNotificationsFromUser,
@@ -149,6 +149,8 @@ export default function NavigationUser() {
   const [accountId, setAccountId] = useState("");
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [notifications, setNotifications] = useState([]);
+  const [isPartner, setIsPartner] = useState(false);
+  const [affiliateCode, setAffiliateCode] = useState("");
 
   function syncFromSession() {
     try {
@@ -161,10 +163,20 @@ export default function NavigationUser() {
       const points = Number(parsed?.trust_points) || 0;
       setLoyaltyPoints(points);
       setNotifications(deriveNotificationsFromUser(parsed));
+      setIsPartner(isPartnerUser(parsed));
+      setAffiliateCode(getUserAffiliateCode(parsed) || "");
     } catch {
       // ignore
     }
   }
+
+  const visibleNavLinks = isPartner
+    ? NAV_LINKS
+    : NAV_LINKS.filter((item) => item.href !== "/dashboard/earnings");
+
+  const visibleMobileMoreLinks = isPartner
+    ? MOBILE_MORE_LINKS
+    : MOBILE_MORE_LINKS.filter((item) => item.href !== "/dashboard/earnings");
 
   useEffect(() => setMounted(true), []);
 
@@ -183,12 +195,15 @@ export default function NavigationUser() {
     };
   }, [pathname]);
 
-  const moreActive = MOBILE_MORE_LINKS.some((item) =>
+  const moreActive = visibleMobileMoreLinks.some((item) =>
     item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
   );
 
   useEffect(() => {
     syncFromSession();
+    function onSessionUpdated() {
+      syncFromSession();
+    }
     function onDashboardUpdated(event) {
       const detail = event?.detail;
       if (detail?.notifications) {
@@ -201,7 +216,11 @@ export default function NavigationUser() {
       }
     }
     window.addEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
-    return () => window.removeEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
+    window.addEventListener("storage", onSessionUpdated);
+    return () => {
+      window.removeEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
+      window.removeEventListener("storage", onSessionUpdated);
+    };
   }, []);
 
   const loyaltyTier = getMembershipTierByPoints(loyaltyPoints).name;
@@ -294,7 +313,7 @@ export default function NavigationUser() {
           </Link>
         </div>
         <nav className="flex flex-1 flex-col items-center gap-1.5 py-4">
-          {NAV_LINKS.map((item) => (
+          {visibleNavLinks.map((item) => (
             <NavIconLink
               key={item.href}
               href={item.href}
@@ -386,7 +405,7 @@ export default function NavigationUser() {
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {MOBILE_MORE_LINKS.map(({ href, label, icon: Icon }) => {
+                      {visibleMobileMoreLinks.map(({ href, label, icon: Icon }) => {
                         const active = isActive(href);
                         const badge = href === "/dashboard/earnings" ? claimsCount : 0;
                         return (
@@ -448,9 +467,11 @@ export default function NavigationUser() {
             />
           </div>
 
-          <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
-            <AffiliateLinkCard />
-          </div>
+          {affiliateCode ? (
+            <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
+              <AffiliateLinkCard affiliateCode={affiliateCode} />
+            </div>
+          ) : null}
 
           <h3 className="mb-3 mt-7 text-base font-semibold text-white">Loyalty Options</h3>
           <div className="space-y-2.5">
