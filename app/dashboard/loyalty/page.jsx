@@ -1,15 +1,26 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import BottomMessage from "@/components/dashboard/bottom-message";
 import ListFilters from "@/components/dashboard/list-filters";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import PartnerLoyaltyPanel from "@/components/dashboard/partner-loyalty-panel";
+import { hasUserSession } from "@/lib/auth";
 import { inDateRange, rowMatchesSearch } from "@/lib/filter-utils";
+import {
+  createLoyaltyWithdrawal,
+  decodeReceivingAccountOption,
+  fetchLoyaltySummary,
+  fetchLoyaltyWithdrawals,
+  flattenAccountGroups,
+  mapWithdrawalRows,
+} from "@/lib/loyalty-api";
+import { fetchPaymentAccounts } from "@/lib/payment-accounts";
 import { getPartnerTiers } from "@/lib/loyalty";
-import { DEMO_TRUST_POINTS, getMembershipProgress } from "@/lib/membership-tiers";
+import { getMembershipProgress } from "@/lib/membership-tiers";
 import { Medal, Star, Trophy } from "lucide-react";
 
 const HISTORY_FILTER_DEFAULTS = {
@@ -19,49 +30,42 @@ const HISTORY_FILTER_DEFAULTS = {
   to: "",
 };
 
-const AVAILABLE = 811;
-const TOTAL_EARNED = 812;
-const USD_VALUE = (TOTAL_EARNED / 1000).toFixed(2);
-const TRUST_POINTS = DEMO_TRUST_POINTS;
-const {
-  current: CURRENT_TIER,
-  next: NEXT_TIER,
-  remaining: POINTS_TO_NEXT,
-  progressPct: LEVEL_PROGRESS,
-} = getMembershipProgress(TRUST_POINTS);
-const CURRENT_LEVEL = `${CURRENT_TIER.name} Level`;
-
-const ACCOUNTS = [
-  { id: "1", label: "Commercial Bank — 8001234567" },
-  { id: "2", label: "Hatton National Bank — 0690123456" },
-  { id: "3", label: "USDT Wallet (TRC20)" },
-  { id: "4", label: "Skrill — avishka@email.com" },
-];
-
-const POINT_HISTORY = [
-  { id: "LP-9021", points: "5,000", amount: "USD 5.00", date: "2025-06-12", status: "Completed" },
-  { id: "LP-9018", points: "10,000", amount: "USD 10.00", date: "2025-06-01", status: "Pending" },
-  { id: "LP-9010", points: "2,500", amount: "USD 2.50", date: "2025-05-20", status: "Completed" },
-];
-
 const fieldClass =
   "w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-theme-green-action/50";
 
 export default function LoyaltyPage() {
+  const router = useRouter();
   const [section, setSection] = useState("overview"); // overview | withdraw
   const [withdrawTab, setWithdrawTab] = useState("withdraw"); // withdraw | history
   const [points, setPoints] = useState("");
   const [account, setAccount] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [availableBalance, setAvailableBalance] = useState(0);
+  const [totalEarned, setTotalEarned] = useState(0);
+  const [usdValue, setUsdValue] = useState("0.00");
+  const [rateLabel, setRateLabel] = useState("($) 10,000 Trust Points = 10 USD");
+  const [minPoints, setMinPoints] = useState(10000);
+  const [levelProgress, setLevelProgress] = useState(0);
+  const [trustPointsForTier, setTrustPointsForTier] = useState(0);
+  const [accounts, setAccounts] = useState([]);
+  const [withdrawalHistory, setWithdrawalHistory] = useState([]);
   const [isPartner, setIsPartner] = useState(false);
   const [partnerTier, setPartnerTier] = useState("Normal");
   const [partnerPoints, setPartnerPoints] = useState(0);
   const [partnerTiers, setPartnerTiers] = useState([]);
   const [historyFilter, setHistoryFilter] = useState(HISTORY_FILTER_DEFAULTS);
 
+  const membership = useMemo(() => getMembershipProgress(trustPointsForTier), [trustPointsForTier]);
+  const currentTier = membership.current;
+  const nextTier = membership.next;
+  const pointsToNext = membership.remaining;
+  const currentLevel = `${currentTier.name} Level`;
+
   const filteredHistory = useMemo(() => {
-    return POINT_HISTORY.filter((row) => {
+    return withdrawalHistory.filter((row) => {
       if (!rowMatchesSearch(row, historyFilter.search, ["id", "points", "amount", "date", "status"])) {
         return false;
       }
@@ -69,18 +73,51 @@ export default function LoyaltyPage() {
       if (!inDateRange(row.date, historyFilter.from, historyFilter.to)) return false;
       return true;
     });
-  }, [historyFilter]);
+  }, [historyFilter, withdrawalHistory]);
+
+  const loadLoyaltyData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [summaryData, accountsData, historyData] = await Promise.all([
+        fetchLoyaltySummary(),
+        fetchPaymentAccounts(),
+        fetchLoyaltyWithdrawals({ perPage: 50 }),
+      ]);
+
+      const pointSummary = summaryData.point_summary || {};
+      setAvailableBalance(Math.floor(Number(pointSummary.remaining) || 0));
+      setTotalEarned(Number(pointSummary.earned) || 0);
+      setUsdValue(Number(summaryData.usd_value_of_earned || 0).toFixed(2));
+      setRateLabel(summaryData.rate_label || "($) 10,000 Trust Points = 10 USD");
+      setMinPoints(Number(summaryData.minimum_points) || 10000);
+      setLevelProgress(Number(pointSummary.percentage) || 0);
+      setTrustPointsForTier(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
+      setIsPartner(Boolean(summaryData.is_partner));
+      setAccounts(flattenAccountGroups(accountsData.account_groups || []));
+      setWithdrawalHistory(mapWithdrawalRows(historyData.transactions || []));
+    } catch (err) {
+      if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
+        router.replace("/verify");
+        return;
+      }
+      setError(err.message || "Failed to load loyalty data.");
+    } finally {
+      setLoading(false);
+    }
+  }, [router]);
 
   useEffect(() => {
+    if (!hasUserSession()) {
+      router.replace("/login");
+      return;
+    }
     try {
       const raw = localStorage.getItem("itrustld_user");
       if (raw) {
         const user = JSON.parse(raw);
-        setIsPartner(user?.userType === "partner");
         const tier = user?.partnerTier === "Bronze" ? "Normal" : user?.partnerTier || "Normal";
         setPartnerTier(tier);
         setPartnerPoints(Number(user?.partnerPoints) || 0);
-        // Keep session in sync with renamed starting tier
         if (user?.partnerTier === "Bronze" || user?.partnerTier === "Platinum") {
           const next = {
             ...user,
@@ -93,11 +130,12 @@ export default function LoyaltyPage() {
       // ignore
     }
     setPartnerTiers(getPartnerTiers());
-  }, []);
+    loadLoyaltyData();
+  }, [loadLoyaltyData, router]);
 
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (LEVEL_PROGRESS / 100) * circumference;
+  const offset = circumference - (levelProgress / 100) * circumference;
 
   function openWithdraw() {
     setSection("withdraw");
@@ -106,25 +144,71 @@ export default function LoyaltyPage() {
     setSuccess("");
   }
 
-  function handleWithdraw(e) {
+  async function handleWithdraw(e) {
     e.preventDefault();
     setSuccess("");
-    if (!/^\d+$/.test(points) || Number(points) <= 0) {
+    const amount = Number(points);
+
+    if (!/^\d+$/.test(points) || amount <= 0) {
       setError("Enter a valid number of points (digits only).");
       return;
     }
-    if (Number(points) > AVAILABLE) {
-      setError(`You only have ${AVAILABLE} points available.`);
+    if (availableBalance < minPoints) {
+      setError(
+        `Minimum of ${minPoints.toLocaleString()} loyalty points required to make a withdrawal request.`,
+      );
+      return;
+    }
+    if (amount < minPoints) {
+      setError(`Minimum of ${minPoints.toLocaleString()} points has to be withdrawn.`);
+      return;
+    }
+    if (amount > availableBalance) {
+      setError(
+        `You cannot withdraw an amount exceeding your existing point balance. Your point balance is ${availableBalance}.`,
+      );
       return;
     }
     if (!account) {
       setError("Please select an account to cash out to.");
       return;
     }
+
+    const { accountId, accountType } = decodeReceivingAccountOption(account);
+    setSubmitting(true);
     setError("");
-    setSuccess(
-      `Loyalty cash-out of ${Number(points).toLocaleString()} points submitted (demo). Status: Pending.`
-    );
+
+    try {
+      const result = await createLoyaltyWithdrawal({
+        withdrawal_point_amount: amount,
+        selected_account_id: accountId,
+        selected_account_type: accountType,
+      });
+
+      if (result.remaining_points != null) {
+        setAvailableBalance(Math.floor(Number(result.remaining_points) || 0));
+      } else {
+        setAvailableBalance((prev) => Math.max(0, prev - amount));
+      }
+
+      setSuccess(
+        result.message ||
+          "Withdrawal request has been submitted successfully. This process may take up to 24 hours.",
+      );
+      setPoints("");
+      setAccount("");
+
+      const historyData = await fetchLoyaltyWithdrawals({ perPage: 50 });
+      setWithdrawalHistory(mapWithdrawalRows(historyData.transactions || []));
+    } catch (err) {
+      if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
+        router.replace("/verify");
+        return;
+      }
+      setError(err.message || "Failed to submit withdrawal request.");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -189,7 +273,7 @@ export default function LoyaltyPage() {
                   <div className="min-w-0">
                     <p className="text-sm text-white/50">Available Balance</p>
                     <p className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                      {AVAILABLE}
+                      {availableBalance.toLocaleString()}
                     </p>
                   </div>
 
@@ -198,16 +282,16 @@ export default function LoyaltyPage() {
                   <div className="min-w-0">
                     <p className="text-sm text-white/50">Total Earned Points</p>
                     <p className="mt-1 text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                      {TOTAL_EARNED}
+                      {totalEarned.toLocaleString()}
                     </p>
-                    <p className="mt-1 text-sm text-white/45">{USD_VALUE} USD</p>
+                    <p className="mt-1 text-sm text-white/45">{usdValue} USD</p>
                   </div>
                 </div>
               </div>
             </section>
 
             <div className="w-full rounded-xl bg-theme-green-dark px-4 py-4 text-center text-sm font-semibold text-white shadow-[0_12px_28px_rgba(20,83,91,0.35)] sm:px-5 sm:text-base">
-              ($) 10,000 Trust Points = 10 USD
+              {rateLabel}
             </div>
 
             <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
@@ -231,9 +315,9 @@ export default function LoyaltyPage() {
 
             <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
               <LoyaltyLevels
-                currentTier={CURRENT_TIER.name}
-                initialTier={CURRENT_TIER.name}
-                points={TRUST_POINTS}
+                currentTier={currentTier.name}
+                initialTier={currentTier.name}
+                points={trustPointsForTier}
               />
             </section>
           </div>
@@ -241,9 +325,9 @@ export default function LoyaltyPage() {
           <aside className="min-w-0 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-6 text-center shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-8">
             <div className="mb-4 flex items-center justify-center gap-2">
               <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-black">
-                {CURRENT_TIER.name}
+                {currentTier.name}
               </span>
-              <span className="text-xs text-white/45">{TRUST_POINTS.toLocaleString()} pts</span>
+              <span className="text-xs text-white/45">{trustPointsForTier.toLocaleString()} pts</span>
             </div>
             <div className="relative mx-auto h-48 w-48">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 180 180" aria-hidden>
@@ -263,13 +347,13 @@ export default function LoyaltyPage() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <Star className="mb-1 h-5 w-5 fill-theme-green-action text-theme-green-action" />
-                <p className="text-3xl font-bold text-white">{LEVEL_PROGRESS}%</p>
+                <p className="text-3xl font-bold text-white">{levelProgress}%</p>
               </div>
             </div>
-            <p className="mt-4 text-base font-semibold text-theme-green-shaded">{CURRENT_LEVEL}</p>
+            <p className="mt-4 text-base font-semibold text-theme-green-shaded">{currentLevel}</p>
             <p className="mt-2 text-sm text-white/45">
-              {NEXT_TIER
-                ? `${POINTS_TO_NEXT.toLocaleString()} pts to ${NEXT_TIER.name}`
+              {nextTier
+                ? `${pointsToNext.toLocaleString()} pts to ${nextTier.name}`
                 : "Max membership tier reached"}
             </p>
             <button
@@ -333,7 +417,7 @@ export default function LoyaltyPage() {
                       className={fieldClass}
                     />
                     <p className="mt-2 text-xs text-white/40">
-                      Available: {AVAILABLE} pts · 10,000 Trust Points = 10 USD
+                      Available: {availableBalance.toLocaleString()} pts · {rateLabel}
                     </p>
                   </div>
                 </section>
@@ -357,8 +441,8 @@ export default function LoyaltyPage() {
                       <option value="" className="bg-[#141A2E]">
                         Select Payment Option
                       </option>
-                      {ACCOUNTS.map((a) => (
-                        <option key={a.id} value={a.id} className="bg-[#141A2E]">
+                      {accounts.map((a) => (
+                        <option key={a.value} value={a.value} className="bg-[#141A2E]">
                           {a.label}
                         </option>
                       ))}
@@ -397,9 +481,10 @@ export default function LoyaltyPage() {
 
                 <button
                   type="submit"
-                  className="rounded-xl bg-white/20 px-10 py-3 text-sm font-semibold text-white transition hover:bg-white/30"
+                  disabled={submitting || loading}
+                  className="rounded-xl bg-white/20 px-10 py-3 text-sm font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
                 >
-                  Cash-out
+                  {submitting ? "Submitting…" : "Cash-out"}
                 </button>
               </form>
 
