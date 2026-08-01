@@ -8,42 +8,13 @@ import {
   downloadDepositTransactionsExport,
   fetchDepositTransactions,
 } from "@/lib/deposits";
+import {
+  downloadWithdrawalTransactionsExport,
+  fetchWithdrawalTransactions,
+} from "@/lib/withdrawals";
 import { hasUserSession } from "@/lib/auth";
-import { matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils";
+import { rowMatchesSearch } from "@/lib/filter-utils";
 import { ChevronDown, Download, Loader2, Printer, Search } from "lucide-react";
-
-const MOCK_WITHDRAWALS = [
-  {
-    id: "100243",
-    type: "Cash-out",
-    method: "Bank Transfer",
-    amount: "USD 75.00",
-    fee: "USD 2.00",
-    netAmount: "USD 73.00",
-    currency: "USD",
-    date: "2025-06-10",
-    time: "18:03:19",
-    status: "Completed",
-    account: "Hatton National Bank — 0690123456",
-    reference: "WD-BT-11890",
-    note: "Cash-out paid to saved bank account.",
-  },
-  {
-    id: "100241",
-    type: "Cash-out",
-    method: "Perfect Money",
-    amount: "USD 120.00",
-    fee: "USD 1.20",
-    netAmount: "USD 118.80",
-    currency: "USD",
-    date: "2025-06-05",
-    time: "16:20:11",
-    status: "Pending Authorization",
-    account: "U7654321",
-    reference: "WD-PM-44120",
-    note: "Waiting for authorization before payout.",
-  },
-];
 
 const CRITERIA = ["All", "Daily", "Weekly", "Monthly", "Custom"];
 
@@ -84,8 +55,15 @@ export default function TransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [deposits, setDeposits] = useState([]);
+  const [withdrawals, setWithdrawals] = useState([]);
   const [topupMethods, setTopupMethods] = useState([]);
+  const [cashoutMethods, setCashoutMethods] = useState([]);
   const [pagination, setPagination] = useState({ page: 1, total_pages: 1, total: 0 });
+  const [withdrawalPagination, setWithdrawalPagination] = useState({
+    page: 1,
+    total_pages: 1,
+    total: 0,
+  });
 
   const loadDeposits = useCallback(async (page = 1) => {
     if (!hasUserSession()) {
@@ -130,13 +108,61 @@ export default function TransactionsPage() {
     }
   }, [criteria, from, to, method, router]);
 
+  const loadWithdrawals = useCallback(
+    async (page = 1) => {
+      if (!hasUserSession()) {
+        router.replace("/login");
+        return;
+      }
+
+      setLoading(true);
+      setPageError("");
+      try {
+        const filterTemplate = criteriaToFilterTemplate(criteria);
+        const params = {
+          page,
+          per_page: 10,
+          filter_template: filterTemplate || undefined,
+          from_date: criteria === "Custom" || criteria === "Daily" ? from || undefined : undefined,
+          to_date: criteria === "Custom" || criteria === "Daily" ? to || undefined : undefined,
+          cashout_method_id: method || undefined,
+        };
+
+        if (criteria === "Daily" && !from && !to) {
+          const today = new Date();
+          const ymd = today.toISOString().slice(0, 10);
+          params.from_date = ymd;
+          params.to_date = ymd;
+        }
+
+        const data = await fetchWithdrawalTransactions(params);
+        setWithdrawals(data.transactions || []);
+        setCashoutMethods(data.cashout_methods || []);
+        setWithdrawalPagination(data.pagination || { page: 1, total_pages: 1, total: 0 });
+      } catch (err) {
+        if (err.status === 403) {
+          setPageError("You do not have permission to view withdrawal transactions.");
+        } else if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
+          router.replace("/verify");
+        } else {
+          setPageError(err.message || "Failed to load withdrawal transactions.");
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [criteria, from, to, method, router],
+  );
+
   useEffect(() => {
     if (tab === "Top-up") {
       loadDeposits(1);
+    } else if (tab === "Cash-out") {
+      loadWithdrawals(1);
     }
-  }, [tab, loadDeposits]);
+  }, [tab, loadDeposits, loadWithdrawals]);
 
-  const source = tab === "Top-up" ? deposits : MOCK_WITHDRAWALS;
+  const source = tab === "Top-up" ? deposits : withdrawals;
 
   const filtered = useMemo(() => {
     return source.filter((tx) => {
@@ -157,15 +183,6 @@ export default function TransactionsPage() {
 
       if (status !== "All Statuses" && tx.status !== status) return false;
 
-      if (tab === "Cash-out") {
-        if (criteria === "Custom" || from || to) {
-          if (from && tx.date < from) return false;
-          if (to && tx.date > to) return false;
-        } else if (!matchesPeriod(tx.date, criteria)) {
-          return false;
-        }
-      }
-
       return true;
     });
   }, [source, search, status, tab, criteria, from, to]);
@@ -179,26 +196,30 @@ export default function TransactionsPage() {
     setTo("");
     setMsg("");
     if (tab === "Top-up") loadDeposits(1);
+    if (tab === "Cash-out") loadWithdrawals(1);
   }
 
   function handlePrint(id) {
-    if (tab === "Top-up") {
-      window.open(buildPrintUrl({ transactionId: id }), "_blank", "noopener,noreferrer");
-      return;
-    }
-    setMsg(`PDF receipt prepared for transaction ${id} (demo).`);
-    setTimeout(() => setMsg(""), 3000);
+    window.open(
+      buildPrintUrl({
+        transactionId: id,
+        type: tab === "Cash-out" ? "withdrawal" : "deposit",
+      }),
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
   function handlePrintFiltered() {
-    if (tab !== "Top-up") return;
     const filterTemplate = criteriaToFilterTemplate(criteria);
     window.open(
       buildPrintUrl({
         from_date: from || undefined,
         to_date: to || undefined,
-        topup_method_id: method || undefined,
+        topup_method_id: tab === "Top-up" ? method || undefined : undefined,
+        cashout_method_id: tab === "Cash-out" ? method || undefined : undefined,
         filter_template: filterTemplate || undefined,
+        type: tab === "Cash-out" ? "withdrawal" : "deposit",
       }),
       "_blank",
       "noopener,noreferrer",
@@ -208,22 +229,24 @@ export default function TransactionsPage() {
 
   async function handleExport(type) {
     setExportOpen(false);
-    if (tab !== "Top-up") {
-      setMsg(`Export as ${type} prepared (demo).`);
-      setTimeout(() => setMsg(""), 3000);
-      return;
-    }
 
     if (type === "CSV" || type === "Excel") {
       try {
-        const { blob, filename } = await downloadDepositTransactionsExport();
+        const { blob, filename } =
+          tab === "Cash-out"
+            ? await downloadWithdrawalTransactionsExport()
+            : await downloadDepositTransactionsExport();
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
         link.download = filename;
         link.click();
         URL.revokeObjectURL(url);
-        setMsg("Deposit transactions exported successfully.");
+        setMsg(
+          tab === "Cash-out"
+            ? "Withdrawal transactions exported successfully."
+            : "Deposit transactions exported successfully.",
+        );
       } catch (err) {
         setMsg(err.message || "Export failed.");
       }
@@ -313,7 +336,7 @@ export default function TransactionsPage() {
               <option value="" className="bg-[#141A2E]">
                 All Methods
               </option>
-              {(tab === "Top-up" ? topupMethods : []).map((m) => (
+              {(tab === "Top-up" ? topupMethods : cashoutMethods).map((m) => (
                 <option key={m.id} value={m.id} className="bg-[#141A2E]">
                   {m.name}
                 </option>
@@ -328,15 +351,13 @@ export default function TransactionsPage() {
             >
               Reset
             </button>
-            {tab === "Top-up" ? (
-              <button
-                type="button"
-                onClick={() => loadDeposits(1)}
-                className="inline-flex h-[42px] items-center justify-center rounded-lg bg-theme-green-action px-4 text-sm font-semibold text-white transition hover:brightness-110"
-              >
-                Filter
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => (tab === "Top-up" ? loadDeposits(1) : loadWithdrawals(1))}
+              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-theme-green-action px-4 text-sm font-semibold text-white transition hover:brightness-110"
+            >
+              Filter
+            </button>
             <div className="relative">
               <button
                 type="button"
@@ -364,7 +385,11 @@ export default function TransactionsPage() {
             </div>
             <p className="ml-auto self-center text-xs text-white/40">
               Showing {filtered.length} result{filtered.length === 1 ? "" : "s"}
-              {tab === "Top-up" && pagination.total ? ` of ${pagination.total}` : ""}
+              {tab === "Top-up" && pagination.total
+                ? ` of ${pagination.total}`
+                : tab === "Cash-out" && withdrawalPagination.total
+                  ? ` of ${withdrawalPagination.total}`
+                  : ""}
             </p>
           </div>
         </div>
@@ -387,7 +412,7 @@ export default function TransactionsPage() {
         </div>
       ) : null}
 
-      {loading && tab === "Top-up" ? (
+      {loading ? (
         <div className="mt-10 flex items-center justify-center text-white/50">
           <Loader2 className="mr-2 h-5 w-5 animate-spin" />
           Loading transactions…
@@ -460,7 +485,10 @@ export default function TransactionsPage() {
                       ["Status", tx.status],
                       ["Currency", tx.currency],
                       ["Amount", tx.amount],
-                      ["Payment Amount", tx.paymentAmount || tx.amount],
+                      [
+                        tab === "Cash-out" ? "Receiving Amount" : "Payment Amount",
+                        tx.receivingAmount || tx.paymentAmount || tx.amount,
+                      ],
                       ["Fee", tx.fee || "—"],
                       ["Net amount", tx.netAmount || tx.amount],
                       ["Date", tx.date],
@@ -509,6 +537,30 @@ export default function TransactionsPage() {
             type="button"
             disabled={pagination.page >= pagination.total_pages || loading}
             onClick={() => loadDeposits(pagination.page + 1)}
+            className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70 disabled:opacity-40"
+          >
+            Next
+          </button>
+        </div>
+      ) : null}
+
+      {tab === "Cash-out" && withdrawalPagination.total_pages > 1 ? (
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <button
+            type="button"
+            disabled={withdrawalPagination.page <= 1 || loading}
+            onClick={() => loadWithdrawals(withdrawalPagination.page - 1)}
+            className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70 disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-white/50">
+            Page {withdrawalPagination.page} of {withdrawalPagination.total_pages}
+          </span>
+          <button
+            type="button"
+            disabled={withdrawalPagination.page >= withdrawalPagination.total_pages || loading}
+            onClick={() => loadWithdrawals(withdrawalPagination.page + 1)}
             className="rounded-lg border border-white/15 px-4 py-2 text-sm text-white/70 disabled:opacity-40"
           >
             Next

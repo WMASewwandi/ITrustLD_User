@@ -6,25 +6,34 @@ import {
   fetchDepositTransaction,
   fetchDepositTransactionsForPrint,
 } from "@/lib/deposits";
+import {
+  fetchWithdrawalTransaction,
+  fetchWithdrawalTransactionsForPrint,
+} from "@/lib/withdrawals";
 import { hasUserSession } from "@/lib/auth";
 
-export default function DepositTransactionsPrintPage() {
+export default function TransactionsPrintPage() {
   const searchParams = useSearchParams();
   const transactionId = searchParams.get("transactionId");
   const fromDate = searchParams.get("from_date") || "";
   const toDate = searchParams.get("to_date") || "";
   const topupMethodId = searchParams.get("topup_method_id") || "";
+  const cashoutMethodId = searchParams.get("cashout_method_id") || "";
   const filterTemplate = searchParams.get("filter_template") || "";
+  const type = searchParams.get("type") || "deposit";
+  const isWithdrawal = type === "withdrawal";
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [single, setSingle] = useState(null);
   const [list, setList] = useState([]);
 
-  const title = useMemo(
-    () => (transactionId ? "Deposit Transaction Receipt" : "Deposit Transactions"),
-    [transactionId],
-  );
+  const title = useMemo(() => {
+    if (transactionId) {
+      return isWithdrawal ? "Withdrawal Transaction Receipt" : "Deposit Transaction Receipt";
+    }
+    return isWithdrawal ? "Withdrawal Transactions" : "Deposit Transactions";
+  }, [transactionId, isWithdrawal]);
 
   useEffect(() => {
     if (!hasUserSession()) {
@@ -39,15 +48,24 @@ export default function DepositTransactionsPrintPage() {
       setError("");
       try {
         if (transactionId) {
-          const tx = await fetchDepositTransaction(transactionId);
+          const tx = isWithdrawal
+            ? await fetchWithdrawalTransaction(transactionId)
+            : await fetchDepositTransaction(transactionId);
           if (!cancelled) setSingle(tx);
         } else {
-          const data = await fetchDepositTransactionsForPrint({
-            from_date: fromDate,
-            to_date: toDate,
-            topup_method_id: topupMethodId,
-            filter_template: filterTemplate,
-          });
+          const data = isWithdrawal
+            ? await fetchWithdrawalTransactionsForPrint({
+                from_date: fromDate,
+                to_date: toDate,
+                cashout_method_id: cashoutMethodId,
+                filter_template: filterTemplate,
+              })
+            : await fetchDepositTransactionsForPrint({
+                from_date: fromDate,
+                to_date: toDate,
+                topup_method_id: topupMethodId,
+                filter_template: filterTemplate,
+              });
           if (!cancelled) setList(data.transactions || []);
         }
       } catch (err) {
@@ -60,7 +78,15 @@ export default function DepositTransactionsPrintPage() {
     return () => {
       cancelled = true;
     };
-  }, [transactionId, fromDate, toDate, topupMethodId, filterTemplate]);
+  }, [
+    transactionId,
+    fromDate,
+    toDate,
+    topupMethodId,
+    cashoutMethodId,
+    filterTemplate,
+    isWithdrawal,
+  ]);
 
   useEffect(() => {
     if (!loading && !error) {
@@ -83,7 +109,9 @@ export default function DepositTransactionsPrintPage() {
       `}</style>
 
       <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="mt-1 text-sm text-gray-600">iTrustLD — Deposit History</p>
+      <p className="mt-1 text-sm text-gray-600">
+        iTrustLD — {isWithdrawal ? "Cash-out" : "Deposit"} History
+      </p>
 
       {loading ? <p className="mt-8 text-sm text-gray-600">Loading…</p> : null}
       {error ? <p className="mt-8 text-sm text-red-600">{error}</p> : null}
@@ -102,7 +130,10 @@ export default function DepositTransactionsPrintPage() {
                     ["Method", tx.method],
                     ["Payment Option", tx.paymentOption],
                     ["Amount", tx.amount],
-                    ["Payment Amount", tx.paymentAmount],
+                    [
+                      isWithdrawal ? "Receiving Amount" : "Payment Amount",
+                      tx.receivingAmount || tx.paymentAmount,
+                    ],
                     ["Platform Account", tx.account],
                     ["Date", `${tx.date} ${tx.time}`],
                     ["Message", tx.note || "—"],
