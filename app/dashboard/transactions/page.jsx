@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import BottomMessage from "@/components/dashboard/bottom-message";
 import {
   criteriaToFilterTemplate,
@@ -13,10 +13,10 @@ import {
   fetchWithdrawalTransactions,
 } from "@/lib/withdrawals";
 import { hasUserSession } from "@/lib/auth";
-import { rowMatchesSearch } from "@/lib/filter-utils";
 import { ChevronDown, Download, Loader2, Printer, Search } from "lucide-react";
 
 const CRITERIA = ["All", "Daily", "Weekly", "Monthly", "Custom"];
+const STATUS_OPTIONS = ["All Statuses", "Completed", "Pending", "Rejected"];
 
 const fieldClass =
   "w-full rounded-lg border border-white/12 bg-[#0B1020]/70 px-3 py-2.5 text-sm text-white outline-none transition focus:border-theme-green-action/50";
@@ -30,6 +30,15 @@ const STATUS_STYLE = {
   Rejected: "bg-theme-red-action text-white",
 };
 
+const DEFAULT_FILTERS = {
+  search: "",
+  criteria: "All",
+  method: "",
+  status: "All Statuses",
+  from: "",
+  to: "",
+};
+
 function buildPrintUrl(params) {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -39,15 +48,57 @@ function buildPrintUrl(params) {
   return `/dashboard/transactions/print${query ? `?${query}` : ""}`;
 }
 
+function buildListParams(filters, page, methodIdKey) {
+  const filterTemplate = criteriaToFilterTemplate(filters.criteria);
+  const params = {
+    page,
+    per_page: 10,
+    filter_template: filterTemplate || undefined,
+    from_date:
+      filters.criteria === "Custom" || filters.criteria === "Daily"
+        ? filters.from || undefined
+        : undefined,
+    to_date:
+      filters.criteria === "Custom" || filters.criteria === "Daily"
+        ? filters.to || undefined
+        : undefined,
+    [methodIdKey]: filters.method || undefined,
+    status: filters.status !== "All Statuses" ? filters.status : undefined,
+    search: filters.search.trim() || undefined,
+  };
+
+  if (filters.criteria === "Daily" && !filters.from && !filters.to) {
+    const today = new Date();
+    const ymd = today.toISOString().slice(0, 10);
+    params.from_date = ymd;
+    params.to_date = ymd;
+  }
+
+  return params;
+}
+
+function tabFromQuery(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "cash-out" || normalized === "cashout" || normalized === "withdrawal") {
+    return "Cash-out";
+  }
+  return "Top-up";
+}
+
+function tabToQuery(tab) {
+  return tab === "Cash-out" ? "cash-out" : "top-up";
+}
+
 export default function TransactionsPage() {
   const router = useRouter();
-  const [tab, setTab] = useState("Top-up");
-  const [search, setSearch] = useState("");
-  const [criteria, setCriteria] = useState("All");
-  const [method, setMethod] = useState("");
-  const [status, setStatus] = useState("All Statuses");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const searchDebounceRef = useRef(null);
+  const skipSearchDebounceRef = useRef(true);
+
+  const [tab, setTab] = useState(() => tabFromQuery(searchParams.get("tab")));
+  const [depositFilters, setDepositFilters] = useState(DEFAULT_FILTERS);
+  const [withdrawalFilters, setWithdrawalFilters] = useState(DEFAULT_FILTERS);
   const [msg, setMsg] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
@@ -65,51 +116,29 @@ export default function TransactionsPage() {
     total: 0,
   });
 
-  const loadDeposits = useCallback(async (page = 1) => {
-    if (!hasUserSession()) {
-      router.replace("/login");
-      return;
-    }
+  const filters = tab === "Top-up" ? depositFilters : withdrawalFilters;
+  const setFilters = tab === "Top-up" ? setDepositFilters : setWithdrawalFilters;
+  const rows = tab === "Top-up" ? deposits : withdrawals;
+  const activePagination = tab === "Top-up" ? pagination : withdrawalPagination;
 
-    setLoading(true);
-    setPageError("");
-    try {
-      const filterTemplate = criteriaToFilterTemplate(criteria);
-      const params = {
-        page,
-        per_page: 10,
-        filter_template: filterTemplate || undefined,
-        from_date: criteria === "Custom" || criteria === "Daily" ? from || undefined : undefined,
-        to_date: criteria === "Custom" || criteria === "Daily" ? to || undefined : undefined,
-        topup_method_id: method || undefined,
-      };
+  const depositFiltersRef = useRef(depositFilters);
+  const withdrawalFiltersRef = useRef(withdrawalFilters);
+  const tabRef = useRef(tab);
+  depositFiltersRef.current = depositFilters;
+  withdrawalFiltersRef.current = withdrawalFilters;
+  tabRef.current = tab;
 
-      if (criteria === "Daily" && !from && !to) {
-        const today = new Date();
-        const ymd = today.toISOString().slice(0, 10);
-        params.from_date = ymd;
-        params.to_date = ymd;
-      }
+  const updateTabInUrl = useCallback(
+    (nextTab) => {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("tab", tabToQuery(nextTab));
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
 
-      const data = await fetchDepositTransactions(params);
-      setDeposits(data.transactions || []);
-      setTopupMethods(data.topup_methods || []);
-      setPagination(data.pagination || { page: 1, total_pages: 1, total: 0 });
-    } catch (err) {
-      if (err.status === 403) {
-        setPageError("You do not have permission to view deposit transactions.");
-      } else if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
-        router.replace("/verify");
-      } else {
-        setPageError(err.message || "Failed to load deposit transactions.");
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [criteria, from, to, method, router]);
-
-  const loadWithdrawals = useCallback(
-    async (page = 1) => {
+  const loadDeposits = useCallback(
+    async (page = 1, overrides = {}) => {
       if (!hasUserSession()) {
         router.replace("/login");
         return;
@@ -118,23 +147,39 @@ export default function TransactionsPage() {
       setLoading(true);
       setPageError("");
       try {
-        const filterTemplate = criteriaToFilterTemplate(criteria);
-        const params = {
-          page,
-          per_page: 10,
-          filter_template: filterTemplate || undefined,
-          from_date: criteria === "Custom" || criteria === "Daily" ? from || undefined : undefined,
-          to_date: criteria === "Custom" || criteria === "Daily" ? to || undefined : undefined,
-          cashout_method_id: method || undefined,
-        };
-
-        if (criteria === "Daily" && !from && !to) {
-          const today = new Date();
-          const ymd = today.toISOString().slice(0, 10);
-          params.from_date = ymd;
-          params.to_date = ymd;
+        const merged = { ...depositFiltersRef.current, ...overrides };
+        const params = buildListParams(merged, page, "topup_method_id");
+        const data = await fetchDepositTransactions(params);
+        setDeposits(data.transactions || []);
+        setTopupMethods(data.topup_methods || []);
+        setPagination(data.pagination || { page: 1, total_pages: 1, total: 0 });
+      } catch (err) {
+        if (err.status === 403) {
+          setPageError("You do not have permission to view deposit transactions.");
+        } else if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
+          router.replace("/verify");
+        } else {
+          setPageError(err.message || "Failed to load deposit transactions.");
         }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [router],
+  );
 
+  const loadWithdrawals = useCallback(
+    async (page = 1, overrides = {}) => {
+      if (!hasUserSession()) {
+        router.replace("/login");
+        return;
+      }
+
+      setLoading(true);
+      setPageError("");
+      try {
+        const merged = { ...withdrawalFiltersRef.current, ...overrides };
+        const params = buildListParams(merged, page, "cashout_method_id");
         const data = await fetchWithdrawalTransactions(params);
         setWithdrawals(data.transactions || []);
         setCashoutMethods(data.cashout_methods || []);
@@ -151,52 +196,71 @@ export default function TransactionsPage() {
         setLoading(false);
       }
     },
-    [criteria, from, to, method, router],
+    [router],
   );
+
+  useEffect(() => {
+    const nextTab = tabFromQuery(searchParams.get("tab"));
+    setTab((current) => (current === nextTab ? current : nextTab));
+  }, [searchParams]);
 
   useEffect(() => {
     if (tab === "Top-up") {
       loadDeposits(1);
-    } else if (tab === "Cash-out") {
+    } else {
       loadWithdrawals(1);
     }
   }, [tab, loadDeposits, loadWithdrawals]);
 
-  const source = tab === "Top-up" ? deposits : withdrawals;
+  useEffect(() => {
+    if (skipSearchDebounceRef.current) {
+      skipSearchDebounceRef.current = false;
+      return undefined;
+    }
 
-  const filtered = useMemo(() => {
-    return source.filter((tx) => {
-      if (
-        !rowMatchesSearch(tx, search, [
-          "id",
-          "method",
-          "amount",
-          "status",
-          "account",
-          "reference",
-          "note",
-          "paymentOption",
-        ])
-      ) {
-        return false;
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      if (tabRef.current === "Top-up") {
+        loadDeposits(1);
+      } else {
+        loadWithdrawals(1);
       }
+    }, 400);
 
-      if (status !== "All Statuses" && tx.status !== status) return false;
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [depositFilters.search, withdrawalFilters.search, loadDeposits, loadWithdrawals]);
 
-      return true;
-    });
-  }, [source, search, status, tab, criteria, from, to]);
+  function handleTabChange(item) {
+    setTab(item);
+    setMsg("");
+    setExpandedId(null);
+    updateTabInUrl(item);
+  }
 
   function handleResetFilters() {
-    setSearch("");
-    setCriteria("All");
-    setMethod("");
-    setStatus("All Statuses");
-    setFrom("");
-    setTo("");
+    if (tab === "Top-up") {
+      setDepositFilters(DEFAULT_FILTERS);
+      loadDeposits(1, DEFAULT_FILTERS);
+    } else {
+      setWithdrawalFilters(DEFAULT_FILTERS);
+      loadWithdrawals(1, DEFAULT_FILTERS);
+    }
     setMsg("");
-    if (tab === "Top-up") loadDeposits(1);
-    if (tab === "Cash-out") loadWithdrawals(1);
+  }
+
+  function handleApplyFilters() {
+    if (tab === "Top-up") {
+      loadDeposits(1);
+    } else {
+      loadWithdrawals(1);
+    }
   }
 
   function handlePrint(id) {
@@ -211,14 +275,16 @@ export default function TransactionsPage() {
   }
 
   function handlePrintFiltered() {
-    const filterTemplate = criteriaToFilterTemplate(criteria);
+    const filterTemplate = criteriaToFilterTemplate(filters.criteria);
     window.open(
       buildPrintUrl({
-        from_date: from || undefined,
-        to_date: to || undefined,
-        topup_method_id: tab === "Top-up" ? method || undefined : undefined,
-        cashout_method_id: tab === "Cash-out" ? method || undefined : undefined,
+        from_date: filters.from || undefined,
+        to_date: filters.to || undefined,
+        topup_method_id: tab === "Top-up" ? filters.method || undefined : undefined,
+        cashout_method_id: tab === "Cash-out" ? filters.method || undefined : undefined,
         filter_template: filterTemplate || undefined,
+        status: filters.status !== "All Statuses" ? filters.status : undefined,
+        search: filters.search.trim() || undefined,
         type: tab === "Cash-out" ? "withdrawal" : "deposit",
       }),
       "_blank",
@@ -270,11 +336,7 @@ export default function TransactionsPage() {
             <button
               key={item}
               type="button"
-              onClick={() => {
-                setTab(item);
-                setMsg("");
-                setExpandedId(null);
-              }}
+              onClick={() => handleTabChange(item)}
               className={`relative pb-3 text-sm font-semibold transition ${
                 active ? "text-white" : "text-white/45 hover:text-white/75"
               }`}
@@ -295,8 +357,8 @@ export default function TransactionsPage() {
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/35" />
               <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                value={filters.search}
+                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
                 placeholder="ID, method, account, reference…"
                 className={`${fieldClass} pl-9`}
               />
@@ -304,7 +366,11 @@ export default function TransactionsPage() {
           </div>
           <div>
             <label className={labelClass}>Filter Criteria</label>
-            <select value={criteria} onChange={(e) => setCriteria(e.target.value)} className={fieldClass}>
+            <select
+              value={filters.criteria}
+              onChange={(e) => setFilters((prev) => ({ ...prev, criteria: e.target.value }))}
+              className={fieldClass}
+            >
               {CRITERIA.map((c) => (
                 <option key={c} value={c} className="bg-[#141A2E]">
                   {c}
@@ -314,8 +380,12 @@ export default function TransactionsPage() {
           </div>
           <div>
             <label className={labelClass}>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value)} className={fieldClass}>
-              {["All Statuses", "Completed", "Pending", "Rejected"].map((s) => (
+            <select
+              value={filters.status}
+              onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
+              className={fieldClass}
+            >
+              {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s} className="bg-[#141A2E]">
                   {s}
                 </option>
@@ -324,15 +394,29 @@ export default function TransactionsPage() {
           </div>
           <div>
             <label className={labelClass}>From</label>
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={fieldClass} />
+            <input
+              type="date"
+              value={filters.from}
+              onChange={(e) => setFilters((prev) => ({ ...prev, from: e.target.value }))}
+              className={fieldClass}
+            />
           </div>
           <div>
             <label className={labelClass}>To</label>
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={fieldClass} />
+            <input
+              type="date"
+              value={filters.to}
+              onChange={(e) => setFilters((prev) => ({ ...prev, to: e.target.value }))}
+              className={fieldClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Transaction Method</label>
-            <select value={method} onChange={(e) => setMethod(e.target.value)} className={fieldClass}>
+            <select
+              value={filters.method}
+              onChange={(e) => setFilters((prev) => ({ ...prev, method: e.target.value }))}
+              className={fieldClass}
+            >
               <option value="" className="bg-[#141A2E]">
                 All Methods
               </option>
@@ -353,7 +437,7 @@ export default function TransactionsPage() {
             </button>
             <button
               type="button"
-              onClick={() => (tab === "Top-up" ? loadDeposits(1) : loadWithdrawals(1))}
+              onClick={handleApplyFilters}
               className="inline-flex h-[42px] items-center justify-center rounded-lg bg-theme-green-action px-4 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Filter
@@ -384,12 +468,8 @@ export default function TransactionsPage() {
               ) : null}
             </div>
             <p className="ml-auto self-center text-xs text-white/40">
-              Showing {filtered.length} result{filtered.length === 1 ? "" : "s"}
-              {tab === "Top-up" && pagination.total
-                ? ` of ${pagination.total}`
-                : tab === "Cash-out" && withdrawalPagination.total
-                  ? ` of ${withdrawalPagination.total}`
-                  : ""}
+              Showing {rows.length} result{rows.length === 1 ? "" : "s"}
+              {activePagination.total ? ` of ${activePagination.total}` : ""}
             </p>
           </div>
         </div>
@@ -420,7 +500,7 @@ export default function TransactionsPage() {
       ) : null}
 
       <div className="mt-6 space-y-3">
-        {filtered.map((tx) => {
+        {rows.map((tx) => {
           const expanded = expandedId === tx.id;
           return (
             <article
@@ -513,7 +593,7 @@ export default function TransactionsPage() {
           );
         })}
 
-        {!loading && filtered.length === 0 ? (
+        {!loading && rows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-white/15 bg-[#0B1020]/60 px-5 py-12 text-center text-sm text-white/45">
             No Results Found
           </div>

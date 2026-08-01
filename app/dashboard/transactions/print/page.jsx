@@ -20,6 +20,8 @@ export default function TransactionsPrintPage() {
   const topupMethodId = searchParams.get("topup_method_id") || "";
   const cashoutMethodId = searchParams.get("cashout_method_id") || "";
   const filterTemplate = searchParams.get("filter_template") || "";
+  const status = searchParams.get("status") || "";
+  const search = searchParams.get("search") || "";
   const type = searchParams.get("type") || "deposit";
   const isWithdrawal = type === "withdrawal";
 
@@ -59,12 +61,16 @@ export default function TransactionsPrintPage() {
                 to_date: toDate,
                 cashout_method_id: cashoutMethodId,
                 filter_template: filterTemplate,
+                status: status || undefined,
+                search: search || undefined,
               })
             : await fetchDepositTransactionsForPrint({
                 from_date: fromDate,
                 to_date: toDate,
                 topup_method_id: topupMethodId,
                 filter_template: filterTemplate,
+                status: status || undefined,
+                search: search || undefined,
               });
           if (!cancelled) setList(data.transactions || []);
         }
@@ -85,6 +91,8 @@ export default function TransactionsPrintPage() {
     topupMethodId,
     cashoutMethodId,
     filterTemplate,
+    status,
+    search,
     isWithdrawal,
   ]);
 
