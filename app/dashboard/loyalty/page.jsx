@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import BottomMessage from "@/components/dashboard/bottom-message";
+import ClaimMyBonus from "@/components/dashboard/claim-my-bonus";
 import ListFilters from "@/components/dashboard/list-filters";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import PartnerLoyaltyPanel from "@/components/dashboard/partner-loyalty-panel";
@@ -13,9 +14,11 @@ import { inDateRange, rowMatchesSearch } from "@/lib/filter-utils";
 import {
   createLoyaltyWithdrawal,
   decodeReceivingAccountOption,
+  fetchBonusClaims,
   fetchLoyaltySummary,
   fetchLoyaltyWithdrawals,
   flattenAccountGroups,
+  mapBonusClaimRows,
   mapWithdrawalRows,
 } from "@/lib/loyalty-api";
 import { fetchPaymentAccounts } from "@/lib/payment-accounts";
@@ -60,6 +63,8 @@ export default function LoyaltyPage() {
   const [partnerProgress, setPartnerProgress] = useState(null);
   const [partnerTiers, setPartnerTiers] = useState([]);
   const [tierLabel, setTierLabel] = useState("Normal");
+  const [bonusSummary, setBonusSummary] = useState(null);
+  const [bonusClaims, setBonusClaims] = useState([]);
   const [historyFilter, setHistoryFilter] = useState(HISTORY_FILTER_DEFAULTS);
 
   const tierDisplay = useMemo(() => {
@@ -115,10 +120,11 @@ export default function LoyaltyPage() {
   const loadLoyaltyData = useCallback(async () => {
     setLoading(true);
     try {
-      const [summaryData, accountsData, historyData] = await Promise.all([
+      const [summaryData, accountsData, historyData, bonusClaimsData] = await Promise.all([
         fetchLoyaltySummary(),
         fetchPaymentAccounts(),
         fetchLoyaltyWithdrawals({ perPage: 50 }),
+        fetchBonusClaims({ perPage: 10 }),
       ]);
 
       const pointSummary = summaryData.point_summary || {};
@@ -138,6 +144,8 @@ export default function LoyaltyPage() {
       );
       setPartnerPoints(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
       setPartnerProgress(summaryData.partner_progress || null);
+      setBonusSummary(summaryData.bonus_summary || null);
+      setBonusClaims(mapBonusClaimRows(bonusClaimsData.claims || []));
       if (summaryData.partner_progress?.tiers?.length) {
         setPartnerTiers(summaryData.partner_progress.tiers);
       }
@@ -329,6 +337,12 @@ export default function LoyaltyPage() {
             <div className="w-full rounded-xl bg-theme-green-dark px-4 py-4 text-center text-sm font-semibold text-white shadow-[0_12px_28px_rgba(20,83,91,0.35)] sm:px-5 sm:text-base">
               {rateLabel}
             </div>
+
+            <ClaimMyBonus
+              bonusSummary={bonusSummary}
+              claimHistory={bonusClaims}
+              onClaimed={() => loadLoyaltyData()}
+            />
 
             <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
               <h2 className="text-base font-semibold text-white">

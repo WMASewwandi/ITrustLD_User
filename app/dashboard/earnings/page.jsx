@@ -2,21 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ListFilters from "@/components/dashboard/list-filters";
+import ClaimMyBonus from "@/components/dashboard/claim-my-bonus";
 import PageHeader from "@/components/dashboard/page-header";
 import {
-  claimBonusById,
   claimVoucherById,
-  getReadyBonusClaims,
   getReadyVoucherClaims,
   loadClaimsState,
 } from "@/lib/earnings";
 import { inDateRange, matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils";
 import { getPartnerProgress, getPartnerTiers, getTierColor } from "@/lib/loyalty";
 import {
+  fetchBonusClaims,
   fetchLoyaltySummary,
   fetchPartnerClients,
   fetchSubPartnerClients,
   mapAffiliateClientRows,
+  mapBonusClaimRows,
 } from "@/lib/loyalty-api";
 import { hasUserSession, isPartnerUser, getUserSession, patchUserSessionAccountHolder } from "@/lib/auth";
 import { useRouter } from "next/navigation";
@@ -72,7 +73,35 @@ function CountBadge({ count }) {
   );
 }
 
-function TableShell({ columns, rows, emptyLabel }) {
+const STATUS_BADGE_CLASS = {
+  Completed: "bg-theme-green-action text-white",
+  Claimed: "bg-theme-green-action text-white",
+  Pending: "bg-theme-orange text-white",
+  Rejected: "bg-theme-red-action text-white",
+};
+
+function StatusBadge({ status }) {
+  const normalized = status === "Claimed" ? "Completed" : String(status || "Pending");
+  return (
+    <span
+      className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+        STATUS_BADGE_CLASS[normalized] || STATUS_BADGE_CLASS.Pending
+      }`}
+    >
+      {normalized}
+    </span>
+  );
+}
+
+function TableShell({ columns, rows, emptyLabel, loading = false }) {
+  if (loading) {
+    return (
+      <div className="rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-10">
+        <p className="text-sm text-white/50">Loading…</p>
+      </div>
+    );
+  }
+
   if (!rows.length) {
     return (
       <div className="rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-10">
@@ -286,14 +315,41 @@ export default function MyEarningsPage() {
   const [claimsState, setClaimsState] = useState({ vouchers: [], bonuses: [], history: [] });
   const [myClients, setMyClients] = useState([]);
   const [subClients, setSubClients] = useState([]);
+  const [summaryLoading, setSummaryLoading] = useState(true);
   const [clientsLoading, setClientsLoading] = useState(false);
+  const [subClientsLoading, setSubClientsLoading] = useState(false);
+  const [bonusClaimsLoading, setBonusClaimsLoading] = useState(false);
+  const [clientsLoaded, setClientsLoaded] = useState(false);
+  const [subClientsLoaded, setSubClientsLoaded] = useState(false);
+  const [bonusClaimsLoaded, setBonusClaimsLoaded] = useState(false);
   const [viewVoucher, setViewVoucher] = useState(null);
-  const [viewBonus, setViewBonus] = useState(null);
   const [claimMsg, setClaimMsg] = useState("");
+  const [bonusSummary, setBonusSummary] = useState(null);
+  const [bonusClaims, setBonusClaims] = useState([]);
 
   const [clientFilter, setClientFilter] = useState(CLIENT_DEFAULTS);
   const [subFilter, setSubFilter] = useState(CLIENT_DEFAULTS);
   const [historyFilter, setHistoryFilter] = useState(HISTORY_DEFAULTS);
+
+  function applySummaryData(summaryData) {
+    const pointSummary = summaryData.point_summary || {};
+    setIsPartner(Boolean(summaryData.is_partner));
+    setPartnerTier(summaryData.partner_tier || pointSummary.level_label || "Normal");
+    setPartnerPoints(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
+    setBonusSummary(summaryData.bonus_summary || null);
+    patchUserSessionAccountHolder({
+      is_patner: summaryData.is_partner ? "YES" : "NO",
+      affiliate_code: summaryData.affiliate_code || null,
+    });
+  }
+
+  function handleLoyaltyError(err) {
+    if (err?.data?.code === "VERIFICATION_REQUIRED" || err?.message?.includes("verification")) {
+      router.replace("/verify");
+      return true;
+    }
+    return false;
+  }
 
   useEffect(() => {
     if (!hasUserSession()) {
@@ -305,35 +361,104 @@ export default function MyEarningsPage() {
     setTiers(getPartnerTiers());
     setClaimsState(loadClaimsState());
 
-    async function loadPartnerData() {
-      setClientsLoading(true);
+    let cancelled = false;
+
+    async function loadSummary() {
+      setSummaryLoading(true);
       try {
-        const [summaryData, clientsData, subClientsData] = await Promise.all([
-          fetchLoyaltySummary(),
-          fetchPartnerClients({ perPage: 100 }),
-          fetchSubPartnerClients({ perPage: 100 }),
-        ]);
-        const pointSummary = summaryData.point_summary || {};
-        setIsPartner(Boolean(summaryData.is_partner));
-        setPartnerTier(summaryData.partner_tier || pointSummary.level_label || "Normal");
-        setPartnerPoints(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
-        setMyClients(mapAffiliateClientRows(clientsData.clients || []));
-        setSubClients(mapAffiliateClientRows(subClientsData.clients || []));
-        patchUserSessionAccountHolder({
-          is_patner: summaryData.is_partner ? "YES" : "NO",
-          affiliate_code: summaryData.affiliate_code || null,
-        });
+        const summaryData = await fetchLoyaltySummary();
+        if (!cancelled) applySummaryData(summaryData);
       } catch (err) {
-        if (err.data?.code === "VERIFICATION_REQUIRED" || err.message?.includes("verification")) {
-          router.replace("/verify");
-        }
+        if (!cancelled) handleLoyaltyError(err);
       } finally {
-        setClientsLoading(false);
+        if (!cancelled) setSummaryLoading(false);
       }
     }
 
-    loadPartnerData();
+    loadSummary();
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
+
+  useEffect(() => {
+    if (!isPartner || tab !== "clients" || clientsLoaded || clientsLoading) return undefined;
+
+    let cancelled = false;
+
+    async function loadClients() {
+      setClientsLoading(true);
+      try {
+        const clientsData = await fetchPartnerClients({ perPage: 100 });
+        if (!cancelled) {
+          setMyClients(mapAffiliateClientRows(clientsData.clients || []));
+          setClientsLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) handleLoyaltyError(err);
+      } finally {
+        if (!cancelled) setClientsLoading(false);
+      }
+    }
+
+    loadClients();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, isPartner, clientsLoaded, clientsLoading, router]);
+
+  useEffect(() => {
+    if (!isPartner || tab !== "sub-clients" || subClientsLoaded || subClientsLoading) return undefined;
+
+    let cancelled = false;
+
+    async function loadSubClients() {
+      setSubClientsLoading(true);
+      try {
+        const subClientsData = await fetchSubPartnerClients({ perPage: 100 });
+        if (!cancelled) {
+          setSubClients(mapAffiliateClientRows(subClientsData.clients || []));
+          setSubClientsLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) handleLoyaltyError(err);
+      } finally {
+        if (!cancelled) setSubClientsLoading(false);
+      }
+    }
+
+    loadSubClients();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, isPartner, subClientsLoaded, subClientsLoading, router]);
+
+  useEffect(() => {
+    const needsBonusClaims = tab === "claim-bonus" || tab === "claim-history";
+    if (!needsBonusClaims || bonusClaimsLoaded || bonusClaimsLoading) return undefined;
+
+    let cancelled = false;
+
+    async function loadBonusClaims() {
+      setBonusClaimsLoading(true);
+      try {
+        const bonusClaimsData = await fetchBonusClaims({ perPage: 50 });
+        if (!cancelled) {
+          setBonusClaims(mapBonusClaimRows(bonusClaimsData.claims || []));
+          setBonusClaimsLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) handleLoyaltyError(err);
+      } finally {
+        if (!cancelled) setBonusClaimsLoading(false);
+      }
+    }
+
+    loadBonusClaims();
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, bonusClaimsLoaded, bonusClaimsLoading, router]);
 
   useEffect(() => {
     if (!isPartner && (tab === "clients" || tab === "sub-clients")) {
@@ -352,7 +477,21 @@ export default function MyEarningsPage() {
   }, [current, partnerPoints]);
 
   const readyVouchers = useMemo(() => getReadyVoucherClaims(claimsState), [claimsState]);
-  const readyBonuses = useMemo(() => getReadyBonusClaims(claimsState), [claimsState]);
+  const bonusAvailable = Boolean(bonusSummary?.available);
+
+  const bonusHistoryRows = useMemo(
+    () =>
+      bonusClaims.map((row) => ({
+        id: row.id,
+        type: "Bonus",
+        ref: row.id,
+        platformId: row.method,
+        amount: `USD ${row.amount}`,
+        claimedAt: row.date,
+        status: row.status === "Claimed" ? "Completed" : row.status,
+      })),
+    [bonusClaims],
+  );
 
   const visibleTabs = useMemo(() => {
     if (!isPartner) {
@@ -365,7 +504,9 @@ export default function MyEarningsPage() {
   const filteredSubClients = useMemo(() => filterClients(subClients, subFilter), [subClients, subFilter]);
 
   const filteredHistory = useMemo(() => {
-    return (claimsState.history || []).filter((row) => {
+    const voucherHistory = (claimsState.history || []).filter((row) => row.type === "Voucher");
+    const rows = [...bonusHistoryRows, ...voucherHistory];
+    return rows.filter((row) => {
       if (!rowMatchesSearch(row, historyFilter.search, ["type", "ref", "amount", "claimedAt", "status"])) {
         return false;
       }
@@ -374,7 +515,7 @@ export default function MyEarningsPage() {
       if (!inDateRange(row.claimedAt, historyFilter.from, historyFilter.to)) return false;
       return true;
     });
-  }, [claimsState.history, historyFilter]);
+  }, [bonusHistoryRows, claimsState.history, historyFilter]);
 
   function handleClaimVoucher(id, platformId) {
     setClaimsState((prev) => claimVoucherById(prev, id, platformId));
@@ -383,12 +524,36 @@ export default function MyEarningsPage() {
     setTimeout(() => setClaimMsg(""), 2500);
   }
 
-  function handleClaimBonus(id, platformId) {
-    setClaimsState((prev) => claimBonusById(prev, id, platformId));
-    setViewBonus(null);
-    setClaimMsg(`Bonus claimed successfully for Platform ID ${platformId}.`);
-    setTimeout(() => setClaimMsg(""), 2500);
+  async function reloadBonusData() {
+    try {
+      const [summaryData, bonusClaimsData] = await Promise.all([
+        fetchLoyaltySummary(),
+        fetchBonusClaims({ perPage: 50 }),
+      ]);
+      applySummaryData(summaryData);
+      setBonusClaims(mapBonusClaimRows(bonusClaimsData.claims || []));
+      setBonusClaimsLoaded(true);
+    } catch {
+      // ignore refresh errors
+    }
   }
+
+  const bonusClaimColumns = [
+    { key: "id", label: "Trans ID" },
+    { key: "date", label: "Date" },
+    {
+      key: "amount",
+      label: "Amount",
+      render: (row) => <span className="font-semibold text-theme-green-action">USD {row.amount}</span>,
+    },
+    { key: "method", label: "Payment Method" },
+    { key: "received", label: "Received" },
+    {
+      key: "status",
+      label: "Status",
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+  ];
 
   const voucherListColumns = [
     { key: "token", label: "Voucher Token" },
@@ -402,22 +567,7 @@ export default function MyEarningsPage() {
     {
       key: "userStatus",
       label: "Status",
-      render: (row) => <span className="font-medium text-theme-orange">{row.userStatus}</span>,
-    },
-  ];
-
-  const bonusListColumns = [
-    { key: "title", label: "Bonus" },
-    {
-      key: "amount",
-      label: "Amount",
-      render: (row) => <span className="font-semibold text-theme-green-action">{row.amount}</span>,
-    },
-    { key: "approvedAt", label: "Approved At" },
-    {
-      key: "userStatus",
-      label: "Status",
-      render: (row) => <span className="font-medium text-theme-orange">{row.userStatus}</span>,
+      render: (row) => <StatusBadge status={row.userStatus} />,
     },
   ];
 
@@ -441,7 +591,7 @@ export default function MyEarningsPage() {
         description="Track tier earnings, clients, and admin-approved voucher & bonus claims."
       />
 
-      <div className="overflow-x-auto border-b border-white/10">
+      <div className="overflow-x-auto border-b border-white/10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex min-w-max gap-6">
           {visibleTabs.map((item) => {
             const active = tab === item.id;
@@ -449,7 +599,7 @@ export default function MyEarningsPage() {
               item.id === "claim-vouchers"
                 ? readyVouchers.length
                 : item.id === "claim-bonus"
-                  ? readyBonuses.length
+                  ? (bonusAvailable ? 1 : 0)
                   : 0;
             return (
               <button
@@ -459,7 +609,6 @@ export default function MyEarningsPage() {
                   setTab(item.id);
                   setClaimMsg("");
                   setViewVoucher(null);
-                  setViewBonus(null);
                 }}
                 className={`relative pb-3 text-sm font-semibold transition ${
                   active ? "text-theme-green-action" : "text-white/70 hover:text-white"
@@ -485,6 +634,12 @@ export default function MyEarningsPage() {
 
         {tab === "overview" ? (
           <div className="space-y-5">
+            {summaryLoading ? (
+              <div className="rounded-2xl border border-white/12 bg-[#141A2E] px-5 py-10">
+                <p className="text-sm text-white/50">Loading earnings summary…</p>
+              </div>
+            ) : (
+              <>
             <section className="rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-6">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex min-w-0 items-start gap-4">
@@ -559,15 +714,17 @@ export default function MyEarningsPage() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="inline-flex items-center text-base font-semibold text-white">
-                    Claim Bonus
-                    <CountBadge count={readyBonuses.length} />
+                    Claim My Bonus
+                    <CountBadge count={bonusAvailable ? 1 : 0} />
                   </span>
                   <span className="mt-1 block text-sm text-white/50">
-                    Admin-approved bonuses ready for you to claim
+                    Submit a loyalty bonus claim to your saved payout account
                   </span>
                 </span>
               </button>
             </div>
+              </>
+            )}
           </div>
         ) : null}
 
@@ -588,7 +745,12 @@ export default function MyEarningsPage() {
               onReset={() => setClientFilter(CLIENT_DEFAULTS)}
               resultCount={filteredClients.length}
             />
-            <TableShell columns={clientColumns} rows={filteredClients} emptyLabel="No clients found." />
+            <TableShell
+              columns={clientColumns}
+              rows={filteredClients}
+              emptyLabel="No clients found."
+              loading={clientsLoading}
+            />
           </>
         ) : null}
 
@@ -613,6 +775,7 @@ export default function MyEarningsPage() {
               columns={clientColumns}
               rows={filteredSubClients}
               emptyLabel="No sub clients found."
+              loading={subClientsLoading}
             />
           </>
         ) : null}
@@ -635,18 +798,27 @@ export default function MyEarningsPage() {
         ) : null}
 
         {tab === "claim-bonus" ? (
-          <div className="space-y-4">
+          <div className="space-y-5">
+            <ClaimMyBonus
+              bonusSummary={bonusSummary}
+              claimHistory={bonusClaims}
+              onClaimed={() => {
+                reloadBonusData();
+                setClaimMsg("Bonus claim submitted successfully. Admin will review your request.");
+                setTimeout(() => setClaimMsg(""), 3000);
+              }}
+            />
             <div>
-              <h2 className="text-lg font-semibold text-white">Claim Bonus</h2>
+              <h2 className="text-lg font-semibold text-white">Bonus claim history</h2>
               <p className="mt-1 text-sm text-white/45">
-                Only bonuses approved by admin appear here. Open View to claim.
+                Track pending, claimed, and rejected bonus requests.
               </p>
             </div>
-            <ClaimList
-              items={readyBonuses}
-              emptyLabel="No approved bonuses to claim."
-              columns={bonusListColumns}
-              onView={setViewBonus}
+            <TableShell
+              columns={bonusClaimColumns}
+              rows={bonusClaims}
+              emptyLabel="No bonus claims yet."
+              loading={bonusClaimsLoading}
             />
           </div>
         ) : null}
@@ -687,34 +859,6 @@ export default function MyEarningsPage() {
           ) : null}
         </ClaimDetailModal>
 
-        <ClaimDetailModal
-          open={Boolean(viewBonus)}
-          title="Claim Bonus"
-          onClose={() => setViewBonus(null)}
-          onClaim={(platformId) => viewBonus && handleClaimBonus(viewBonus.id, platformId)}
-        >
-          {viewBonus ? (
-            <div>
-              <p className="text-base font-semibold text-white">{viewBonus.title}</p>
-              <p className="mt-2 text-sm text-white/55">{viewBonus.description}</p>
-              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                <div>
-                  <dt className="text-white/45">Amount</dt>
-                  <dd className="mt-1 font-semibold text-theme-green-action">{viewBonus.amount}</dd>
-                </div>
-                <div>
-                  <dt className="text-white/45">Admin Approved</dt>
-                  <dd className="mt-1 text-white">{viewBonus.approvedAt}</dd>
-                </div>
-                <div>
-                  <dt className="text-white/45">Status</dt>
-                  <dd className="mt-1 font-medium text-theme-orange">{viewBonus.userStatus}</dd>
-                </div>
-              </dl>
-            </div>
-          ) : null}
-        </ClaimDetailModal>
-
         {tab === "claim-history" ? (
           <>
             <ListFilters
@@ -746,10 +890,15 @@ export default function MyEarningsPage() {
                 { key: "platformId", label: "Platform ID" },
                 { key: "amount", label: "Amount" },
                 { key: "claimedAt", label: "Claimed At" },
-                { key: "status", label: "Status" },
+                {
+                  key: "status",
+                  label: "Status",
+                  render: (row) => <StatusBadge status={row.status} />,
+                },
               ]}
               rows={filteredHistory}
               emptyLabel="No claims yet. Claim an approved voucher or bonus to see history."
+              loading={bonusClaimsLoading}
             />
           </>
         ) : null}
