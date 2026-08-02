@@ -23,7 +23,8 @@ import {
 } from "@/lib/loyalty-api";
 import { fetchPaymentAccounts } from "@/lib/payment-accounts";
 import { getPartnerTiers } from "@/lib/loyalty";
-import { getMembershipProgress, MEMBERSHIP_TIERS } from "@/lib/membership-tiers";
+import { getMembershipProgress } from "@/lib/membership-tiers";
+import { useMembershipTiers } from "@/hooks/use-membership-tiers";
 import { Medal, Star, Trophy } from "lucide-react";
 
 const HISTORY_FILTER_DEFAULTS = {
@@ -66,15 +67,16 @@ export default function LoyaltyPage() {
   const [bonusSummary, setBonusSummary] = useState(null);
   const [bonusClaims, setBonusClaims] = useState([]);
   const [historyFilter, setHistoryFilter] = useState(HISTORY_FILTER_DEFAULTS);
+  const { tiers: membershipTiers } = useMembershipTiers();
 
   const tierDisplay = useMemo(() => {
     if (partnerProgress?.current_tier) {
       const current =
-        MEMBERSHIP_TIERS.find(
+        membershipTiers.find(
           (tier) => tier.name.toLowerCase() === String(partnerProgress.current_tier).toLowerCase(),
-        ) || MEMBERSHIP_TIERS[0];
+        ) || membershipTiers[0];
       const next = partnerProgress.next_tier
-        ? MEMBERSHIP_TIERS.find(
+        ? membershipTiers.find(
             (tier) => tier.name.toLowerCase() === String(partnerProgress.next_tier).toLowerCase(),
           ) || null
         : null;
@@ -87,7 +89,7 @@ export default function LoyaltyPage() {
       };
     }
 
-    const membership = getMembershipProgress(trustPointsForTier, tierLabel);
+    const membership = getMembershipProgress(trustPointsForTier, tierLabel, membershipTiers);
     return {
       current: membership.current,
       next: membership.next,
@@ -98,7 +100,7 @@ export default function LoyaltyPage() {
         Math.max(0, Number(levelProgress) || membership.progressPct),
       ),
     };
-  }, [partnerProgress, trustPointsForTier, tierLabel, levelProgress]);
+  }, [partnerProgress, trustPointsForTier, tierLabel, levelProgress, membershipTiers]);
 
   const currentTier = tierDisplay.current;
   const nextTier = tierDisplay.next;
@@ -386,6 +388,7 @@ export default function LoyaltyPage() {
 
             <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
               <LoyaltyLevels
+                tiers={membershipTiers}
                 currentTier={currentTier.name}
                 initialTier={currentTier.name}
                 points={trustPointsForTier}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Gem, Hexagon, Star } from "lucide-react";
+import { fetchMembershipTiers } from "@/lib/membership-tiers-api";
 import { getMembershipTierByPoints, MEMBERSHIP_TIERS } from "@/lib/membership-tiers";
 
 function TierIcon({ tier, className = "h-6 w-6" }) {
@@ -32,17 +33,43 @@ export default function LoyaltyLevels({
   showPointsHint = true,
   variant = "full",
   className = "",
+  tiers: tiersProp = null,
 }) {
+  const [loadedTiers, setLoadedTiers] = useState(tiersProp || MEMBERSHIP_TIERS);
+
+  useEffect(() => {
+    if (tiersProp) {
+      setLoadedTiers(tiersProp);
+      return;
+    }
+
+    let cancelled = false;
+    fetchMembershipTiers()
+      .then((items) => {
+        if (!cancelled) setLoadedTiers(items);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadedTiers(MEMBERSHIP_TIERS);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [tiersProp]);
+
+  const tiers = tiersProp || loadedTiers;
+
   const resolvedCurrent =
     currentTier ||
-    (points != null ? getMembershipTierByPoints(points).name : null) ||
+    (points != null ? getMembershipTierByPoints(points, tiers).name : null) ||
     initialTier ||
-    MEMBERSHIP_TIERS[0].name;
+    tiers[0]?.name ||
+    "Normal";
 
   const [selectedTier, setSelectedTier] = useState(resolvedCurrent);
-  const selected = MEMBERSHIP_TIERS.find((t) => t.name === selectedTier) || MEMBERSHIP_TIERS[0];
+  const selected = tiers.find((t) => t.name === selectedTier) || tiers[0] || MEMBERSHIP_TIERS[0];
   const compact = variant === "compact";
-  const currentIndex = MEMBERSHIP_TIERS.findIndex((t) => t.name === resolvedCurrent);
+  const currentIndex = tiers.findIndex((t) => t.name === resolvedCurrent);
 
   useEffect(() => {
     setSelectedTier(resolvedCurrent);
@@ -56,14 +83,14 @@ export default function LoyaltyLevels({
         </h2>
       ) : null}
 
-      <div className="flex min-w-0 gap-2 overflow-x-auto pb-2 [scrollbar-width:thin] sm:gap-2 sm:justify-between">
-        {MEMBERSHIP_TIERS.map((tier, index) => {
+      <div className="loyalty-levels-scroll -mx-1 flex min-w-0 gap-2 overflow-x-auto px-1 pb-3 pt-3 sm:gap-2 sm:justify-between">
+        {tiers.map((tier, index) => {
           const active = selectedTier === tier.name;
           const isCurrent = resolvedCurrent === tier.name;
-          const reached = index <= currentIndex;
+          const reached = currentIndex >= 0 ? index <= currentIndex : true;
           return (
             <button
-              key={tier.name}
+              key={tier.id || tier.name}
               type="button"
               onClick={() => setSelectedTier(tier.name)}
               className={`flex shrink-0 flex-col items-center gap-1.5 text-center transition ${
@@ -72,22 +99,24 @@ export default function LoyaltyLevels({
               aria-pressed={active}
               aria-current={isCurrent ? "step" : undefined}
             >
-              <span
-                className={`relative flex items-center justify-center rounded-full border-[3px] transition ${
-                  compact ? "h-10 w-10 sm:h-12 sm:w-12" : "h-16 w-16"
-                } ${active || isCurrent ? "scale-105 ring-2 ring-white/30" : ""} ${
-                  reached ? "opacity-100" : "opacity-45"
-                }`}
-                style={{
-                  borderColor: tier.ring,
-                  backgroundColor: isCurrent || tier.filled ? tier.ring : reached ? "#FFFFFF" : "#1A2236",
-                  color: isCurrent || tier.filled ? "#FFFFFF" : reached ? tier.color : "rgba(255,255,255,0.35)",
-                }}
-              >
-                <TierIcon
-                  tier={tier}
-                  className={compact ? "h-4 w-4 sm:h-5 sm:w-5" : "h-6 w-6"}
-                />
+              <span className="flex items-center justify-center p-0.5">
+                <span
+                  className={`relative flex items-center justify-center rounded-full border-[3px] transition ${
+                    compact ? "h-10 w-10 sm:h-12 sm:w-12" : "h-16 w-16"
+                  } ${active || isCurrent ? "shadow-[0_0_0_2px_rgba(255,255,255,0.28)]" : ""} ${
+                    reached ? "opacity-100" : "opacity-45"
+                  }`}
+                  style={{
+                    borderColor: tier.ring,
+                    backgroundColor: isCurrent || tier.filled ? tier.ring : reached ? "#FFFFFF" : "#1A2236",
+                    color: isCurrent || tier.filled ? "#FFFFFF" : reached ? tier.color : "rgba(255,255,255,0.35)",
+                  }}
+                >
+                  <TierIcon
+                    tier={tier}
+                    className={compact ? "h-4 w-4 sm:h-5 sm:w-5" : "h-6 w-6"}
+                  />
+                </span>
               </span>
               <span
                 className={`font-semibold ${compact ? "text-[9px] sm:text-[10px]" : "text-xs"} ${
@@ -117,17 +146,21 @@ export default function LoyaltyLevels({
             ) : null}
           </h3>
           <ul className="mt-3 space-y-2.5">
-            {selected.benefits.map((item) => (
-              <li
-                key={item}
-                className={`flex min-w-0 items-start gap-2.5 leading-relaxed text-white/70 ${
-                  compact ? "text-xs" : "text-sm"
-                }`}
-              >
-                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#64969A]" />
-                <span className="min-w-0 break-words">{item}</span>
-              </li>
-            ))}
+            {(selected.benefits || []).length === 0 ? (
+              <li className="text-sm text-white/50">No benefits listed for this tier yet.</li>
+            ) : (
+              (selected.benefits || []).map((item) => (
+                <li
+                  key={item}
+                  className={`flex min-w-0 items-start gap-2.5 leading-relaxed text-white/70 ${
+                    compact ? "text-xs" : "text-sm"
+                  }`}
+                >
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#64969A]" />
+                  <span className="min-w-0 break-words">{item}</span>
+                </li>
+              ))
+            )}
           </ul>
           {showPointsHint && selected.points > 0 ? (
             <p className="mt-3 text-xs text-white/40">

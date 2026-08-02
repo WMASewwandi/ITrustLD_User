@@ -260,3 +260,34 @@ html.lenis body {
 .custom-scrollbar::-webkit-scrollbar-corner {
   background: transparent;
 }
+
+/* Horizontal loyalty tier strip */
+.loyalty-levels-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 197, 94, 0.5) rgba(255, 255, 255, 0.08);
+}
+
+.loyalty-levels-scroll::-webkit-scrollbar {
+  height: 5px;
+}
+
+.loyalty-levels-scroll::-webkit-scrollbar-track {
+  margin: 0 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.loyalty-levels-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.55), rgba(20, 83, 91, 0.8));
+}
+
+.loyalty-levels-scroll::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.75), rgba(20, 83, 91, 0.95));
+}
+
+.loyalty-levels-scroll::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}

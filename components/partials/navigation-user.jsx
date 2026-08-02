@@ -17,6 +17,7 @@ import {
   deriveNotificationsFromUser,
 } from "@/lib/dashboard";
 import { getMembershipTierByPoints } from "@/lib/membership-tiers";
+import { useMembershipTiers } from "@/hooks/use-membership-tiers";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -152,6 +153,7 @@ export default function NavigationUser() {
   const [notifications, setNotifications] = useState([]);
   const [isPartner, setIsPartner] = useState(false);
   const [affiliateCode, setAffiliateCode] = useState("");
+  const { tiers: membershipTiers } = useMembershipTiers();
 
   function syncFromSession() {
     try {
@@ -233,7 +235,7 @@ export default function NavigationUser() {
     };
   }, []);
 
-  const loyaltyTier = getMembershipTierByPoints(loyaltyPoints).name;
+  const loyaltyTier = getMembershipTierByPoints(loyaltyPoints, membershipTiers).name;
   const loyaltyPointsLabel = loyaltyPoints.toLocaleString();
 
   useEffect(() => {
@@ -468,6 +470,7 @@ export default function NavigationUser() {
 
           <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-3 py-4">
             <LoyaltyLevels
+              tiers={membershipTiers}
               variant="compact"
               currentTier={loyaltyTier}
               initialTier={loyaltyTier}

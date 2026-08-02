@@ -12,12 +12,28 @@ export default function FooterUser() {
           The Terms of Use govern the account. These accounts are not bank accounts.
           iTrustLD is not covered by Sri Lanka&apos;s Financial Services Compensation Scheme.
         </p>
-        <Link
-          href="/terms"
-          className="mt-4 inline-block text-sm text-theme-green-action underline-offset-4 hover:underline"
-        >
-          Terms and Conditions
-        </Link>
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+          <Link
+            href="/terms-and-conditions"
+            className="text-theme-green-action underline-offset-4 hover:underline"
+          >
+            Terms and Conditions
+          </Link>
+          <span className="text-white/25">|</span>
+          <Link
+            href="/privacy-policy"
+            className="text-theme-green-action underline-offset-4 hover:underline"
+          >
+            Privacy Policy
+          </Link>
+          <span className="text-white/25">|</span>
+          <Link
+            href="/cookie-policy"
+            className="text-theme-green-action underline-offset-4 hover:underline"
+          >
+            Cookie Policy
+          </Link>
+        </div>
 
         <div className="mt-6 flex items-center justify-center gap-4">
           {[Facebook, Send, Youtube].map((Icon, i) => (

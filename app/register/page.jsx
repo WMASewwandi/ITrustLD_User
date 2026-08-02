@@ -352,9 +352,22 @@ function RegisterForm() {
                   className="h-4 w-4 rounded border-theme-gray-border text-theme-green-action"
                   required
                 />
-                I accept Terms and Conditions
+                I accept{" "}
+                <a href="/terms-and-conditions" target="_blank" rel="noreferrer" className="text-theme-green-action hover:underline">
+                  Terms and Conditions
+                </a>
               </label>
               {errors.terms ? <p className="text-xs text-theme-red-action">{errors.terms}</p> : null}
+
+              <p className="text-xs text-theme-gray">
+                <a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-theme-green-action hover:underline">
+                  Privacy Policy
+                </a>
+                {" | "}
+                <a href="/cookie-policy" target="_blank" rel="noreferrer" className="text-theme-green-action hover:underline">
+                  Cookie Policy
+                </a>
+              </p>
 
               <TurnstileWidget
                 onReady={() => setTurnstileRequired(true)}
