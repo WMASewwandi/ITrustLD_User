@@ -8,8 +8,9 @@ import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import {
   CLAIMS_UPDATED_EVENT,
-  getReadyClaimsCount,
-} from "@/lib/earnings";
+  fetchLoyaltySummary,
+  getActionableClaimsCount,
+} from "@/lib/loyalty-api";
 import { getUserAffiliateCode, getUserSession, isPartnerUser, logoutUser } from "@/lib/auth";
 import {
   DASHBOARD_UPDATED_EVENT,
@@ -181,16 +182,25 @@ export default function NavigationUser() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    function refreshClaimsCount() {
-      setClaimsCount(getReadyClaimsCount());
+    let cancelled = false;
+
+    async function refreshClaimsCount() {
+      try {
+        const summary = await fetchLoyaltySummary();
+        if (!cancelled) {
+          setClaimsCount(getActionableClaimsCount(summary));
+        }
+      } catch {
+        if (!cancelled) setClaimsCount(0);
+      }
     }
+
     refreshClaimsCount();
     window.addEventListener(CLAIMS_UPDATED_EVENT, refreshClaimsCount);
-    window.addEventListener("storage", refreshClaimsCount);
     window.addEventListener("focus", refreshClaimsCount);
     return () => {
+      cancelled = true;
       window.removeEventListener(CLAIMS_UPDATED_EVENT, refreshClaimsCount);
-      window.removeEventListener("storage", refreshClaimsCount);
       window.removeEventListener("focus", refreshClaimsCount);
     };
   }, [pathname]);
