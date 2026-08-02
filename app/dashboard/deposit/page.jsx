@@ -1009,7 +1009,7 @@ export default function DepositPage() {
               />
               <span>
                 I accept{" "}
-                <a href="/help" className="font-medium text-theme-green-action hover:underline">
+                <a href="/support" className="font-medium text-theme-green-action hover:underline">
                   Terms and Conditions
                 </a>
               </span>

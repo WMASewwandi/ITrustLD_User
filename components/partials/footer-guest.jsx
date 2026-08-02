@@ -8,7 +8,7 @@ const socials = [
 
 const quickLinksTop = [
   { href: "/", label: "Home" },
-  { href: "/help", label: "Help" },
+  { href: "/support", label: "Help" },
   { href: "/login", label: "Login" },
   { href: "/register", label: "Register" }
 ];

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import HeroCtaButtons from "@/components/home/hero-cta-buttons";
 import { fetchCommunityStats, formatCompactCount } from "@/lib/community-stats";
 
 const STATIC_STATS = [
@@ -62,15 +62,6 @@ function Sparkline({ className = "" }) {
   );
 }
 
-function ArrowIcon({ className = "h-4 w-4" }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12H19" />
-      <path d="M13 6L19 12L13 18" />
-    </svg>
-  );
-}
-
 export default async function HeroSection() {
   const communityStats = await fetchCommunityStats();
   const stats = [
@@ -118,22 +109,7 @@ export default async function HeroSection() {
             finance.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
-            <Link
-              href="/register"
-              className="group inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/30"
-            >
-              Open Account
-              <ArrowIcon className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </Link>
-            <Link
-              href="/help"
-              className="group inline-flex items-center gap-2 rounded-[4px] border border-white/25 bg-white/[0.03] px-7 py-3 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/[0.08]"
-            >
-              Learn More
-              <ArrowIcon className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+          <HeroCtaButtons />
 
           <div className="mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1220]/45 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:p-5">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-2">

@@ -59,13 +59,13 @@ const MOBILE_MORE_LINKS = [
   { href: "/dashboard/earnings", label: "My Earnings", icon: Wallet },
   { href: "/dashboard/documents", label: "Documents", icon: FileCheck2 },
   { href: "/dashboard/profile", label: "Profile", icon: User },
-  { href: "/dashboard/help", label: "Support", icon: Headphones },
+  { href: "/support", label: "Support", icon: Headphones },
 ];
 
 const LOYALTY_OPTIONS = [
   { href: "/dashboard/loyalty", label: "Loyalty Overview", icon: Trophy },
   { href: "/dashboard/loyalty", label: "Redeem Trust Points", icon: ArrowRight },
-  { href: "/dashboard/help", label: "Loyalty Help", icon: Headphones },
+  { href: "/support", label: "Loyalty Help", icon: Headphones },
 ];
 
 function NavIconLink({ href, label, icon: Icon, active, onNavigate, badgeCount = 0 }) {
@@ -336,10 +336,10 @@ export default function NavigationUser() {
         </nav>
         <div className="flex flex-col items-center gap-1.5 border-t border-white/10 py-4">
           <NavIconLink
-            href="/dashboard/help"
+            href="/support"
             label="Support"
             icon={Headphones}
-            active={isActive("/dashboard/help")}
+            active={isActive("/support")}
           />
         </div>
       </aside>

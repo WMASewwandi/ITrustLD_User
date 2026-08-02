@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import WelcomeHero from "@/components/dashboard/welcome-hero";
 import AccountOverview from "@/components/dashboard/account-overview";
-import PromoBanner from "@/components/dashboard/promo-banner";
 import RecentTransactions from "@/components/dashboard/recent-transactions";
 import LatestNews from "@/components/dashboard/latest-news";
 import { fetchDashboard } from "@/lib/dashboard";
@@ -37,6 +36,7 @@ export default function DashboardPage() {
             documents: [],
             recent_transactions: [],
             blog_posts: [],
+            promotional_banners: [],
             verification_complete: false,
           });
         }
@@ -72,9 +72,8 @@ export default function DashboardPage() {
         documents={dashboard?.documents}
         verificationComplete={dashboard?.verification_complete}
       />
-      <PromoBanner />
       <RecentTransactions transactions={dashboard?.recent_transactions} />
-      <LatestNews posts={dashboard?.blog_posts} />
+      <LatestNews user={dashboard?.user} promotionalBanners={dashboard?.promotional_banners} />
     </>
   );
 }

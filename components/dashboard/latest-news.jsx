@@ -2,22 +2,42 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ImageOff, X } from "lucide-react";
-import { fetchPublishedBlogPosts } from "@/lib/dashboard";
-function sortPostsByCreatedDesc(posts) {
-  return [...posts].sort((a, b) => {
-    const aTime = new Date(a.createdAt || a.date).getTime();
-    const bTime = new Date(b.createdAt || b.date).getTime();
-    if (!Number.isNaN(aTime) && !Number.isNaN(bTime) && aTime !== bTime) {
-      return bTime - aTime;
-    }
-    return (Number(b.id) || 0) - (Number(a.id) || 0);
-  });
+import { ImageOff, Megaphone, X } from "lucide-react";
+import {
+  fetchLatestUpdates,
+  mapToDashboardNewsItem,
+  resolvePromotionUserType,
+} from "@/lib/latest-updates";
+import { isPromotionVideoUrl } from "@/lib/promotion-utils";
+
+function isExternalLink(href) {
+  return /^https?:\/\//i.test(String(href || ""));
 }
 
-function NewsBanner({ image, className = "", iconSize = "h-10 w-10", children }) {
+function NewsBanner({ item, className = "", iconSize = "h-10 w-10", children }) {
   const [failed, setFailed] = useState(false);
-  const showPlaceholder = !image || failed;
+  const mediaUrl = item.image;
+  const isPromotion = item.kind === "promotion";
+  const isVideo = isPromotionVideoUrl(mediaUrl);
+  const color = item.color || "#0D9F1B";
+
+  if (isPromotion && !mediaUrl) {
+    return (
+      <div
+        className={`relative overflow-hidden ${className}`}
+        style={{
+          background: `linear-gradient(135deg, ${color} 0%, ${color}cc 45%, ${color}88 100%)`,
+        }}
+      >
+        <div className="flex h-full w-full items-center justify-center p-6">
+          <Megaphone className={`text-white/80 ${iconSize}`} aria-hidden />
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  const showPlaceholder = !mediaUrl || failed;
 
   return (
     <div className={`relative overflow-hidden bg-[#1a2238] ${className}`}>
@@ -25,10 +45,12 @@ function NewsBanner({ image, className = "", iconSize = "h-10 w-10", children })
         <div className="flex h-full w-full items-center justify-center">
           <ImageOff className={`text-white/30 ${iconSize}`} aria-hidden />
         </div>
+      ) : isVideo ? (
+        <video src={mediaUrl} className="h-full w-full object-cover" muted playsInline />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={image}
+          src={mediaUrl}
           alt=""
           className="h-full w-full object-cover"
           onError={() => setFailed(true)}
@@ -42,6 +64,11 @@ function NewsBanner({ image, className = "", iconSize = "h-10 w-10", children })
 function NewsDetailModal({ post, onClose }) {
   if (!post) return null;
 
+  const color = post.color || "#0D9F1B";
+  const ctaHref = post.ctaLink || "";
+  const ctaLabel = post.ctaLabel || "Learn More";
+  const isPromotion = post.kind === "promotion";
+
   return (
     <div
       className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
@@ -54,7 +81,7 @@ function NewsDetailModal({ post, onClose }) {
         className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0B1020] shadow-2xl [-ms-overflow-style:none] [scrollbar-width:none] sm:rounded-2xl [&::-webkit-scrollbar]:hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <NewsBanner image={post.image} className="aspect-[16/10]" iconSize="h-12 w-12">
+        <NewsBanner item={post} className="aspect-[16/10]" iconSize="h-12 w-12">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1020] via-[#0B1020]/40 to-transparent" />
           <button
             type="button"
@@ -69,52 +96,95 @@ function NewsDetailModal({ post, onClose }) {
         <div className="p-5 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#25223E] text-xs font-bold text-white">
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
+                style={{ backgroundColor: isPromotion ? color : "#25223E" }}
+              >
                 {post.initial}
               </span>
-              <span className="text-sm font-medium text-white">{post.author}</span>
+              <div>
+                <span className="text-sm font-medium text-white">{post.author}</span>
+                {isPromotion ? (
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color }}>
+                    {post.category}
+                  </p>
+                ) : null}
+              </div>
             </div>
-            <time className="text-xs text-white/40">{post.date}</time>
+            {post.date ? <time className="text-xs text-white/40">{post.date}</time> : null}
           </div>
 
           <h3 className="text-xl font-bold text-white sm:text-2xl">{post.title}</h3>
           <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-white/70 sm:text-base">
             {post.excerpt}
           </p>
+
+          {ctaHref ? (
+            <div className="mt-6">
+              {isExternalLink(ctaHref) ? (
+                <a
+                  href={ctaHref}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+                  style={{ backgroundColor: color }}
+                >
+                  {ctaLabel}
+                </a>
+              ) : (
+                <Link
+                  href={ctaHref}
+                  className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
+                  style={{ backgroundColor: color }}
+                >
+                  {ctaLabel}
+                </Link>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-export default function LatestNews({ posts = [] }) {
+export default function LatestNews({ user, promotionalBanners = null }) {
   const [activePost, setActivePost] = useState(null);
-  const [livePosts, setLivePosts] = useState(null);
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const userType = useMemo(() => resolvePromotionUserType(user), [user]);
+  const bannerKey = useMemo(
+    () => (Array.isArray(promotionalBanners) ? promotionalBanners.map((b) => b.id).join(',') : ''),
+    [promotionalBanners],
+  );
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadPosts() {
+    async function load() {
+      setLoading(true);
       try {
-        const postsFromApi = await fetchPublishedBlogPosts();
-        if (!cancelled && postsFromApi.length > 0) {
-          setLivePosts(postsFromApi);
+        const updates = await fetchLatestUpdates({
+          userType,
+          promotionalBanners: Array.isArray(promotionalBanners) ? promotionalBanners : null,
+        });
+        if (!cancelled) {
+          setItems(updates.map(mapToDashboardNewsItem));
         }
       } catch {
-        // Fall back to dashboard payload when the public blogs endpoint is unavailable.
+        if (!cancelled) setItems([]);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
     }
 
-    loadPosts();
+    load();
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userType, bannerKey, promotionalBanners]);
 
-  const items = useMemo(
-    () => sortPostsByCreatedDesc(Array.isArray(livePosts ?? posts) ? (livePosts ?? posts) : []),
-    [livePosts, posts],
-  );
   return (
     <>
       <section className="border-t border-white/6 bg-[#0E1424]/70">
@@ -123,12 +193,18 @@ export default function LatestNews({ posts = [] }) {
             <h2 className="text-2xl font-bold text-white sm:text-3xl">
               Latest <span className="text-theme-green-action">News</span>
             </h2>
-            <p className="mt-2 text-sm text-white/50">Stay informed with our latest news updates</p>
+            <p className="mt-2 text-sm text-white/50">
+              Stay informed with our latest news updates and promotions
+            </p>
           </div>
 
-          {items.length === 0 ? (
+          {loading ? (
             <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-10 text-center text-sm text-white/50">
-              No news posts published yet. Check back soon.
+              Loading updates…
+            </p>
+          ) : items.length === 0 ? (
+            <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-10 text-center text-sm text-white/50">
+              No news or promotions available yet. Check back soon.
             </p>
           ) : (
             <div className="grid auto-rows-fr gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -140,7 +216,7 @@ export default function LatestNews({ posts = [] }) {
                   className="group flex h-full w-full flex-col overflow-hidden rounded-2xl border border-white/8 bg-white/[0.03] text-left transition hover:border-white/15 hover:bg-white/[0.05]"
                 >
                   <NewsBanner
-                    image={item.image}
+                    item={item}
                     className="aspect-[16/10] shrink-0 transition duration-500 group-hover:scale-[1.02]"
                     iconSize="h-9 w-9"
                   >
@@ -149,12 +225,27 @@ export default function LatestNews({ posts = [] }) {
                   <div className="flex min-h-0 flex-1 flex-col p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
-                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#25223E] text-xs font-bold text-white">
+                        <span
+                          className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
+                          style={{
+                            backgroundColor: item.kind === "promotion" ? item.color : "#25223E",
+                          }}
+                        >
                           {item.initial}
                         </span>
-                        <span className="text-sm font-medium text-white">{item.author}</span>
+                        <div>
+                          <span className="text-sm font-medium text-white">{item.author}</span>
+                          {item.kind === "promotion" ? (
+                            <p
+                              className="text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              style={{ color: item.color }}
+                            >
+                              Promotion
+                            </p>
+                          ) : null}
+                        </div>
                       </div>
-                      <time className="text-xs text-white/40">{item.date}</time>
+                      {item.date ? <time className="text-xs text-white/40">{item.date}</time> : null}
                     </div>
                     <h3 className="text-base font-semibold text-white transition group-hover:text-theme-green-action">
                       {item.title}
@@ -162,8 +253,13 @@ export default function LatestNews({ posts = [] }) {
                     <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-white/50">
                       {item.excerpt}
                     </p>
-                    <span className="mt-auto inline-flex pt-4 text-sm font-medium text-theme-green-action transition group-hover:underline">
-                      Read more
+                    <span
+                      className="mt-auto inline-flex pt-4 text-sm font-medium transition group-hover:underline"
+                      style={{ color: item.kind === "promotion" ? item.color : undefined }}
+                    >
+                      <span className={item.kind === "promotion" ? "" : "text-theme-green-action"}>
+                        {item.ctaLabel || "Read more"}
+                      </span>
                     </span>
                   </div>
                 </button>
@@ -173,7 +269,13 @@ export default function LatestNews({ posts = [] }) {
 
           <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
             <Link
-              href="/dashboard/help"
+              href="/news"
+              className="inline-flex items-center justify-center rounded-xl border border-theme-green-action/30 px-5 py-2.5 text-sm font-semibold text-theme-green-action transition hover:bg-theme-green-action hover:text-white"
+            >
+              View All News
+            </Link>
+            <Link
+              href="/support"
               className="inline-flex text-sm font-medium text-theme-green-action transition hover:underline"
             >
               Need help? Contact support
