@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
+import { BrandLogoImage } from "@/components/brand-logo";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import {
   CLAIMS_UPDATED_EVENT,
@@ -277,11 +278,7 @@ export default function NavigationUser() {
         <div className="flex h-14 w-full items-center justify-between gap-3 px-3 sm:h-16 sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <Link href="/dashboard" className="inline-flex shrink-0 items-center">
-              <img
-                src="/assets/img/logos/logo-itrustld-wide.png"
-                alt="iTrustLD"
-                className="h-12 w-auto object-contain sm:h-11"
-              />
+              <BrandLogoImage alt="iTrustLD" className="h-12 w-auto object-contain sm:h-11" />
             </Link>
           </div>
 
@@ -321,7 +318,7 @@ export default function NavigationUser() {
       >
         <div className="flex h-14 items-center justify-center border-b border-white/10 sm:h-16">
           <Link href="/dashboard" className="flex h-9 w-9 items-center justify-center" aria-label="iTrustLD Home">
-            <img src="/assets/img/logos/logo-itrustld.svg" alt="" className="h-7 w-7 object-contain" />
+            <BrandLogoImage variant="icon" alt="" className="h-7 w-7 object-contain" />
           </Link>
         </div>
         <nav className="flex flex-1 flex-col items-center gap-1.5 py-4">

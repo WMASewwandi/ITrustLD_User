@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { BrandLogoImage } from "@/components/brand-logo";
 
 function BrandLogo({ className = "h-10" }) {
   return (
     <Link href="/" className="inline-flex shrink-0 items-center">
-      <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className={`${className} w-auto`} />
+      <BrandLogoImage className={`${className} w-auto`} />
     </Link>
   );
 }

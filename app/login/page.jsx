@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BrandLogoImage } from "@/components/brand-logo";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
 import PasswordInput from "@/components/ui/password-input";
 import { loginUser, setUserSession } from "@/lib/auth";
@@ -61,7 +62,7 @@ function LoginForm() {
       <div className="mx-auto grid min-h-screen w-full max-w-6xl md:grid-cols-2">
         <section className="flex flex-col justify-center px-5 py-8 sm:px-8 lg:px-12">
           <Link href="/" className="inline-block w-fit">
-            <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className="h-10 w-auto" />
+            <BrandLogoImage alt="iTrustLD" className="h-10 w-auto" />
           </Link>
           <h1 className="mt-7 text-3xl font-semibold text-white">Welcome back</h1>
           <p className="mt-2 text-sm text-white/55">Sign in to continue to your secure iTrustLD dashboard.</p>

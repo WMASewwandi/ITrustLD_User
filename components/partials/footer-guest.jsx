@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/brand-logo";
 
 const socials = [
   { href: "https://facebook.com/SNXcompany", label: "Facebook", icon: "/assets/img/icons/facebook.svg" },
@@ -59,7 +60,7 @@ export default function FooterGuest() {
         <div className="grid gap-10 lg:grid-cols-[1.35fr_1.65fr] lg:items-start lg:gap-8">
           <div>
             <Link href="/" className="inline-flex items-center">
-              <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className="h-10 w-auto sm:h-11" />
+              <BrandLogoImage alt="iTrustLD" className="h-10 w-auto sm:h-11" />
             </Link>
             <p className="mt-5 text-sm leading-7 text-white/70">
               ITrustLD By GLOBIX (PVT) LTD, a registered company.

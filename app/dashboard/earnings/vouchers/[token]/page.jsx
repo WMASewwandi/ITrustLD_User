@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { fetchVoucherByToken } from "@/lib/loyalty-api";
+import { BrandLogoImage } from "@/components/brand-logo";
 import { hasUserSession } from "@/lib/auth";
 import { ArrowLeft, Printer } from "lucide-react";
 
@@ -89,11 +90,7 @@ export default function ClientBonusVoucherPage() {
           <div className="grid min-h-[520px] md:grid-cols-[2fr_3fr]">
             <section className="relative flex flex-col justify-between bg-gradient-to-br from-[#0B1B4D] via-[#13235F] to-[#1A2F74] p-8 text-white">
               <div>
-                <img
-                  src="/assets/img/logos/logo-itrustld-wide.png"
-                  alt="iTrustLD"
-                  className="h-10 w-auto opacity-95"
-                />
+                <BrandLogoImage alt="iTrustLD" className="h-10 w-auto opacity-95" />
               </div>
               <div className="my-10">
                 <p className="text-sm uppercase tracking-[0.2em] text-[#FBC351]/80">Client bonus voucher</p>
