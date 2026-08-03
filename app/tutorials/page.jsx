@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import NavigationGuest from "@/components/partials/navigation-guest";
@@ -16,6 +16,20 @@ const CATEGORY_FILTERS = [
 ];
 
 export default function TutorialsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#070B16] text-sm text-white/70">
+          Loading tutorials…
+        </div>
+      }
+    >
+      <TutorialsPageContent />
+    </Suspense>
+  );
+}
+
+function TutorialsPageContent() {
   const searchParams = useSearchParams();
   const initialCategory = searchParams.get("category") || "all";
 
