@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BrandLogoImage } from "@/components/brand-logo";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
@@ -25,7 +25,14 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("reset") === "success") {
+      setStatusMessage("Your password has been reset. You can now sign in.");
+    }
+  }, [searchParams]);
 
   async function handleSignIn(e) {
     e.preventDefault();
@@ -68,6 +75,14 @@ function LoginForm() {
           <p className="mt-2 text-sm text-white/55">Sign in to continue to your secure iTrustLD dashboard.</p>
 
           <form className="mt-8 space-y-5" onSubmit={handleSignIn} noValidate>
+            {statusMessage ? (
+              <p
+                className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"
+                role="status"
+              >
+                {statusMessage}
+              </p>
+            ) : null}
             {error ? (
               <p className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200" role="alert">
                 {error}
