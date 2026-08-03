@@ -3,7 +3,38 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 
-export default function UploadSlot({ label, value, onChange, className = "", theme = "light" }) {
+const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/bmp,.jpg,.jpeg,.png,.webp,.gif,.bmp";
+
+function validateImageFile(file) {
+  if (!file) return null;
+  const name = file.name.toLowerCase();
+  const type = (file.type || "").toLowerCase();
+
+  if (
+    name.endsWith(".heic") ||
+    name.endsWith(".heif") ||
+    type.includes("heic") ||
+    type.includes("heif")
+  ) {
+    return "HEIC is not supported. Please upload JPG, PNG, GIF, BMP or WebP.";
+  }
+
+  if (name.endsWith(".pdf") || type === "application/pdf") {
+    return "PDF is not supported. Please upload JPG, PNG, GIF, BMP or WebP image.";
+  }
+
+  if (!type.startsWith("image/")) {
+    return "Please upload only image files (JPG, PNG, GIF, BMP, WebP).";
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    return "File size must not exceed 5MB.";
+  }
+
+  return null;
+}
+
+export default function UploadSlot({ label, value, onChange, className = "", theme = "light", onError }) {
   const inputRef = useRef(null);
   const [dragging, setDragging] = useState(false);
   const dark = theme === "dark";
@@ -16,6 +47,11 @@ export default function UploadSlot({ label, value, onChange, className = "", the
 
   function applyFile(file) {
     if (!file) return;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      onError?.(validationError);
+      return;
+    }
     const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : "";
     onChange({ name: file.name, preview, file });
   }
@@ -83,7 +119,7 @@ export default function UploadSlot({ label, value, onChange, className = "", the
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp,.pdf"
+        accept={ACCEPTED_TYPES}
         className="hidden"
         onChange={onPick}
       />

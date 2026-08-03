@@ -1,7 +1,10 @@
-"use client";
-
+import UserSessionGuard from "@/components/layouts/user-session-guard";
 import AccountVerification from "@/components/verify/account-verification";
 
 export default function VerifyPage() {
-  return <AccountVerification />;
+  return (
+    <UserSessionGuard>
+      <AccountVerification />
+    </UserSessionGuard>
+  );
 }

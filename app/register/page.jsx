@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
-import { resolveSessionUser, upsertAccount } from "@/lib/accounts";
+import TurnstileWidget from "@/components/auth/turnstile-widget";
+import PasswordInput from "@/components/ui/password-input";
+import { checkEmailAvailable, checkMobileAvailable, registerUser, setUserSession } from "@/lib/auth";
 import {
   COUNTRIES,
   isOldEnough,
@@ -17,14 +19,32 @@ const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide tex
 const fieldClass =
   "w-full rounded-lg border border-[#CDD5E0] bg-[#F7F9FC] px-3 py-2.5 text-sm text-theme-black outline-none ring-0 transition placeholder:text-theme-gray/70 focus:border-theme-blue-dark focus:bg-white";
 
+const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+
 export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-theme-gray">Loading…</div>}>
+      <RegisterForm />
+    </Suspense>
+  );
+}
+
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const affiliateCode = searchParams.get("code") || "";
 
   const [countryQuery, setCountryQuery] = useState("");
   const [countryOpen, setCountryOpen] = useState(false);
   const [country, setCountry] = useState(COUNTRIES[0]);
   const [phone, setPhone] = useState("");
   const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileRequired, setTurnstileRequired] = useState(
+    Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
+  );
 
   const filteredCountries = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -37,41 +57,88 @@ export default function RegisterPage() {
     );
   }, [countryQuery]);
 
-  function handleSignUp(e) {
+  async function handleSignUp(e) {
     e.preventDefault();
     const form = e.currentTarget;
     const first = form.firstName.value.trim();
     const last = form.lastName.value.trim();
     const email = form.email.value.trim();
     const dob = form.dob.value;
+    const password = form.password.value;
+    const passwordConfirmation = form.passwordConfirmation.value;
+    const language = form.language.value;
+    const addressNumber = form.addressNumber.value.trim();
+    const street = form.street.value.trim();
+    const city = form.city.value.trim();
+    const zipCode = form.zipCode.value.trim();
     const next = {};
 
     if (!lettersOnly(first)) next.firstName = "First name: only letters are allowed.";
     if (!lettersOnly(last)) next.lastName = "Last name: only letters are allowed.";
     if (!isValidEmail(email)) next.email = "Enter a valid email with @ and a domain.";
-    if (email.toLowerCase() === "taken@email.com") next.email = "This email is already registered.";
     if (!isValidPhone(phone)) next.phone = "Phone must be digits only within the accepted length.";
     if (!isOldEnough(dob, 10)) next.dob = "Users below 10 years are not allowed.";
     if (!country) next.country = "Select a country from the list.";
+    if (!PASSWORD_PATTERN.test(password)) {
+      next.password = "Password must be 8+ chars with upper, lower, number, and symbol.";
+    }
+    if (password !== passwordConfirmation) {
+      next.passwordConfirmation = "Passwords do not match.";
+    }
+    if (!form.terms.checked) {
+      next.terms = "You must accept the Terms and Conditions.";
+    }
+    if (turnstileRequired && !turnstileToken) {
+      next.turnstile = "Please complete the security check.";
+    }
 
     setErrors(next);
     if (Object.keys(next).length) return;
 
-    const name = [first, last].filter(Boolean).join(" ");
-    upsertAccount({
-      email,
-      name,
-      phone: `${country.code}${phone}`,
-      userType: "normal",
-    });
-    const sessionUser = {
-      ...resolveSessionUser({ email, name }),
-      phone: `${country.code}${phone}`,
-      country: country.name,
-    };
-    localStorage.setItem("itrustld_user", JSON.stringify(sessionUser));
-    localStorage.removeItem("itrustld_verification");
-    router.push("/verify");
+    setFormError("");
+    setLoading(true);
+
+    try {
+      const emailCheck = await checkEmailAvailable(email);
+      if (emailCheck.exists) {
+        setErrors({ email: "This email is already registered." });
+        return;
+      }
+
+      const mobile = `${country.code}${phone}`;
+      const mobileCheck = await checkMobileAvailable(mobile);
+      if (mobileCheck.exists) {
+        setErrors({ phone: "This mobile number is already registered." });
+        return;
+      }
+
+      const result = await registerUser({
+        first_name: first,
+        last_name: last,
+        email,
+        password,
+        password_confirmation: passwordConfirmation,
+        language,
+        mobile_number: mobile,
+        date_of_birth: dob,
+        address_number: addressNumber,
+        street,
+        city,
+        country: country.name,
+        zip_code: zipCode,
+        is_affiliated: Boolean(affiliateCode),
+        affiliate_code: affiliateCode || undefined,
+        cf_turnstile_response: turnstileToken || undefined,
+      });
+
+      setUserSession({ token: result.token, user: result.user });
+      localStorage.removeItem("itrustld_verification");
+      router.push(result.redirect_to || "/verify");
+    } catch (err) {
+      setFormError(err.message || "Registration failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -90,6 +157,9 @@ export default function RegisterPage() {
                 <p className="mt-8 text-xs uppercase tracking-[0.22em] text-white/65">Get started</p>
                 <h1 className="mt-3 text-4xl font-semibold">Sign Up</h1>
                 <p className="mt-2 text-sm text-white/55">KYC onboarding with personal & residential details</p>
+                {affiliateCode ? (
+                  <p className="mt-3 text-xs text-theme-green-action">Referred by partner: {affiliateCode}</p>
+                ) : null}
               </div>
               <div className="rounded-2xl border border-white/12 bg-white/[0.06] p-5">
                 <p className="text-sm font-medium">Registration rules</p>
@@ -121,28 +191,28 @@ export default function RegisterPage() {
             </p>
 
             <form className="mt-8 space-y-4" onSubmit={handleSignUp} noValidate>
+              {formError ? (
+                <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                  {formError}
+                </p>
+              ) : null}
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>First Name *</label>
-                  <input name="firstName" className={fieldClass} placeholder="Enter first name" defaultValue="Avishka" />
+                  <input name="firstName" className={fieldClass} placeholder="Enter first name" required />
                   {errors.firstName ? <p className="mt-1 text-xs text-theme-red-action">{errors.firstName}</p> : null}
                 </div>
                 <div>
                   <label className={labelClass}>Last Name *</label>
-                  <input name="lastName" className={fieldClass} placeholder="Enter last name" defaultValue="Perera" />
+                  <input name="lastName" className={fieldClass} placeholder="Enter last name" required />
                   {errors.lastName ? <p className="mt-1 text-xs text-theme-red-action">{errors.lastName}</p> : null}
                 </div>
               </div>
 
               <div>
                 <label className={labelClass}>Email *</label>
-                <input
-                  name="email"
-                  type="email"
-                  className={fieldClass}
-                  placeholder="Enter your email"
-                  defaultValue="avishka@email.com"
-                />
+                <input name="email" type="email" className={fieldClass} placeholder="Enter your email" required />
                 {errors.email ? <p className="mt-1 text-xs text-theme-red-action">{errors.email}</p> : null}
               </div>
 
@@ -198,6 +268,7 @@ export default function RegisterPage() {
                     placeholder="Mobile number"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    required
                   />
                 </div>
                 {errors.phone ? (
@@ -210,12 +281,12 @@ export default function RegisterPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Date of Birth *</label>
-                  <input name="dob" type="date" className={fieldClass} defaultValue="2000-01-15" />
+                  <input name="dob" type="date" className={fieldClass} required />
                   {errors.dob ? <p className="mt-1 text-xs text-theme-red-action">{errors.dob}</p> : null}
                 </div>
                 <div>
                   <label className={labelClass}>Language *</label>
-                  <select className={fieldClass} defaultValue="English">
+                  <select name="language" className={fieldClass} defaultValue="English">
                     <option>English</option>
                     <option>Sinhala</option>
                     <option>Tamil</option>
@@ -226,50 +297,93 @@ export default function RegisterPage() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Address *</label>
-                  <input className={fieldClass} placeholder="Enter address" defaultValue="12 Flower Road" />
+                  <input name="addressNumber" className={fieldClass} placeholder="Enter address" required />
                 </div>
                 <div>
                   <label className={labelClass}>Street *</label>
-                  <input className={fieldClass} placeholder="Enter street" defaultValue="Colombo 07" />
+                  <input name="street" className={fieldClass} placeholder="Enter street" required />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>City/Town *</label>
-                  <input className={fieldClass} placeholder="Enter city" defaultValue="Colombo" />
+                  <input name="city" className={fieldClass} placeholder="Enter city" required />
                 </div>
                 <div>
                   <label className={labelClass}>Zip Code *</label>
-                  <input className={fieldClass} placeholder="Enter zip code" defaultValue="00700" />
+                  <input name="zipCode" className={fieldClass} placeholder="Enter zip code" required />
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Password *</label>
-                  <input type="password" className={fieldClass} placeholder="Enter password" defaultValue="password" />
+                  <PasswordInput
+                    name="password"
+                    placeholder="Enter password"
+                    autoComplete="new-password"
+                    className={fieldClass}
+                    toggleClassName="text-theme-gray hover:text-theme-blue-dark"
+                    required
+                  />
+                  {errors.password ? <p className="mt-1 text-xs text-theme-red-action">{errors.password}</p> : null}
                 </div>
                 <div>
                   <label className={labelClass}>Confirm Password *</label>
-                  <input type="password" className={fieldClass} placeholder="Re-enter password" defaultValue="password" />
+                  <PasswordInput
+                    name="passwordConfirmation"
+                    placeholder="Re-enter password"
+                    autoComplete="new-password"
+                    className={fieldClass}
+                    toggleClassName="text-theme-gray hover:text-theme-blue-dark"
+                    required
+                  />
+                  {errors.passwordConfirmation ? (
+                    <p className="mt-1 text-xs text-theme-red-action">{errors.passwordConfirmation}</p>
+                  ) : null}
                 </div>
               </div>
 
               <label className="inline-flex items-center gap-2 pt-1 text-xs text-theme-gray">
                 <input
+                  name="terms"
                   type="checkbox"
                   className="h-4 w-4 rounded border-theme-gray-border text-theme-green-action"
-                  defaultChecked
+                  required
                 />
-                I accept Terms and Conditions
+                I accept{" "}
+                <a href="/terms-and-conditions" target="_blank" rel="noreferrer" className="text-theme-green-action hover:underline">
+                  Terms and Conditions
+                </a>
               </label>
+              {errors.terms ? <p className="text-xs text-theme-red-action">{errors.terms}</p> : null}
+
+              <p className="text-xs text-theme-gray">
+                <a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-theme-green-action hover:underline">
+                  Privacy Policy
+                </a>
+                {" | "}
+                <a href="/cookie-policy" target="_blank" rel="noreferrer" className="text-theme-green-action hover:underline">
+                  Cookie Policy
+                </a>
+              </p>
+
+              <TurnstileWidget
+                onReady={() => setTurnstileRequired(true)}
+                onToken={(token) => {
+                  setTurnstileToken(token);
+                }}
+                onExpire={() => setTurnstileToken("")}
+              />
+              {errors.turnstile ? <p className="text-xs text-theme-red-action">{errors.turnstile}</p> : null}
 
               <button
                 type="submit"
-                className="mt-1 w-full rounded-lg bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:brightness-110"
+                disabled={loading}
+                className="mt-1 w-full rounded-lg bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                Sign Up
+                {loading ? "Creating account…" : "Sign Up"}
               </button>
             </form>
           </section>

@@ -1,29 +1,30 @@
 import Link from "next/link";
+import { BrandLogoImage } from "@/components/brand-logo";
 
 const socials = [
-  { href: "#", label: "Facebook", icon: "/assets/img/icons/facebook.svg" },
-  { href: "#", label: "YouTube", icon: "/assets/img/icons/youtube.svg" },
-  { href: "#", label: "WhatsApp", icon: "/assets/img/icons/whatsapp.svg" }
+  { href: "https://facebook.com/SNXcompany", label: "Facebook", icon: "/assets/img/icons/facebook.svg" },
+  { href: "https://whatsapp.com/channel/0029Va4BZjl47Xe8lo429m2K", label: "WhatsApp", icon: "/assets/img/icons/whatsapp.svg" },
+  { href: "https://youtube.com/@itrustld", label: "YouTube", icon: "/assets/img/icons/youtube.svg" }
 ];
 
 const quickLinksTop = [
   { href: "/", label: "Home" },
-  { href: "/help", label: "Help" },
+  { href: "/support", label: "Help" },
   { href: "/login", label: "Login" },
   { href: "/register", label: "Register" }
 ];
 
 const quickLinksBottom = [
-  { href: "#", label: "Deposits" },
-  { href: "#", label: "Withdrawals" },
-  { href: "#", label: "Trust Points" },
-  { href: "#", label: "Partners" }
+  { href: "/login?redirect=%2Fdashboard%2Fdeposit", label: "Deposits" },
+  { href: "/login?redirect=%2Fdashboard%2Fwithdrawal", label: "Withdrawals" },
+  { href: "/login?redirect=%2Fdashboard%2Floyalty", label: "Trust Points" },
+  { href: "/login?redirect=%2Fdashboard%2Fearnings", label: "Partners" }
 ];
 
 const legalLinks = [
-  { href: "#", label: "Terms of Use" },
-  { href: "#", label: "Privacy Policy" },
-  { href: "#", label: "Cookie Policy" }
+  { href: "/terms-and-conditions", label: "Terms of Use" },
+  { href: "/privacy-policy", label: "Privacy Policy" },
+  { href: "/cookie-policy", label: "Cookie Policy" }
 ];
 
 function Chevron() {
@@ -59,7 +60,7 @@ export default function FooterGuest() {
         <div className="grid gap-10 lg:grid-cols-[1.35fr_1.65fr] lg:items-start lg:gap-8">
           <div>
             <Link href="/" className="inline-flex items-center">
-              <img src="/assets/img/logos/logo-itrustld-wide.png" alt="iTrustLD" className="h-10 w-auto sm:h-11" />
+              <BrandLogoImage alt="iTrustLD" className="h-10 w-auto sm:h-11" />
             </Link>
             <p className="mt-5 text-sm leading-7 text-white/70">
               ITrustLD By GLOBIX (PVT) LTD, a registered company.
@@ -166,14 +167,16 @@ export default function FooterGuest() {
 
           <div className="flex items-center gap-3">
             {socials.map((social) => (
-              <Link
+              <a
                 key={social.label}
                 href={social.href}
+                target="_blank"
+                rel="noreferrer"
                 aria-label={social.label}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/[0.04] transition hover:border-theme-green-action/50 hover:bg-theme-green-action/10"
               >
                 <img src={social.icon} alt={social.label} className="h-4 w-4" />
-              </Link>
+              </a>
             ))}
           </div>
 

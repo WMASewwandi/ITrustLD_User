@@ -3,32 +3,77 @@
 import { useEffect, useState } from "react";
 import WelcomeHero from "@/components/dashboard/welcome-hero";
 import AccountOverview from "@/components/dashboard/account-overview";
-import PromoBanner from "@/components/dashboard/promo-banner";
 import RecentTransactions from "@/components/dashboard/recent-transactions";
 import LatestNews from "@/components/dashboard/latest-news";
+import { fetchDashboard } from "@/lib/dashboard";
+import { getUserSession } from "@/lib/auth";
 
 export default function DashboardPage() {
   const [userName, setUserName] = useState("there");
+  const [dashboard, setDashboard] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.name) setUserName(parsed.name);
+    const cached = getUserSession();
+    if (cached?.name) setUserName(cached.name);
+
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const data = await fetchDashboard();
+        if (cancelled) return;
+        setDashboard(data);
+        if (data?.user?.name) setUserName(data.user.name);
+      } catch (err) {
+        if (cancelled) return;
+        setError(err?.message || "Could not load dashboard.");
+        const cachedUser = getUserSession();
+        if (cachedUser) {
+          setDashboard({
+            user: cachedUser,
+            documents: [],
+            recent_transactions: [],
+            blog_posts: [],
+            promotional_banners: [],
+            verification_complete: false,
+          });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch {
-      // ignore
     }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-white/50">
+        Loading your dashboard…
+      </div>
+    );
+  }
 
   return (
     <>
       <WelcomeHero userName={userName} />
-      <AccountOverview />
-      <PromoBanner />
-      <RecentTransactions />
-      <LatestNews />
+      {error ? (
+        <p className="mx-auto mb-4 max-w-[1400px] px-4 text-center text-sm text-theme-orange sm:px-6 lg:px-8">
+          {error}
+        </p>
+      ) : null}
+      <AccountOverview
+        user={dashboard?.user}
+        documents={dashboard?.documents}
+        verificationComplete={dashboard?.verification_complete}
+      />
+      <RecentTransactions transactions={dashboard?.recent_transactions} />
+      <LatestNews user={dashboard?.user} promotionalBanners={dashboard?.promotional_banners} />
     </>
   );
 }

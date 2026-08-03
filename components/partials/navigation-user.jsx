@@ -5,12 +5,20 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
+import { BrandLogoImage } from "@/components/brand-logo";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import {
   CLAIMS_UPDATED_EVENT,
-  getReadyClaimsCount,
-} from "@/lib/earnings";
-import { DEMO_TRUST_POINTS, getMembershipTierByPoints } from "@/lib/membership-tiers";
+  fetchLoyaltySummary,
+  getActionableClaimsCount,
+} from "@/lib/loyalty-api";
+import { getUserAffiliateCode, getUserSession, isPartnerUser, logoutUser } from "@/lib/auth";
+import {
+  DASHBOARD_UPDATED_EVENT,
+  deriveNotificationsFromUser,
+} from "@/lib/dashboard";
+import { getMembershipTierByPoints } from "@/lib/membership-tiers";
+import { useMembershipTiers } from "@/hooks/use-membership-tiers";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -53,25 +61,14 @@ const MOBILE_MORE_LINKS = [
   { href: "/dashboard/earnings", label: "My Earnings", icon: Wallet },
   { href: "/dashboard/documents", label: "Documents", icon: FileCheck2 },
   { href: "/dashboard/profile", label: "Profile", icon: User },
-  { href: "/dashboard/help", label: "Support", icon: Headphones },
+  { href: "/support", label: "Support", icon: Headphones },
 ];
 
 const LOYALTY_OPTIONS = [
   { href: "/dashboard/loyalty", label: "Loyalty Overview", icon: Trophy },
   { href: "/dashboard/loyalty", label: "Redeem Trust Points", icon: ArrowRight },
-  { href: "/dashboard/help", label: "Loyalty Help", icon: Headphones },
+  { href: "/support", label: "Loyalty Help", icon: Headphones },
 ];
-
-const DEMO_NOTIFICATIONS = [
-  { id: 1, title: "Top-up pending", body: "Your top-up request is being reviewed.", time: "2h ago" },
-  { id: 2, title: "Document update", body: "National ID (Back) is In-Progress.", time: "1d ago" },
-  { id: 3, title: "Loyalty tip", body: "Earn double Trust Points this week.", time: "2d ago" },
-];
-
-const LOYALTY_POINTS_NUM = DEMO_TRUST_POINTS;
-const LOYALTY_POINTS = LOYALTY_POINTS_NUM.toLocaleString();
-const LOYALTY_TIER = getMembershipTierByPoints(LOYALTY_POINTS_NUM).name;
-const WALLET_ACCOUNT_ID = "67104269";
 
 function NavIconLink({ href, label, icon: Icon, active, onNavigate, badgeCount = 0 }) {
   const badge = Number(badgeCount) || 0;
@@ -110,14 +107,13 @@ function PanelShell({ title, onClose, children }) {
     <>
       <button
         type="button"
-        className="fixed inset-0 z-[70]"
-        style={{ backgroundColor: NAV_SOLID }}
+        className="fixed inset-0 z-[70] bg-black/45 backdrop-blur-[2px]"
         aria-label="Close panel"
         onClick={onClose}
       />
       <aside
         data-lenis-prevent
-        className="fixed inset-0 z-[80] flex w-full flex-col lg:inset-y-0 lg:left-auto lg:right-0 lg:w-[380px] lg:border-l lg:border-white/10"
+        className="fixed inset-y-0 right-0 z-[80] flex w-full max-w-[380px] flex-col border-l border-white/10 shadow-2xl"
         style={{ backgroundColor: NAV_SOLID }}
         role="dialog"
         aria-modal="true"
@@ -153,41 +149,95 @@ export default function NavigationUser() {
   const [panel, setPanel] = useState(null);
   const [userName, setUserName] = useState("User");
   const [claimsCount, setClaimsCount] = useState(0);
+  const [accountId, setAccountId] = useState("");
+  const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [isPartner, setIsPartner] = useState(false);
+  const [affiliateCode, setAffiliateCode] = useState("");
+  const { tiers: membershipTiers } = useMembershipTiers();
+
+  function syncFromSession() {
+    try {
+      const parsed = getUserSession();
+      if (parsed?.name) setUserName(parsed.name);
+      if (parsed?.accountId) setAccountId(String(parsed.accountId));
+      else if (parsed?.account_holder?.account_number) {
+        setAccountId(String(parsed.account_holder.account_number));
+      }
+      const points = Number(parsed?.trust_points) || 0;
+      setLoyaltyPoints(points);
+      setNotifications(deriveNotificationsFromUser(parsed));
+      setIsPartner(isPartnerUser(parsed));
+      setAffiliateCode(getUserAffiliateCode(parsed) || "");
+    } catch {
+      // ignore
+    }
+  }
+
+  const visibleNavLinks = isPartner
+    ? NAV_LINKS
+    : NAV_LINKS.filter((item) => item.href !== "/dashboard/earnings");
+
+  const visibleMobileMoreLinks = isPartner
+    ? MOBILE_MORE_LINKS
+    : MOBILE_MORE_LINKS.filter((item) => item.href !== "/dashboard/earnings");
 
   useEffect(() => setMounted(true), []);
-  const [accountId, setAccountId] = useState(WALLET_ACCOUNT_ID);
 
   useEffect(() => {
-    function refreshClaimsCount() {
-      setClaimsCount(getReadyClaimsCount());
+    let cancelled = false;
+
+    async function refreshClaimsCount() {
+      try {
+        const summary = await fetchLoyaltySummary();
+        if (!cancelled) {
+          setClaimsCount(getActionableClaimsCount(summary));
+        }
+      } catch {
+        if (!cancelled) setClaimsCount(0);
+      }
     }
+
     refreshClaimsCount();
     window.addEventListener(CLAIMS_UPDATED_EVENT, refreshClaimsCount);
-    window.addEventListener("storage", refreshClaimsCount);
     window.addEventListener("focus", refreshClaimsCount);
     return () => {
+      cancelled = true;
       window.removeEventListener(CLAIMS_UPDATED_EVENT, refreshClaimsCount);
-      window.removeEventListener("storage", refreshClaimsCount);
       window.removeEventListener("focus", refreshClaimsCount);
     };
   }, [pathname]);
 
-  const moreActive = MOBILE_MORE_LINKS.some((item) =>
+  const moreActive = visibleMobileMoreLinks.some((item) =>
     item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
   );
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.name) setUserName(parsed.name);
-        if (parsed?.accountId) setAccountId(String(parsed.accountId));
-      }
-    } catch {
-      // ignore
+    syncFromSession();
+    function onSessionUpdated() {
+      syncFromSession();
     }
+    function onDashboardUpdated(event) {
+      const detail = event?.detail;
+      if (detail?.notifications) {
+        setNotifications(detail.notifications);
+      }
+      if (detail?.user) {
+        if (detail.user.name) setUserName(detail.user.name);
+        setLoyaltyPoints(Number(detail.user.trust_points) || 0);
+        if (detail.user.accountId) setAccountId(String(detail.user.accountId));
+      }
+    }
+    window.addEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
+    window.addEventListener("storage", onSessionUpdated);
+    return () => {
+      window.removeEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
+      window.removeEventListener("storage", onSessionUpdated);
+    };
   }, []);
+
+  const loyaltyTier = getMembershipTierByPoints(loyaltyPoints, membershipTiers).name;
+  const loyaltyPointsLabel = loyaltyPoints.toLocaleString();
 
   useEffect(() => {
     setMoreOpen(false);
@@ -203,9 +253,9 @@ export default function NavigationUser() {
     };
   }, [panel, moreOpen]);
 
-  function handleLogout() {
-    localStorage.removeItem("itrustld_user");
-    router.push("/");
+  async function handleLogout() {
+    await logoutUser();
+    router.push("/login");
   }
 
   function isActive(href) {
@@ -228,11 +278,7 @@ export default function NavigationUser() {
         <div className="flex h-14 w-full items-center justify-between gap-3 px-3 sm:h-16 sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <Link href="/dashboard" className="inline-flex shrink-0 items-center">
-              <img
-                src="/assets/img/logos/logo-itrustld-wide.png"
-                alt="iTrustLD"
-                className="h-12 w-auto object-contain sm:h-11"
-              />
+              <BrandLogoImage alt="iTrustLD" className="h-12 w-auto object-contain sm:h-11" />
             </Link>
           </div>
 
@@ -272,11 +318,11 @@ export default function NavigationUser() {
       >
         <div className="flex h-14 items-center justify-center border-b border-white/10 sm:h-16">
           <Link href="/dashboard" className="flex h-9 w-9 items-center justify-center" aria-label="iTrustLD Home">
-            <img src="/assets/img/logos/logo-itrustld.svg" alt="" className="h-7 w-7 object-contain" />
+            <BrandLogoImage variant="icon" alt="" className="h-7 w-7 object-contain" />
           </Link>
         </div>
         <nav className="flex flex-1 flex-col items-center gap-1.5 py-4">
-          {NAV_LINKS.map((item) => (
+          {visibleNavLinks.map((item) => (
             <NavIconLink
               key={item.href}
               href={item.href}
@@ -289,10 +335,10 @@ export default function NavigationUser() {
         </nav>
         <div className="flex flex-col items-center gap-1.5 border-t border-white/10 py-4">
           <NavIconLink
-            href="/dashboard/help"
+            href="/support"
             label="Support"
             icon={Headphones}
-            active={isActive("/dashboard/help")}
+            active={isActive("/support")}
           />
         </div>
       </aside>
@@ -368,7 +414,7 @@ export default function NavigationUser() {
                       </button>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      {MOBILE_MORE_LINKS.map(({ href, label, icon: Icon }) => {
+                      {visibleMobileMoreLinks.map(({ href, label, icon: Icon }) => {
                         const active = isActive(href);
                         const badge = href === "/dashboard/earnings" ? claimsCount : 0;
                         return (
@@ -410,27 +456,32 @@ export default function NavigationUser() {
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-white">Trust Points</p>
               <span className="rounded-full bg-white px-2.5 py-0.5 text-[10px] font-bold text-black">
-                {LOYALTY_TIER}
+                {loyaltyTier}
               </span>
             </div>
-            <p className="mt-3 text-2xl font-bold tracking-tight text-white">{LOYALTY_POINTS}</p>
-            <p className="mt-1 text-sm text-white/45">Account #{accountId}</p>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-white">{loyaltyPointsLabel}</p>
+            <p className="mt-1 text-sm text-white/45">
+              {accountId ? `Account #${accountId}` : "Account"}
+            </p>
           </div>
 
           <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-3 py-4">
             <LoyaltyLevels
+              tiers={membershipTiers}
               variant="compact"
-              currentTier={LOYALTY_TIER}
-              initialTier={LOYALTY_TIER}
-              points={LOYALTY_POINTS_NUM}
+              currentTier={loyaltyTier}
+              initialTier={loyaltyTier}
+              points={loyaltyPoints}
               showBenefits
               showPointsHint
             />
           </div>
 
-          <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
-            <AffiliateLinkCard />
-          </div>
+          {affiliateCode ? (
+            <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
+              <AffiliateLinkCard affiliateCode={affiliateCode} />
+            </div>
+          ) : null}
 
           <h3 className="mb-3 mt-7 text-base font-semibold text-white">Loyalty Options</h3>
           <div className="space-y-2.5">
@@ -452,15 +503,21 @@ export default function NavigationUser() {
       {panel === "notifications" ? (
         <PanelShell title="Notifications" onClose={() => setPanel(null)}>
           <div className="space-y-3">
-            {DEMO_NOTIFICATIONS.map((item) => (
-              <div key={item.id} className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <p className="text-sm font-semibold text-white">{item.title}</p>
-                  <span className="shrink-0 text-[11px] text-white/40">{item.time}</span>
+            {notifications.length === 0 ? (
+              <p className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-6 text-center text-sm text-white/50">
+                No notifications right now.
+              </p>
+            ) : (
+              notifications.map((item) => (
+                <div key={item.id} className="rounded-xl border border-white/15 bg-[#141A2E] px-4 py-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-white">{item.title}</p>
+                    <span className="shrink-0 text-[11px] text-white/40">{item.time}</span>
+                  </div>
+                  <p className="mt-1 text-sm text-white/55">{item.body}</p>
                 </div>
-                <p className="mt-1 text-sm text-white/55">{item.body}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </PanelShell>
       ) : null}
@@ -474,7 +531,7 @@ export default function NavigationUser() {
               </span>
               <div>
                 <p className="font-semibold text-white">{userName}</p>
-                <p className="text-sm text-white/45">#{accountId}</p>
+                <p className="text-sm text-white/45">{accountId ? `#${accountId}` : "—"}</p>
               </div>
             </div>
           </div>

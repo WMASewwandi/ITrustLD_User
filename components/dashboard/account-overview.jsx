@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { DEMO_TRUST_POINTS, getMembershipProgress } from "@/lib/membership-tiers";
+import { getMembershipProgress } from "@/lib/membership-tiers";
 import {
   AlertCircle,
   CheckCircle2,
@@ -12,12 +11,6 @@ import {
   Trophy,
 } from "lucide-react";
 
-const DOCS = [
-  { name: "National ID (Front)", status: "Completed" },
-  { name: "National ID (Back)", status: "In-Progress" },
-  { name: "Proof of Address", status: "Pending" },
-];
-
 const STATUS_STYLE = {
   Completed: "text-theme-green-action bg-theme-green-action/10 border-theme-green-action/25",
   "In-Progress": "text-theme-orange bg-theme-orange/10 border-theme-orange/25",
@@ -25,29 +18,43 @@ const STATUS_STYLE = {
   Rejected: "text-theme-red-action bg-theme-red-action/10 border-theme-red-action/25",
 };
 
-export default function AccountOverview() {
-  const points = DEMO_TRUST_POINTS;
+function formatPhone(mobile) {
+  if (!mobile) return "—";
+  return mobile;
+}
+
+function formatPendingLabel(deposits, withdrawals) {
+  const parts = [];
+  if (deposits > 0) {
+    parts.push(`${deposits} top-up${deposits === 1 ? "" : "s"}`);
+  }
+  if (withdrawals > 0) {
+    parts.push(`${withdrawals} cash-out${withdrawals === 1 ? "" : "s"}`);
+  }
+  return parts.length ? parts.join(", ") : "None";
+}
+
+export default function AccountOverview({ user, documents = [], verificationComplete = false }) {
+  const points = Number(user?.trust_points) || 0;
   const { current, next, remaining, progressPct } = getMembershipProgress(points);
   const nextTier = next?.name || current.name;
   const progress = progressPct;
-  const [userType, setUserType] = useState("normal");
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      if (raw) {
-        const user = JSON.parse(raw);
-        setUserType(user?.userType === "partner" ? "partner" : "normal");
-      }
-    } catch {
-      // ignore
-    }
-  }, []);
+  const userType = user?.user_type === "partner" ? "partner" : "normal";
+  const savedBanks = Number(user?.saved_banks_count) || 0;
+  const pendingDeposits = Number(user?.pending_deposits_count) || 0;
+  const pendingWithdrawals = Number(user?.pending_withdrawals_count) || 0;
+  const phone = formatPhone(user?.account_holder?.mobile_number);
+  const docs = documents.length
+    ? documents
+    : [
+        { name: "National ID (Front)", status: "Pending" },
+        { name: "National ID (Back)", status: "Pending" },
+        { name: "Proof of Address", status: "Pending" },
+      ];
 
   return (
     <section className="mx-auto w-full max-w-[1400px] px-4 pb-2 sm:px-6 lg:px-8">
       <div className="grid min-w-0 gap-4 lg:grid-cols-3">
-        {/* KYC / Documents */}
         <article className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5 lg:col-span-1">
           <div className="mb-4 flex items-start justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -67,17 +74,24 @@ export default function AccountOverview() {
             </Link>
           </div>
 
-          <div className="mb-4 flex items-start gap-2 rounded-xl border border-theme-green-shaded/25 bg-theme-green-shaded/10 px-3 py-2.5 text-xs text-theme-green-shaded">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-            <span className="min-w-0 leading-relaxed">
-              Complete verification to unlock all top-up methods.
-            </span>
-          </div>
+          {!verificationComplete ? (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-theme-green-shaded/25 bg-theme-green-shaded/10 px-3 py-2.5 text-xs text-theme-green-shaded">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="min-w-0 leading-relaxed">
+                Complete verification to unlock all top-up methods.
+              </span>
+            </div>
+          ) : (
+            <div className="mb-4 flex items-start gap-2 rounded-xl border border-theme-green-action/25 bg-theme-green-action/10 px-3 py-2.5 text-xs text-theme-green-action">
+              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+              <span className="min-w-0 leading-relaxed">Your account verification is complete.</span>
+            </div>
+          )}
 
           <ul className="space-y-2.5">
-            {DOCS.map((doc) => (
+            {docs.map((doc) => (
               <li
-                key={doc.name}
+                key={doc.key || doc.name}
                 className="flex min-w-0 items-center gap-2 rounded-xl border border-white/8 bg-black/20 px-3 py-2.5"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-white/80">
@@ -85,7 +99,7 @@ export default function AccountOverview() {
                   <span className="truncate">{doc.name}</span>
                 </div>
                 <span
-                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLE[doc.status]}`}
+                  className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${STATUS_STYLE[doc.status] || STATUS_STYLE.Pending}`}
                 >
                   {doc.status}
                 </span>
@@ -94,7 +108,6 @@ export default function AccountOverview() {
           </ul>
         </article>
 
-        {/* Trust Points */}
         <article className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5 lg:col-span-1">
           <div className="mb-4 flex items-start justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2.5">
@@ -148,7 +161,6 @@ export default function AccountOverview() {
           </div>
         </article>
 
-        {/* Quick account */}
         <article className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] p-4 sm:p-5 lg:col-span-1">
           <div className="mb-4 flex items-center gap-2.5">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-theme-green-action/15 text-theme-green-action">
@@ -169,17 +181,28 @@ export default function AccountOverview() {
             </div>
             <div className="flex items-center justify-between border-b border-white/8 pb-3">
               <dt className="text-white/45">Saved banks</dt>
-              <dd className="font-medium text-white">2 accounts</dd>
+              <dd className="font-medium text-white">
+                {savedBanks} account{savedBanks === 1 ? "" : "s"}
+              </dd>
             </div>
             <div className="flex items-center justify-between border-b border-white/8 pb-3">
               <dt className="text-white/45">Pending requests</dt>
-              <dd className="inline-flex items-center gap-1.5 font-medium text-theme-green-shaded">
-                <Clock3 className="h-3.5 w-3.5" />1 top-up
+              <dd
+                className={`inline-flex items-center gap-1.5 font-medium ${
+                  pendingDeposits + pendingWithdrawals > 0
+                    ? "text-theme-green-shaded"
+                    : "text-white/70"
+                }`}
+              >
+                {pendingDeposits + pendingWithdrawals > 0 ? (
+                  <Clock3 className="h-3.5 w-3.5" />
+                ) : null}
+                {formatPendingLabel(pendingDeposits, pendingWithdrawals)}
               </dd>
             </div>
             <div className="flex items-center justify-between">
               <dt className="text-white/45">Phone</dt>
-              <dd className="font-medium text-white">+94 77 123 4567</dd>
+              <dd className="font-medium text-white">{phone}</dd>
             </div>
           </dl>
 

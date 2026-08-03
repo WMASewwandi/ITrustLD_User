@@ -7,12 +7,26 @@ import UploadSlot from "@/components/verify/upload-slot";
 import VerificationArt from "@/components/verify/verification-art";
 import {
   ADDRESS_DOC_TYPES,
-  DEMO_CODE,
+  ADDRESS_TYPE_FROM_API,
+  ADDRESS_TYPE_TO_API,
+  formatVerificationEnum,
   IDENTITY_DOC_TYPES,
+  IDENTITY_TYPE_FROM_API,
+  IDENTITY_TYPE_TO_API,
   isNationalId,
-  loadVerification,
+  needsAddressDocumentUpload,
+  needsIdentityDocumentUpload,
   saveVerification,
 } from "@/lib/verification";
+import {
+  fetchVerificationStatus,
+  sendVerificationEmail,
+  sendVerificationSms,
+  updateUserSession,
+  uploadVerificationDocuments,
+  verifyEmailCode,
+  verifyMobileCode,
+} from "@/lib/auth";
 
 const inputClass =
   "w-full rounded-lg border border-[#D7DEE8] bg-[#F3F5F8] px-3 py-2.5 text-sm text-theme-black outline-none transition focus:border-theme-blue-dark focus:bg-white";
@@ -65,39 +79,92 @@ export default function AccountVerification() {
   const [identityBack, setIdentityBack] = useState(null);
   const [identityFile, setIdentityFile] = useState(null);
   const [addressFile, setAddressFile] = useState(null);
+  const [accountHolder, setAccountHolder] = useState(null);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [ready, setReady] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const nationalId = useMemo(() => isNationalId(identityType), [identityType]);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      const user = raw ? JSON.parse(raw) : {};
-      const saved = loadVerification(user);
-      setEmail(saved.email || user.email || "");
-      setPhone(String(saved.phone || user.phone || "").replace(/\s/g, ""));
-      setEmailVerified(Boolean(saved.emailVerified));
-      setPhoneVerified(Boolean(saved.phoneVerified));
-      setIdentityType(saved.identityType || "");
-      setAddressType(saved.addressType || "");
+  const needIdentityUpload = needsIdentityDocumentUpload(accountHolder);
+  const needAddressUpload = needsAddressDocumentUpload(accountHolder);
 
-      if (saved.documentsSubmitted || saved.status === "pending") {
-        setStep("pending");
-      } else if (saved.phoneVerified) {
-        setStep("documents");
-      } else if (saved.emailVerified) {
-        setStep("phone");
-      } else {
-        setStep("email");
-      }
-    } catch {
-      setStep("email");
-    } finally {
-      setReady(true);
+  function applyVerificationStep(serverStep, user) {
+    const ah = user?.account_holder;
+    const emailValue = ah?.email || user?.email || "";
+    const phoneValue = ah?.mobile_number || "";
+
+    setAccountHolder(ah || null);
+    setEmail(emailValue);
+    setPhone(String(phoneValue).replace(/\s/g, ""));
+    setEmailVerified(ah?.email_verification === "VERIFIED");
+    setPhoneVerified(ah?.mobile_number_verification === "VERIFIED");
+
+    if (ah?.identity_document_type) {
+      setIdentityType(IDENTITY_TYPE_FROM_API[ah.identity_document_type] || "");
     }
-  }, []);
+    if (ah?.address_document_type) {
+      setAddressType(ADDRESS_TYPE_FROM_API[ah.address_document_type] || "");
+    }
+
+    if (serverStep === "complete") {
+      router.replace("/dashboard");
+      return;
+    }
+    if (serverStep === "pending") {
+      setStep("pending");
+    } else if (serverStep === "documents") {
+      setStep("documents");
+    } else if (serverStep === "phone") {
+      setStep("phone");
+    } else {
+      setStep("email");
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        const res = await fetchVerificationStatus();
+        if (cancelled) return;
+        if (res.user) updateUserSession(res.user);
+        applyVerificationStep(res.step, res.user);
+      } catch {
+        if (cancelled) return;
+        try {
+          const raw = localStorage.getItem("itrustld_user");
+          const user = raw ? JSON.parse(raw) : {};
+          const ah = user.account_holder;
+          setAccountHolder(ah || null);
+          setEmail(ah?.email || user.email || "");
+          setPhone(String(ah?.mobile_number || "").replace(/\s/g, ""));
+          setEmailVerified(ah?.email_verification === "VERIFIED");
+          setPhoneVerified(ah?.mobile_number_verification === "VERIFIED");
+          if (ah?.email_verification !== "VERIFIED") setStep("email");
+          else if (ah?.mobile_number_verification !== "VERIFIED") setStep("phone");
+          else if (
+            ah?.identity_document_status === "RECEIVED" &&
+            ah?.address_document_status === "RECEIVED"
+          ) {
+            setStep("pending");
+          } else if (ah?.mobile_number_verification === "VERIFIED") setStep("documents");
+          else setStep("email");
+        } catch {
+          setStep("email");
+        }
+      } finally {
+        if (!cancelled) setReady(true);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   function persist(partial) {
     const next = {
@@ -111,58 +178,61 @@ export default function AccountVerification() {
       identityBack,
       identityFile,
       addressFile,
-      documentsSubmitted: step === "pending",
       status: step === "pending" ? "pending" : "unverified",
       ...partial,
     };
     saveVerification(next);
-    try {
-      const raw = localStorage.getItem("itrustld_user");
-      if (raw) {
-        const user = JSON.parse(raw);
-        localStorage.setItem(
-          "itrustld_user",
-          JSON.stringify({
-            ...user,
-            email: next.email || user.email,
-            phone: next.phone || user.phone,
-            verificationStatus: next.status,
-            emailVerified: next.emailVerified,
-            phoneVerified: next.phoneVerified,
-          })
-        );
-      }
-    } catch {
-      /* ignore */
-    }
   }
 
-  function sendEmailCode() {
+  async function sendEmailCode() {
     setError("");
     setInfo("");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       setError("Enter a valid email address.");
       return;
     }
-    persist({ email: email.trim() });
-    setInfo(`Verification code sent to ${email.trim()} (demo code: ${DEMO_CODE}).`);
-    setStep("email-code");
+    setSending(true);
+    try {
+      const result = await sendVerificationEmail(email.trim());
+      persist({ email: email.trim() });
+      if (result.dev_code) {
+        setInfo(
+          `Development mode: your verification code is ${result.dev_code}. (Email not sent — configure SMTP or Mailpit to receive real emails.)`
+        );
+      } else {
+        setInfo(`Verification code sent to ${email.trim()}.`);
+      }
+      setStep("email-code");
+    } catch (err) {
+      setError(err.message || "Failed to send verification code.");
+    } finally {
+      setSending(false);
+    }
   }
 
-  function confirmEmail() {
+  async function confirmEmail() {
     setError("");
-    if (emailCode.trim() !== DEMO_CODE) {
-      setError(`Invalid code. Use demo code ${DEMO_CODE}.`);
+    if (!emailCode.trim()) {
+      setError("Enter the verification code from your email.");
       return;
     }
-    setEmailVerified(true);
-    persist({ emailVerified: true, email: email.trim() });
-    setEmailCode("");
-    setInfo("");
-    setStep("phone");
+    setSending(true);
+    try {
+      const result = await verifyEmailCode(email.trim(), emailCode.trim());
+      if (result.user) updateUserSession(result.user);
+      setEmailVerified(true);
+      persist({ emailVerified: true, email: email.trim() });
+      setEmailCode("");
+      setInfo("");
+      setStep("phone");
+    } catch (err) {
+      setError(err.message || "Invalid verification code. Please try again.");
+    } finally {
+      setSending(false);
+    }
   }
 
-  function sendPhoneCode() {
+  async function sendPhoneCode() {
     setError("");
     setInfo("");
     const digits = phone.replace(/\D/g, "");
@@ -170,57 +240,131 @@ export default function AccountVerification() {
       setError("Enter a valid mobile number.");
       return;
     }
-    persist({ phone, emailVerified: true });
-    setInfo(`Verification code sent to ${phone} (demo code: ${DEMO_CODE}).`);
-    setStep("phone-code");
+    setSending(true);
+    try {
+      const result = await sendVerificationSms(phone);
+      persist({ phone, emailVerified: true });
+      if (result.dev_code) {
+        setInfo(
+          `Development mode: your verification code is ${result.dev_code}. (SMS/email not sent — configure SMTP or Mailpit for real delivery.)`
+        );
+      } else {
+        setInfo(`Verification code sent to ${phone}.`);
+      }
+      setStep("phone-code");
+    } catch (err) {
+      setError(err.message || "Failed to send verification code.");
+    } finally {
+      setSending(false);
+    }
   }
 
-  function confirmPhone() {
+  async function confirmPhone() {
     setError("");
-    if (phoneCode.trim() !== DEMO_CODE) {
-      setError(`Invalid code. Use demo code ${DEMO_CODE}.`);
+    if (!phoneCode.trim()) {
+      setError("Enter the verification code from your SMS.");
       return;
     }
-    setPhoneVerified(true);
-    persist({ phoneVerified: true, emailVerified: true, phone });
-    setPhoneCode("");
+    setSending(true);
+    try {
+      const result = await verifyMobileCode(phone, phoneCode.trim());
+      if (result.user) updateUserSession(result.user);
+      setPhoneVerified(true);
+      persist({ phoneVerified: true, emailVerified: true, phone });
+      setPhoneCode("");
+      setInfo("");
+      setStep("documents");
+    } catch (err) {
+      setError(err.message || "Invalid verification code. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  async function submitDocuments() {
+    setError("");
     setInfo("");
-    setStep("documents");
-  }
 
-  function submitDocuments() {
-    setError("");
-    if (!identityType) {
-      setError("Select an identity document type.");
+    const uploadingIdentity = needIdentityUpload;
+    const uploadingAddress = needAddressUpload;
+
+    if (!uploadingIdentity && !uploadingAddress) {
+      setStep("pending");
       return;
     }
-    if (!addressType) {
-      setError("Select an address document type.");
-      return;
-    }
-    if (nationalId) {
-      if (!identityFront || !identityBack) {
-        setError("Upload both front and back of your National ID.");
+
+    if (uploadingIdentity) {
+      if (!identityType) {
+        setError("Select an identity document type.");
         return;
       }
-    } else if (!identityFile) {
-      setError("Upload your identity document.");
-      return;
-    }
-    if (!addressFile) {
-      setError("Upload your address document.");
-      return;
+      if (nationalId) {
+        if (!identityFront?.file || !identityBack?.file) {
+          setError("Upload both front and back of your National ID.");
+          return;
+        }
+      } else if (!identityFile?.file) {
+        setError("Upload your identity document.");
+        return;
+      }
     }
 
-    setStep("pending");
-    persist({
-      documentsSubmitted: true,
-      status: "pending",
-      emailVerified: true,
-      phoneVerified: true,
-      identityType,
-      addressType,
-    });
+    if (uploadingAddress) {
+      if (!addressType) {
+        setError("Select an address document type.");
+        return;
+      }
+      if (!addressFile?.file) {
+        setError("Upload your address document.");
+        return;
+      }
+    }
+
+    setSending(true);
+    try {
+      const result = await uploadVerificationDocuments({
+        identity_document_type: uploadingIdentity
+          ? IDENTITY_TYPE_TO_API[identityType]
+          : undefined,
+        address_document_type: uploadingAddress ? ADDRESS_TYPE_TO_API[addressType] : undefined,
+        identity_document: uploadingIdentity
+          ? nationalId
+            ? identityFront.file
+            : identityFile.file
+          : undefined,
+        identity_document_back:
+          uploadingIdentity && nationalId ? identityBack.file : undefined,
+        address_document: uploadingAddress ? addressFile.file : undefined,
+      });
+
+      if (result.user) {
+        updateUserSession(result.user);
+        setAccountHolder(result.user.account_holder || null);
+      }
+
+      persist({
+        emailVerified: true,
+        phoneVerified: true,
+        identityType,
+        addressType,
+        status: result.step === "pending" ? "pending" : "unverified",
+      });
+
+      if (result.step === "pending") {
+        setStep("pending");
+      } else {
+        setIdentityFront(null);
+        setIdentityBack(null);
+        setIdentityFile(null);
+        setAddressFile(null);
+        setInfo("Documents uploaded. Please upload the remaining document(s) to complete submission.");
+        setStep("documents");
+      }
+    } catch (err) {
+      setError(err.message || "Failed to upload documents.");
+    } finally {
+      setSending(false);
+    }
   }
 
   if (!ready) {
@@ -289,17 +433,20 @@ export default function AccountVerification() {
                   {info ? <p className="mt-3 text-sm text-theme-green-dark">{info}</p> : null}
                   <div className="mt-6 flex flex-wrap justify-end gap-3">
                     {step === "email" ? (
-                      <PrimaryButton onClick={sendEmailCode}>Send</PrimaryButton>
+                      <PrimaryButton onClick={sendEmailCode} disabled={sending}>
+                        {sending ? "Sending…" : "Send"}
+                      </PrimaryButton>
                     ) : (
                       <>
                         <SecondaryButton
-                          onClick={() => {
-                            setInfo(`Code re-sent (demo code: ${DEMO_CODE}).`);
-                          }}
+                          onClick={sendEmailCode}
+                          disabled={sending}
                         >
-                          Re-Send
+                          {sending ? "Sending…" : "Re-Send"}
                         </SecondaryButton>
-                        <PrimaryButton onClick={confirmEmail}>Confirm</PrimaryButton>
+                        <PrimaryButton onClick={confirmEmail} disabled={sending}>
+                          {sending ? "Verifying…" : "Confirm"}
+                        </PrimaryButton>
                       </>
                     )}
                   </div>
@@ -337,7 +484,9 @@ export default function AccountVerification() {
                   {info ? <p className="mt-3 text-sm text-theme-green-dark">{info}</p> : null}
                   <div className="mt-6 flex flex-wrap justify-end gap-3">
                     {step === "phone" ? (
-                      <PrimaryButton onClick={sendPhoneCode}>Send</PrimaryButton>
+                      <PrimaryButton onClick={sendPhoneCode} disabled={sending}>
+                        {sending ? "Sending…" : "Send"}
+                      </PrimaryButton>
                     ) : (
                       <>
                         <SecondaryButton
@@ -350,7 +499,9 @@ export default function AccountVerification() {
                         >
                           Go Back
                         </SecondaryButton>
-                        <PrimaryButton onClick={confirmPhone}>Confirm</PrimaryButton>
+                        <PrimaryButton onClick={confirmPhone} disabled={sending}>
+                          {sending ? "Verifying…" : "Confirm"}
+                        </PrimaryButton>
                       </>
                     )}
                   </div>
@@ -390,20 +541,42 @@ export default function AccountVerification() {
                 {showPending ? (
                   <div className="pt-1">
                     <p className="font-semibold text-theme-red-action">Document verification</p>
-                    <p className="mt-2 text-theme-black">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Check className="h-4 w-4 text-theme-green-action" />
-                        Identity: {identityType || "Document"} Received
-                      </span>{" "}
-                      <span className="font-semibold text-theme-orange">Not Verified</span>
-                    </p>
-                    <p className="mt-1 text-theme-black">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Check className="h-4 w-4 text-theme-green-action" />
-                        Address: {addressType || "Document"} Received
-                      </span>{" "}
-                      <span className="font-semibold text-theme-orange">Not Verified</span>
-                    </p>
+                    {accountHolder?.identity_document_name ? (
+                      <p className="mt-2 text-theme-black">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Check className="h-4 w-4 text-theme-green-action" />
+                          Identity:{" "}
+                          {formatVerificationEnum(accountHolder.identity_document_type)} Received
+                        </span>{" "}
+                        <span
+                          className={`font-semibold ${
+                            accountHolder.identity_verification === "VERIFIED"
+                              ? "text-theme-green-dark"
+                              : "text-theme-orange"
+                          }`}
+                        >
+                          {formatVerificationEnum(accountHolder.identity_verification)}
+                        </span>
+                      </p>
+                    ) : null}
+                    {accountHolder?.address_document_name ? (
+                      <p className="mt-1 text-theme-black">
+                        <span className="inline-flex items-center gap-1.5">
+                          <Check className="h-4 w-4 text-theme-green-action" />
+                          Address:{" "}
+                          {formatVerificationEnum(accountHolder.address_document_type)} Received
+                        </span>{" "}
+                        <span
+                          className={`font-semibold ${
+                            accountHolder.address_verification === "VERIFIED"
+                              ? "text-theme-green-dark"
+                              : "text-theme-orange"
+                          }`}
+                        >
+                          {formatVerificationEnum(accountHolder.address_verification)}
+                        </span>
+                      </p>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="font-semibold text-theme-red-action">Document verification</p>
@@ -423,73 +596,102 @@ export default function AccountVerification() {
             {showDocsForm ? (
               <>
                 <div className="grid gap-8 lg:grid-cols-2">
-                  <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-theme-black">Confirm your identity</h2>
-                    <select
-                      className={`${inputClass} mt-3`}
-                      value={identityType}
-                      onChange={(e) => {
-                        setIdentityType(e.target.value);
-                        setIdentityFront(null);
-                        setIdentityBack(null);
-                        setIdentityFile(null);
-                        setError("");
-                      }}
-                    >
-                      <option value="">Select Document Type</option>
-                      {IDENTITY_DOC_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
+                  {needIdentityUpload ? (
+                    <div className="min-w-0">
+                      <h2 className="text-base font-semibold text-theme-black">Confirm your identity</h2>
+                      <select
+                        className={`${inputClass} mt-3`}
+                        value={identityType}
+                        onChange={(e) => {
+                          setIdentityType(e.target.value);
+                          setIdentityFront(null);
+                          setIdentityBack(null);
+                          setIdentityFile(null);
+                          setError("");
+                        }}
+                      >
+                        <option value="">Select Document Type</option>
+                        {IDENTITY_DOC_TYPES.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
 
-                    {identityType ? (
-                      nationalId ? (
-                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                          <UploadSlot label="Front" value={identityFront} onChange={setIdentityFront} />
-                          <UploadSlot label="Back" value={identityBack} onChange={setIdentityBack} />
-                        </div>
-                      ) : (
+                      {identityType ? (
+                        nationalId ? (
+                          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                            <UploadSlot
+                              label="Front"
+                              value={identityFront}
+                              onChange={setIdentityFront}
+                              onError={setError}
+                            />
+                            <UploadSlot
+                              label="Back"
+                              value={identityBack}
+                              onChange={setIdentityBack}
+                              onError={setError}
+                            />
+                          </div>
+                        ) : (
+                          <div className="mt-4">
+                            <UploadSlot
+                              value={identityFile}
+                              onChange={setIdentityFile}
+                              onError={setError}
+                            />
+                          </div>
+                        )
+                      ) : null}
+                    </div>
+                  ) : null}
+
+                  {needAddressUpload ? (
+                    <div className="min-w-0">
+                      <h2 className="text-base font-semibold text-theme-black">
+                        Confirm your address identity
+                      </h2>
+                      <select
+                        className={`${inputClass} mt-3`}
+                        value={addressType}
+                        onChange={(e) => {
+                          setAddressType(e.target.value);
+                          setAddressFile(null);
+                          setError("");
+                        }}
+                      >
+                        <option value="">Select Document Type</option>
+                        {ADDRESS_DOC_TYPES.map((type) => (
+                          <option key={type} value={type}>
+                            {type}
+                          </option>
+                        ))}
+                      </select>
+
+                      {addressType ? (
                         <div className="mt-4">
-                          <UploadSlot value={identityFile} onChange={setIdentityFile} />
+                          <UploadSlot
+                            value={addressFile}
+                            onChange={setAddressFile}
+                            onError={setError}
+                          />
                         </div>
-                      )
-                    ) : null}
-                  </div>
-
-                  <div className="min-w-0">
-                    <h2 className="text-base font-semibold text-theme-black">Confirm your address identity</h2>
-                    <select
-                      className={`${inputClass} mt-3`}
-                      value={addressType}
-                      onChange={(e) => {
-                        setAddressType(e.target.value);
-                        setAddressFile(null);
-                        setError("");
-                      }}
-                    >
-                      <option value="">Select Document Type</option>
-                      {ADDRESS_DOC_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </select>
-
-                    {addressType ? (
-                      <div className="mt-4">
-                        <UploadSlot value={addressFile} onChange={setAddressFile} />
-                      </div>
-                    ) : null}
-                  </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {error ? <p className="mt-4 text-sm text-theme-red-action">{error}</p> : null}
+                {info ? <p className="mt-4 text-sm text-theme-green-dark">{info}</p> : null}
 
-                <div className="mt-8 flex justify-end">
-                  <PrimaryButton onClick={submitDocuments}>Submit</PrimaryButton>
-                </div>
+                {needIdentityUpload || needAddressUpload ? (
+                  <div className="mt-8 flex justify-end">
+                    <PrimaryButton onClick={submitDocuments} disabled={sending}>
+                      {sending ? "Uploading…" : "Submit"}
+                    </PrimaryButton>
+                  </div>
+                ) : null}
                 <p className="mt-4 text-center text-xs text-theme-gray sm:text-left">
                   Please note that the verification process may take up to 24 hours.
                 </p>

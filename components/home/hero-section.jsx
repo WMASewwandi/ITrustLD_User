@@ -1,18 +1,7 @@
-import Link from "next/link";
+import HeroCtaButtons from "@/components/home/hero-cta-buttons";
+import { fetchCommunityStats, formatCompactCount } from "@/lib/community-stats";
 
-const stats = [
-  {
-    label: "Members",
-    value: "82K+",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="9" cy="8" r="3" />
-        <circle cx="16.5" cy="9" r="2.2" />
-        <path d="M3.5 18.5C4.2 15.8 6.3 14.2 9 14.2C11.7 14.2 13.8 15.8 14.5 18.5" />
-        <path d="M14.2 18.5C14.7 16.6 16.2 15.5 18.2 15.5C19.7 15.5 20.9 16.3 21.5 17.6" />
-      </svg>
-    )
-  },
+const STATIC_STATS = [
   {
     label: "Deposits",
     value: "2.4M",
@@ -22,7 +11,7 @@ const stats = [
         <path d="M4 10H20" />
         <circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none" />
       </svg>
-    )
+    ),
   },
   {
     label: "Withdrawals",
@@ -34,7 +23,7 @@ const stats = [
         <path d="M17 15.5H6.5" />
         <path d="M9.5 12.5L6.5 15.5L9.5 18.5" />
       </svg>
-    )
+    ),
   },
   {
     label: "Support",
@@ -46,9 +35,18 @@ const stats = [
         <path d="M19 12H17.5C16.7 12 16 12.7 16 13.5V16.5C16 17.3 16.7 18 17.5 18H19V12Z" />
         <path d="M19 16.5V17.5C19 19.4 17.4 21 15.5 21H13" />
       </svg>
-    )
-  }
+    ),
+  },
 ];
+
+const membersIcon = (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="9" cy="8" r="3" />
+    <circle cx="16.5" cy="9" r="2.2" />
+    <path d="M3.5 18.5C4.2 15.8 6.3 14.2 9 14.2C11.7 14.2 13.8 15.8 14.5 18.5" />
+    <path d="M14.2 18.5C14.7 16.6 16.2 15.5 18.2 15.5C19.7 15.5 20.9 16.3 21.5 17.6" />
+  </svg>
+);
 
 function Sparkline({ className = "" }) {
   return (
@@ -64,16 +62,17 @@ function Sparkline({ className = "" }) {
   );
 }
 
-function ArrowIcon({ className = "h-4 w-4" }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M5 12H19" />
-      <path d="M13 6L19 12L13 18" />
-    </svg>
-  );
-}
+export default async function HeroSection() {
+  const communityStats = await fetchCommunityStats();
+  const stats = [
+    {
+      label: "Members",
+      value: formatCompactCount(communityStats.displayedCount),
+      icon: membersIcon,
+    },
+    ...STATIC_STATS,
+  ];
 
-export default function HeroSection() {
   return (
     <section id="home-hero" className="relative isolate overflow-hidden">
       <div
@@ -110,22 +109,7 @@ export default function HeroSection() {
             finance.
           </p>
 
-          <div className="mt-8 flex flex-wrap items-center gap-3 sm:gap-4">
-            <Link
-              href="/register"
-              className="group inline-flex items-center gap-2 rounded-xl bg-white/20 px-7 py-3.5 text-sm font-semibold text-white transition hover:bg-white/30"
-            >
-              Open Account
-              <ArrowIcon className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </Link>
-            <Link
-              href="/help"
-              className="group inline-flex items-center gap-2 rounded-[4px] border border-white/25 bg-white/[0.03] px-7 py-3 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/[0.08]"
-            >
-              Learn More
-              <ArrowIcon className="h-4 w-4 transition group-hover:translate-x-0.5" />
-            </Link>
-          </div>
+          <HeroCtaButtons />
 
           <div className="mt-10 overflow-hidden rounded-2xl border border-white/10 bg-[#0B1220]/45 p-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] backdrop-blur-xl sm:p-5">
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-2">
