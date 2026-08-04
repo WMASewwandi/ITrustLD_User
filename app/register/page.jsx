@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { BrandLogoImage } from "@/components/brand-logo";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
 import TurnstileWidget from "@/components/auth/turnstile-widget";
 import PasswordInput from "@/components/ui/password-input";
@@ -15,15 +16,18 @@ import {
   lettersOnly,
 } from "@/lib/validation";
 
-const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-theme-gray";
+const labelClass =
+  "mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45 lg:text-theme-gray";
 const fieldClass =
-  "w-full rounded-lg border border-[#CDD5E0] bg-[#F7F9FC] px-3 py-2.5 text-sm text-theme-black outline-none ring-0 transition placeholder:text-theme-gray/70 focus:border-theme-blue-dark focus:bg-white";
+  "w-full rounded-xl border border-white/20 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none ring-0 transition placeholder:text-white/30 focus:border-theme-green-action/50 lg:rounded-lg lg:border-[#CDD5E0] lg:bg-[#F7F9FC] lg:text-theme-black lg:placeholder:text-theme-gray/70 lg:focus:border-theme-blue-dark lg:focus:bg-white";
+const errorBoxClass =
+  "rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 lg:rounded-lg lg:border-red-200 lg:bg-red-50 lg:text-red-700";
 
 const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
 
 export default function RegisterPage() {
   return (
-    <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-theme-gray">Loading…</div>}>
+    <Suspense fallback={<div className="flex min-h-dvh items-center justify-center bg-[#0B1020] text-white/50">Loading…</div>}>
       <RegisterForm />
     </Suspense>
   );
@@ -143,16 +147,15 @@ function RegisterForm() {
 
   return (
     <UserAuthLayout>
-      <div className="flex min-h-screen w-full items-stretch justify-center p-0 sm:p-4 lg:p-6">
-        <div className="mx-auto grid w-full max-w-6xl overflow-hidden bg-white shadow-[0_28px_90px_rgba(0,0,0,0.45)] sm:rounded-3xl lg:grid-cols-2">
-          <section className="relative hidden min-h-full overflow-hidden bg-[#0B1020] lg:flex">
+      <div className="mx-auto grid min-h-screen w-full max-w-6xl lg:grid-cols-2">
+          <section className="relative hidden min-h-screen overflow-hidden border-r border-white/10 lg:flex">
             <div className="absolute -left-10 top-10 h-40 w-40 rounded-full bg-theme-green-action/15 blur-2xl" />
             <div className="absolute right-4 top-8 h-28 w-28 rounded-full bg-theme-green-shaded/20 blur-2xl" />
             <div className="absolute bottom-10 right-8 h-44 w-44 rounded-full bg-theme-green-action/15 blur-3xl" />
             <div className="relative flex h-full w-full flex-col justify-between p-10 text-white lg:p-14">
               <div>
-                <Link href="/" className="inline-block">
-                  <img src="/assets/img/logos/apple-touch-icon.png" alt="iTrustLD" className="h-12 w-12 rounded-xl" />
+                <Link href="/" className="inline-block w-fit">
+                  <BrandLogoImage alt="iTrustLD" className="h-10 w-auto" />
                 </Link>
                 <p className="mt-8 text-xs uppercase tracking-[0.22em] text-white/65">Get started</p>
                 <h1 className="mt-3 text-4xl font-semibold">Sign Up</h1>
@@ -178,12 +181,12 @@ function RegisterForm() {
             </div>
           </section>
 
-          <section className="flex flex-col justify-center bg-white px-5 py-8 text-theme-black sm:px-8 lg:px-12">
+          <section className="flex flex-col justify-center px-5 py-8 text-white sm:px-8 lg:bg-white lg:px-12 lg:text-theme-black">
             <Link href="/" className="inline-block w-fit lg:hidden">
-              <img src="/assets/img/logos/apple-touch-icon.png" alt="iTrustLD" className="h-12 w-12 rounded-xl" />
+              <BrandLogoImage alt="iTrustLD" className="h-10 w-auto" />
             </Link>
-            <h1 className="mt-7 text-3xl font-semibold text-theme-blue-dark lg:mt-0">Lets get you Started!</h1>
-            <p className="mt-2 text-sm text-theme-gray">
+            <h1 className="mt-7 text-3xl font-semibold lg:mt-0 lg:text-theme-blue-dark">Lets get you Started!</h1>
+            <p className="mt-2 text-sm text-white/55 lg:text-theme-gray">
               Already have an account?{" "}
               <Link href="/login" className="font-semibold text-theme-green-action hover:underline">
                 Sign in
@@ -192,7 +195,7 @@ function RegisterForm() {
 
             <form className="mt-8 space-y-4" onSubmit={handleSignUp} noValidate>
               {formError ? (
-                <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                <p className={errorBoxClass} role="alert">
                   {formError}
                 </p>
               ) : null}
@@ -232,12 +235,12 @@ function RegisterForm() {
                   }}
                 />
                 {countryOpen ? (
-                  <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-[#CDD5E0] bg-white shadow-lg">
+                  <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-white/20 bg-[#12182b] shadow-lg lg:border-[#CDD5E0] lg:bg-white">
                     {filteredCountries.map((c) => (
                       <button
                         key={c.iso}
                         type="button"
-                        className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm text-theme-black transition hover:bg-[#F7F9FC]"
+                        className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 lg:text-theme-black lg:hover:bg-[#F7F9FC]"
                         onClick={() => {
                           setCountry(c);
                           setCountryOpen(false);
@@ -245,11 +248,11 @@ function RegisterForm() {
                         }}
                       >
                         <span>{c.name}</span>
-                        <span className="text-theme-gray">{c.code}</span>
+                        <span className="text-white/55 lg:text-theme-gray">{c.code}</span>
                       </button>
                     ))}
                     {filteredCountries.length === 0 ? (
-                      <p className="px-3 py-2 text-sm text-theme-gray">No countries found</p>
+                      <p className="px-3 py-2 text-sm text-white/55 lg:text-theme-gray">No countries found</p>
                     ) : null}
                   </div>
                 ) : null}
@@ -259,7 +262,7 @@ function RegisterForm() {
               <div>
                 <label className={labelClass}>Mobile Number *</label>
                 <div className="flex gap-2">
-                  <span className="inline-flex min-w-[4.5rem] items-center justify-center rounded-lg border border-[#CDD5E0] bg-[#EEF2F7] px-2 text-sm font-medium text-theme-blue-dark">
+                  <span className="inline-flex min-w-[4.5rem] items-center justify-center rounded-xl border border-white/20 bg-white/[0.06] px-2 text-sm font-medium text-white lg:rounded-lg lg:border-[#CDD5E0] lg:bg-[#EEF2F7] lg:text-theme-blue-dark">
                     {country.code}
                   </span>
                   <input
@@ -274,7 +277,7 @@ function RegisterForm() {
                 {errors.phone ? (
                   <p className="mt-1 text-xs text-theme-red-action">{errors.phone}</p>
                 ) : (
-                  <p className="mt-1 text-xs text-theme-gray">Digits only after country code</p>
+                  <p className="mt-1 text-xs text-white/45 lg:text-theme-gray">Digits only after country code</p>
                 )}
               </div>
 
@@ -324,7 +327,7 @@ function RegisterForm() {
                     placeholder="Enter password"
                     autoComplete="new-password"
                     className={fieldClass}
-                    toggleClassName="text-theme-gray hover:text-theme-blue-dark"
+                    toggleClassName="text-white/40 hover:text-white/70 lg:text-theme-gray lg:hover:text-theme-blue-dark"
                     required
                   />
                   {errors.password ? <p className="mt-1 text-xs text-theme-red-action">{errors.password}</p> : null}
@@ -336,7 +339,7 @@ function RegisterForm() {
                     placeholder="Re-enter password"
                     autoComplete="new-password"
                     className={fieldClass}
-                    toggleClassName="text-theme-gray hover:text-theme-blue-dark"
+                    toggleClassName="text-white/40 hover:text-white/70 lg:text-theme-gray lg:hover:text-theme-blue-dark"
                     required
                   />
                   {errors.passwordConfirmation ? (
@@ -345,11 +348,11 @@ function RegisterForm() {
                 </div>
               </div>
 
-              <label className="inline-flex items-center gap-2 pt-1 text-xs text-theme-gray">
+              <label className="inline-flex items-center gap-2 pt-1 text-xs text-white/55 lg:text-theme-gray">
                 <input
                   name="terms"
                   type="checkbox"
-                  className="h-4 w-4 rounded border-theme-gray-border text-theme-green-action"
+                  className="h-4 w-4 rounded border-white/30 bg-transparent text-theme-green-action lg:border-theme-gray-border"
                   required
                 />
                 I accept{" "}
@@ -359,7 +362,7 @@ function RegisterForm() {
               </label>
               {errors.terms ? <p className="text-xs text-theme-red-action">{errors.terms}</p> : null}
 
-              <p className="text-xs text-theme-gray">
+              <p className="text-xs text-white/45 lg:text-theme-gray">
                 <a href="/privacy-policy" target="_blank" rel="noreferrer" className="text-theme-green-action hover:underline">
                   Privacy Policy
                 </a>
@@ -381,13 +384,19 @@ function RegisterForm() {
               <button
                 type="submit"
                 disabled={loading}
-                className="mt-1 w-full rounded-lg bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
+                className="mt-1 w-full rounded-xl bg-theme-green-action px-4 py-3 text-sm font-semibold uppercase tracking-wide text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {loading ? "Creating account…" : "Sign Up"}
               </button>
             </form>
+
+            <div className="mt-8 border-t border-white/10 pt-6 lg:hidden">
+              <p className="text-sm text-white/55">Already registered?</p>
+              <Link href="/login" className="mt-1 inline-block text-base font-semibold text-theme-green-action">
+                Sign in
+              </Link>
+            </div>
           </section>
-        </div>
       </div>
     </UserAuthLayout>
   );

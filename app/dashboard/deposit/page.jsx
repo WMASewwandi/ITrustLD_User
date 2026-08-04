@@ -26,6 +26,7 @@ import {
   Copy,
   Loader2,
   Plus,
+  SquareArrowOutUpRight,
   Trash2,
   User,
   Wallet,
@@ -89,31 +90,44 @@ function MethodIcon({ type }) {
 function StepIndicator({ step }) {
   const labels = ["Top-up", "Details", "Proof"];
   return (
-    <div className="mb-8 flex items-center gap-2 sm:gap-3">
-      {labels.map((label, index) => {
-        const n = index + 1;
-        const active = step === n;
-        const done = step > n;
-        return (
-          <div key={label} className="flex flex-1 items-center gap-2 sm:gap-3">
+    <div className="mb-8 w-full">
+      <div className="flex w-full items-center">
+        {labels.map((label, index) => {
+          const n = index + 1;
+          const active = step === n;
+          const done = step > n;
+          return (
             <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-                active || done
-                  ? "bg-theme-green-action text-white"
-                  : "border border-white/15 bg-white/5 text-white/45"
-              }`}
+              key={label}
+              className={`flex min-w-0 items-center ${index < labels.length - 1 ? "flex-1" : "shrink-0"}`}
             >
-              {done ? <Check className="h-4 w-4" /> : n}
+              <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+                <div
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                    active || done
+                      ? "bg-theme-green-action text-white"
+                      : "border border-white/15 bg-white/5 text-white/45"
+                  }`}
+                >
+                  {done ? <Check className="h-4 w-4" /> : n}
+                </div>
+                <span
+                  className={`hidden text-sm font-medium sm:inline ${active ? "text-white" : "text-white/40"}`}
+                >
+                  {label}
+                </span>
+              </div>
+              {index < labels.length - 1 ? (
+                <div
+                  className={`mx-3 h-px min-w-[1.5rem] flex-1 sm:mx-4 ${
+                    done ? "bg-theme-green-action/50" : "bg-white/10"
+                  }`}
+                />
+              ) : null}
             </div>
-            <span className={`hidden text-sm font-medium sm:inline ${active ? "text-white" : "text-white/40"}`}>
-              {label}
-            </span>
-            {index < labels.length - 1 ? (
-              <div className={`h-px flex-1 ${done ? "bg-theme-green-action/50" : "bg-white/10"}`} />
-            ) : null}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -672,20 +686,44 @@ export default function DepositPage() {
                 {(bootstrap?.topup_methods || []).map((m) => {
                   const active = methodId === m.id;
                   const icon = topupMethodIconKey(m.name);
+                  const navigateUrl = m.navigateUrl || m.navigate_url || "";
+                  const showView = Boolean(
+                    (m.allowNavigateButton ?? m.allow_navigate_button) && navigateUrl,
+                  );
                   return (
-                    <button
+                    <div
                       key={m.id}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         setMethodId(m.id);
                         setErrors((prev) => ({ ...prev, method: undefined }));
                       }}
-                      className={`flex flex-col items-center gap-3 rounded-2xl border px-4 py-6 text-center transition ${
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setMethodId(m.id);
+                          setErrors((prev) => ({ ...prev, method: undefined }));
+                        }
+                      }}
+                      className={`relative flex cursor-pointer flex-col items-center gap-3 rounded-2xl border px-4 py-6 text-center transition ${
                         active
                           ? "border-theme-green-action/50 bg-theme-green-action/10"
                           : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
                       }`}
                     >
+                      {showView ? (
+                        <a
+                          href={navigateUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`Open ${m.name}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-lg text-theme-green-action transition hover:bg-theme-green-action/15"
+                        >
+                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
+                        </a>
+                      ) : null}
                       <MethodIcon type={icon} />
                       <div>
                         <p className="text-sm font-semibold text-white">{m.name}</p>
@@ -693,7 +731,7 @@ export default function DepositPage() {
                           USD {m.minLimit} – {m.maxLimit.toLocaleString()}
                         </p>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </div>

@@ -1,43 +1,18 @@
 import HeroCtaButtons from "@/components/home/hero-cta-buttons";
-import { fetchCommunityStats, formatCompactCount } from "@/lib/community-stats";
+import {
+  fetchCommunityStats,
+  formatCompactCount,
+  formatFullCount,
+} from "@/lib/community-stats";
 
-const STATIC_STATS = [
-  {
-    label: "Deposits",
-    value: "2.4M",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="6" width="16" height="12" rx="2.5" />
-        <path d="M4 10H20" />
-        <circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none" />
-      </svg>
-    ),
-  },
-  {
-    label: "Withdrawals",
-    value: "2.2M",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M7 8.5H17.5" />
-        <path d="M14.5 5.5L17.5 8.5L14.5 11.5" />
-        <path d="M17 15.5H6.5" />
-        <path d="M9.5 12.5L6.5 15.5L9.5 18.5" />
-      </svg>
-    ),
-  },
-  {
-    label: "Support",
-    value: "24/7",
-    icon: (
-      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M5 12V11C5 7.1 8.1 4 12 4C15.9 4 19 7.1 19 11V12" />
-        <path d="M5 12H6.5C7.3 12 8 12.7 8 13.5V16.5C8 17.3 7.3 18 6.5 18H5V12Z" />
-        <path d="M19 12H17.5C16.7 12 16 12.7 16 13.5V16.5C16 17.3 16.7 18 17.5 18H19V12Z" />
-        <path d="M19 16.5V17.5C19 19.4 17.4 21 15.5 21H13" />
-      </svg>
-    ),
-  },
-];
+const supportIcon = (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12V11C5 7.1 8.1 4 12 4C15.9 4 19 7.1 19 11V12" />
+    <path d="M5 12H6.5C7.3 12 8 12.7 8 13.5V16.5C8 17.3 7.3 18 6.5 18H5V12Z" />
+    <path d="M19 12H17.5C16.7 12 16 12.7 16 13.5V16.5C16 17.3 16.7 18 17.5 18H19V12Z" />
+    <path d="M19 16.5V17.5C19 19.4 17.4 21 15.5 21H13" />
+  </svg>
+);
 
 const membersIcon = (
   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -45,6 +20,23 @@ const membersIcon = (
     <circle cx="16.5" cy="9" r="2.2" />
     <path d="M3.5 18.5C4.2 15.8 6.3 14.2 9 14.2C11.7 14.2 13.8 15.8 14.5 18.5" />
     <path d="M14.2 18.5C14.7 16.6 16.2 15.5 18.2 15.5C19.7 15.5 20.9 16.3 21.5 17.6" />
+  </svg>
+);
+
+const depositIcon = (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="6" width="16" height="12" rx="2.5" />
+    <path d="M4 10H20" />
+    <circle cx="8.5" cy="14" r="1.1" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+const withdrawalIcon = (
+  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M7 8.5H17.5" />
+    <path d="M14.5 5.5L17.5 8.5L14.5 11.5" />
+    <path d="M17 15.5H6.5" />
+    <path d="M9.5 12.5L6.5 15.5L9.5 18.5" />
   </svg>
 );
 
@@ -62,15 +54,64 @@ function Sparkline({ className = "" }) {
   );
 }
 
+function sharePercent(part, total) {
+  if (!total) return 0;
+  return Math.round((Number(part) / Number(total)) * 100);
+}
+
 export default async function HeroSection() {
   const communityStats = await fetchCommunityStats();
+  const membersLabel = formatCompactCount(communityStats.displayedCount);
+  const depositsLabel = formatCompactCount(communityStats.completedDeposits);
+  const withdrawalsLabel = formatCompactCount(communityStats.completedWithdrawals);
+  const methodsLabel =
+    communityStats.paymentMethods > 0
+      ? String(communityStats.paymentMethods)
+      : "Multi";
+
+  const completedTotal =
+    Number(communityStats.completedDeposits) + Number(communityStats.completedWithdrawals);
+  const depositShare = sharePercent(communityStats.completedDeposits, completedTotal);
+  const withdrawalShare = sharePercent(communityStats.completedWithdrawals, completedTotal);
+
   const stats = [
+    { label: "Members", value: membersLabel, icon: membersIcon },
+    { label: "Deposits", value: depositsLabel, icon: depositIcon },
+    { label: "Withdrawals", value: withdrawalsLabel, icon: withdrawalIcon },
+    { label: "Support", value: "24/7", icon: supportIcon },
+  ];
+
+  const snapshotRows = [
     {
-      label: "Members",
-      value: formatCompactCount(communityStats.displayedCount),
-      icon: membersIcon,
+      label: "Completed top-ups",
+      value: formatFullCount(communityStats.completedDeposits),
+      progress: depositShare,
+      tone: "deposits",
+      iconBg: "bg-[#3B82F6]/20 text-[#60A5FA]",
+      barClass: "bg-[#60A5FA]",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 4V14" />
+          <path d="M8 10L12 14L16 10" />
+          <path d="M5 18H19" />
+        </svg>
+      ),
     },
-    ...STATIC_STATS,
+    {
+      label: "Completed cash-outs",
+      value: formatFullCount(communityStats.completedWithdrawals),
+      progress: withdrawalShare,
+      tone: "withdrawals",
+      iconBg: "bg-[#26A17B]/20 text-[#34D399]",
+      barClass: "bg-theme-green-action",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M12 20V10" />
+          <path d="M8 14L12 10L16 14" />
+          <path d="M5 6H19" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -129,10 +170,13 @@ export default async function HeroSection() {
             <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-gradient-to-br from-white/[0.07] via-transparent to-transparent" aria-hidden="true" />
 
             <div className="relative">
-              <p className="text-sm text-white/55">Portfolio Overview</p>
-              <div className="mt-2 flex items-center gap-3">
-                <p className="text-3xl font-semibold tracking-tight text-white xl:text-4xl">$128,940.62</p>
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-theme-green-action/30 bg-theme-green-action/10 text-theme-green-action">
+              <p className="text-sm text-white/55">Platform Snapshot</p>
+              <div className="mt-2 flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-3xl font-semibold tracking-tight text-white xl:text-4xl">{membersLabel}</p>
+                  <p className="mt-1 text-sm text-white/50">Active community members</p>
+                </div>
+                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-theme-green-action/30 bg-theme-green-action/10 text-theme-green-action">
                   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M7 14L12 9L17 14" />
                     <path d="M12 9V19" />
@@ -141,37 +185,57 @@ export default async function HeroSection() {
               </div>
 
               <div className="mt-7 space-y-3">
-                <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-[#121A2B]/75 px-3.5 py-3.5">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#F7931A] text-sm font-bold text-white shadow-[0_8px_20px_rgba(247,147,26,0.35)]">
-                    ₿
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-white/50">BTC Wallet</p>
-                    <p className="truncate text-sm font-semibold text-white">1.8475 BTC</p>
+                {snapshotRows.map((row) => (
+                  <div
+                    key={row.label}
+                    className="rounded-xl border border-white/8 bg-[#121A2B]/75 px-3.5 py-3.5"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${row.iconBg}`}
+                      >
+                        {row.icon}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-white/50">{row.label}</p>
+                        <p className="truncate text-sm font-semibold text-white">{row.value}</p>
+                      </div>
+                      <Sparkline className="h-6 w-14 shrink-0 text-theme-green-action" />
+                      <span className="shrink-0 text-sm font-semibold text-theme-green-action">
+                        {row.progress}%
+                      </span>
+                    </div>
+                    <div className="mt-3">
+                      <div className="mb-1.5 flex items-center justify-between text-[11px] text-white/45">
+                        <span>Progress</span>
+                        <span className="font-semibold text-white/70">{row.progress}%</span>
+                      </div>
+                      <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className={`h-full rounded-full ${row.barClass}`}
+                          style={{ width: `${Math.max(row.progress, row.progress > 0 ? 4 : 0)}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <Sparkline className="h-6 w-14 text-theme-green-action" />
-                  <span className="text-sm font-semibold text-theme-green-action">+4.2%</span>
-                </div>
-
-                <div className="flex items-center gap-3 rounded-xl border border-white/8 bg-[#121A2B]/75 px-3.5 py-3.5">
-                  <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#26A17B] text-xs font-bold text-white shadow-[0_8px_20px_rgba(38,161,123,0.35)]">
-                    ₮
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-white/50">USDT Wallet</p>
-                    <p className="truncate text-sm font-semibold text-white">42,120 USDT</p>
-                  </div>
-                  <Sparkline className="h-6 w-14 text-theme-green-action" />
-                  <span className="text-sm font-semibold text-theme-green-action">+1.8%</span>
-                </div>
+                ))}
               </div>
 
-              <div className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-full border border-theme-green-action/25 bg-theme-green-action/10 px-4 py-2.5 text-sm text-white/90">
-                <svg viewBox="0 0 24 24" className="h-4 w-4 text-theme-green-action" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 3.5L19 6.2V11.7C19 16.1 16.1 20 12 21.5C7.9 20 5 16.1 5 11.7V6.2L12 3.5Z" />
-                  <path d="M9.5 12.2L11.2 13.9L14.8 10.2" />
-                </svg>
-                Fast payout processing enabled
+              <div className="mt-5 grid grid-cols-2 gap-2">
+                <div className="inline-flex items-center justify-center gap-2 rounded-full border border-theme-green-action/25 bg-theme-green-action/10 px-3 py-2.5 text-xs text-white/90 sm:text-sm">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-theme-green-action" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 3.5L19 6.2V11.7C19 16.1 16.1 20 12 21.5C7.9 20 5 16.1 5 11.7V6.2L12 3.5Z" />
+                    <path d="M9.5 12.2L11.2 13.9L14.8 10.2" />
+                  </svg>
+                  24/7 support
+                </div>
+                <div className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-3 py-2.5 text-xs text-white/90 sm:text-sm">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0 text-white/70" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <rect x="3" y="6" width="18" height="12" rx="2" />
+                    <path d="M3 10H21" />
+                  </svg>
+                  {methodsLabel} payout methods
+                </div>
               </div>
             </div>
           </div>

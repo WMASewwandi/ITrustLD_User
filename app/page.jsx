@@ -1,4 +1,5 @@
 import NavigationGuest from "@/components/partials/navigation-guest";
+import GuestPromotionsSection from "@/components/home/guest-promotions-section";
 import LatestUpdatesSlider from "@/components/home/latest-updates-slider";
 import BuildProfileSection from "@/components/home/build-profile-section";
 import VideoTutorialsSection from "@/components/home/video-tutorials-section";
@@ -17,6 +18,7 @@ export default function HomePage() {
         <HeroSection />
         <SpecialFeaturesSection />
         <WhyChooseSection />
+        <GuestPromotionsSection />
         <LatestUpdatesSlider />
         <BuildProfileSection />
         <VideoTutorialsSection />

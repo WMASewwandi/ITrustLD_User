@@ -75,8 +75,8 @@ export default function FooterGuest() {
             </p>
           </div>
 
-          <div className="grid gap-8 lg:grid-cols-[0.85fr_0.75fr_1.25fr] lg:items-start lg:gap-6">
-            <div>
+          <div className="grid grid-cols-2 gap-6 sm:gap-8 lg:grid-cols-[0.85fr_0.75fr_1.25fr] lg:items-start lg:gap-6">
+            <div className="min-w-0">
               <h3 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-white">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-white">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -103,7 +103,7 @@ export default function FooterGuest() {
               </ul>
             </div>
 
-            <div>
+            <div className="min-w-0">
               <h3 className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.16em] text-white">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/15 text-white">
                   <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -121,7 +121,7 @@ export default function FooterGuest() {
               </ul>
             </div>
 
-            <div className="group relative overflow-hidden rounded-[1.35rem] border border-white/20 bg-[#12172A]/70 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl lg:ml-auto lg:max-w-[300px]">
+            <div className="col-span-2 group relative overflow-hidden rounded-[1.35rem] border border-white/20 bg-[#12172A]/70 p-5 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_20px_50px_rgba(0,0,0,0.35)] backdrop-blur-xl lg:col-span-1 lg:ml-auto lg:max-w-[300px]">
               <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10 blur-2xl transition duration-500 group-hover:bg-white/15" />
               <div className="pointer-events-none absolute inset-0 rounded-[1.35rem] bg-gradient-to-br from-white/[0.06] via-transparent to-transparent" />
 

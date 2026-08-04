@@ -17,14 +17,14 @@ export default function UpdateDetailModal({ item, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[10050] flex items-end justify-center bg-black/55 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={item.title}
     >
       <div
-        className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-[#E6EBF2] bg-white shadow-2xl sm:rounded-2xl"
+        className="max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom,0px)))] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-[#E6EBF2] bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative">
@@ -39,7 +39,7 @@ export default function UpdateDetailModal({ item, onClose }) {
           </button>
         </div>
 
-        <div className="p-5 sm:p-6">
+        <div className="p-5 pb-8 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <span

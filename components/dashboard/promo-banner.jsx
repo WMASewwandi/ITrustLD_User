@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { Megaphone } from "lucide-react";
-import { isPromotionVideoUrl } from "@/lib/promotion-utils";
+import { isPromotionInActivePeriod, isPromotionVideoUrl } from "@/lib/promotion-utils";
 
 function isExternalLink(href) {
   return /^https?:\/\//i.test(String(href || ""));
 }
 
 export default function PromoBanner({ banner }) {
-  if (!banner?.title) return null;
+  if (!banner?.title || !isPromotionInActivePeriod(banner)) return null;
 
   const color = banner.color || "#0D9F1B";
   const ctaHref = banner.ctaLink || "/dashboard/loyalty";

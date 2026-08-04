@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import WelcomeHero from "@/components/dashboard/welcome-hero";
 import AccountOverview from "@/components/dashboard/account-overview";
+import PromoBanner from "@/components/dashboard/promo-banner";
+import PromotionalSlidersList from "@/components/dashboard/promotional-sliders-list";
 import RecentTransactions from "@/components/dashboard/recent-transactions";
 import LatestNews from "@/components/dashboard/latest-news";
 import { fetchDashboard } from "@/lib/dashboard";
@@ -72,8 +74,17 @@ export default function DashboardPage() {
         documents={dashboard?.documents}
         verificationComplete={dashboard?.verification_complete}
       />
+      <PromoBanner banner={dashboard?.promo_banner} />
+      <PromotionalSlidersList
+        banners={dashboard?.promotional_slider_banners ?? dashboard?.promotional_sliders}
+        audience={
+          dashboard?.user?.user_type === "partner" || dashboard?.user?.is_affiliate
+            ? "affiliate"
+            : "normal"
+        }
+      />
       <RecentTransactions transactions={dashboard?.recent_transactions} />
-      <LatestNews user={dashboard?.user} promotionalBanners={dashboard?.promotional_banners} />
+      <LatestNews user={dashboard?.user} />
     </>
   );
 }

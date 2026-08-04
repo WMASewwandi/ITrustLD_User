@@ -24,6 +24,7 @@ export default function LoginPage() {
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const inactiveNotice = searchParams.get("reason") === "inactive";
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -75,6 +76,14 @@ function LoginForm() {
           <p className="mt-2 text-sm text-white/55">Sign in to continue to your secure iTrustLD dashboard.</p>
 
           <form className="mt-8 space-y-5" onSubmit={handleSignIn} noValidate>
+            {inactiveNotice ? (
+              <p
+                className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-100"
+                role="status"
+              >
+                Your session expired after 30 minutes of inactivity. Please sign in again.
+              </p>
+            ) : null}
             {statusMessage ? (
               <p
                 className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200"

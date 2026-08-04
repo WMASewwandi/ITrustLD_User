@@ -61,15 +61,8 @@ export default function NavigationGuest() {
         return;
       }
 
-      const hero = document.getElementById("home-hero");
-      if (!hero) {
-        setPastHero(window.scrollY > 8);
-        return;
-      }
-
-      const headerOffset = window.matchMedia("(min-width: 640px)").matches ? 80 : 64;
-      const heroBottom = hero.getBoundingClientRect().bottom;
-      setPastHero(heroBottom <= headerOffset);
+      // Solid nav as soon as the user starts scrolling (not after the full hero).
+      setPastHero(window.scrollY > 8);
     };
 
     updateHeaderState();

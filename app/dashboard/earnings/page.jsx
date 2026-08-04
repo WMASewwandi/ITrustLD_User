@@ -1,7 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import ClaimClientBonus from "@/components/dashboard/claim-client-bonus";
@@ -9,6 +8,8 @@ import ClaimMyBonus from "@/components/dashboard/claim-my-bonus";
 import ListFilters from "@/components/dashboard/list-filters";
 import PageHeader from "@/components/dashboard/page-header";
 import PartnerLoyaltyPanel from "@/components/dashboard/partner-loyalty-panel";
+import VoucherCountdown from "@/components/dashboard/voucher-countdown";
+import VoucherViewModal from "@/components/dashboard/voucher-view-modal";
 import { notifyClaimsUpdated } from "@/lib/earnings";
 import { inDateRange, matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils";
 import { formatPartnerPoints, getTierColor } from "@/lib/loyalty";
@@ -22,8 +23,13 @@ import {
   mapBonusClaimRows,
   mapVoucherClaimRows,
 } from "@/lib/loyalty-api";
-import { hasUserSession, patchUserSessionAccountHolder } from "@/lib/auth";
-import { ExternalLink, Eye, Gift, Ticket, Users, Wallet } from "lucide-react";
+import {
+  getUserSession,
+  hasUserSession,
+  isPartnerUser,
+  patchUserSessionAccountHolder,
+} from "@/lib/auth";
+import { Eye, Gift, Ticket, Users, Wallet } from "lucide-react";
 
 const TABS = [
   { id: "overview", label: "Overview" },
@@ -106,7 +112,8 @@ function StatCard({ label, value, hint }) {
 }
 
 function TableShell({ columns, rows, emptyLabel, loading = false }) {
-  if (loading) {
+  // Keep existing rows visible during refetch so the tab never looks stuck.
+  if (loading && !rows.length) {
     return (
       <div className="rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-10">
         <p className="text-sm text-white/50">Loading…</p>
@@ -172,8 +179,11 @@ function filterClients(rows, applied) {
 export default function MyEarningsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState("overview");
-  const [isPartner, setIsPartner] = useState(false);
+  const requestedTab = searchParams.get("tab");
+  const [tab, setTab] = useState(() =>
+    requestedTab && TABS.some((item) => item.id === requestedTab) ? requestedTab : "overview",
+  );
+  const [isPartner, setIsPartner] = useState(() => isPartnerUser(getUserSession()));
   const [affiliateCode, setAffiliateCode] = useState("");
   const [partnerTier, setPartnerTier] = useState("Normal");
   const [partnerProgress, setPartnerProgress] = useState(null);
@@ -194,6 +204,8 @@ export default function MyEarningsPage() {
   const [clientBonusSummary, setClientBonusSummary] = useState(null);
   const [bonusClaims, setBonusClaims] = useState([]);
   const [voucherClaims, setVoucherClaims] = useState([]);
+  const [viewVoucherToken, setViewVoucherToken] = useState("");
+  const handleLoyaltyErrorRef = useRef(null);
 
   const [clientFilter, setClientFilter] = useState(CLIENT_DEFAULTS);
   const [subFilter, setSubFilter] = useState(CLIENT_DEFAULTS);
@@ -227,34 +239,48 @@ export default function MyEarningsPage() {
     [router],
   );
 
+  useEffect(() => {
+    handleLoyaltyErrorRef.current = handleLoyaltyError;
+  }, [handleLoyaltyError]);
+
   const loadEarningsData = useCallback(async () => {
     setSummaryLoading(true);
     setLoadError("");
     try {
+      // Phase 1 — summary only so the page can paint quickly.
       const summaryData = await fetchLoyaltySummary();
       applySummaryData(summaryData);
+      setSummaryLoading(false);
 
       const partner = Boolean(summaryData.is_partner);
-      setClaimsLoading(true);
-      const [bonusClaimsData, voucherClaimsData, clientsData, subClientsData] = await Promise.all([
-        fetchBonusClaims({ perPage: 50 }),
-        partner ? fetchVoucherClaims({ perPage: 50 }) : Promise.resolve({ vouchers: [] }),
-        partner ? fetchPartnerClients({ perPage: 100 }) : Promise.resolve({ clients: [], pagination: { total: 0 } }),
-        partner ? fetchSubPartnerClients({ perPage: 100 }) : Promise.resolve({ clients: [], pagination: { total: 0 } }),
-      ]);
 
-      setBonusClaims(mapBonusClaimRows(bonusClaimsData.claims || []));
-      setVoucherClaims(mapVoucherClaimRows(voucherClaimsData.vouchers || []));
-      setMyClients(mapAffiliateClientRows(clientsData.clients || []));
-      setSubClients(mapAffiliateClientRows(subClientsData.clients || []));
-      setClientTotal(Number(clientsData.pagination?.total || 0));
-      setSubClientTotal(Number(subClientsData.pagination?.total || 0));
-      notifyClaimsUpdated();
+      // Phase 2 — claims only (client lists load on their own tabs).
+      if (!partner) {
+        setMyClients([]);
+        setSubClients([]);
+        setClientTotal(0);
+        setSubClientTotal(0);
+        setBonusClaims([]);
+        setVoucherClaims([]);
+        return;
+      }
+
+      setClaimsLoading(true);
+      try {
+        const [bonusClaimsData, voucherClaimsData] = await Promise.all([
+          fetchBonusClaims({ perPage: 50 }),
+          fetchVoucherClaims({ perPage: 50 }),
+        ]);
+        setBonusClaims(mapBonusClaimRows(bonusClaimsData.claims || []));
+        setVoucherClaims(mapVoucherClaimRows(voucherClaimsData.vouchers || []));
+        notifyClaimsUpdated();
+      } finally {
+        setClaimsLoading(false);
+      }
     } catch (err) {
       if (!handleLoyaltyError(err)) {
         setLoadError(err.message || "Failed to load earnings data.");
       }
-    } finally {
       setSummaryLoading(false);
       setClaimsLoading(false);
     }
@@ -269,61 +295,77 @@ export default function MyEarningsPage() {
   }, [loadEarningsData, router]);
 
   useEffect(() => {
-    const requestedTab = searchParams.get("tab");
     if (requestedTab && TABS.some((item) => item.id === requestedTab)) {
       setTab(requestedTab);
     }
-  }, [searchParams]);
+  }, [requestedTab]);
 
   useEffect(() => {
-    if (!isPartner && ["clients", "sub-clients", "claim-vouchers"].includes(tab)) {
+    // Only bounce off partner tabs after summary confirms non-partner.
+    if (!summaryLoading && !isPartner && ["clients", "sub-clients", "claim-vouchers"].includes(tab)) {
       setTab("overview");
     }
-  }, [isPartner, tab]);
+  }, [isPartner, tab, summaryLoading]);
 
   useEffect(() => {
     if (!isPartner || tab !== "clients") return undefined;
 
+    let cancelled = false;
+    const delay = clientFilter.search.trim() ? 300 : 0;
     const timer = setTimeout(async () => {
+      if (cancelled) return;
       setClientsLoading(true);
       try {
         const clientsData = await fetchPartnerClients({
           perPage: 100,
           search: clientFilter.search.trim() || undefined,
         });
+        if (cancelled) return;
         setMyClients(mapAffiliateClientRows(clientsData.clients || []));
         setClientTotal(Number(clientsData.pagination?.total || 0));
       } catch (err) {
-        handleLoyaltyError(err);
+        if (!cancelled) handleLoyaltyErrorRef.current?.(err);
       } finally {
-        setClientsLoading(false);
+        if (!cancelled) setClientsLoading(false);
       }
-    }, 300);
+    }, delay);
 
-    return () => clearTimeout(timer);
-  }, [tab, isPartner, clientFilter.search, handleLoyaltyError]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      setClientsLoading(false);
+    };
+  }, [tab, isPartner, clientFilter.search]);
 
   useEffect(() => {
     if (!isPartner || tab !== "sub-clients") return undefined;
 
+    let cancelled = false;
+    const delay = subFilter.search.trim() ? 300 : 0;
     const timer = setTimeout(async () => {
+      if (cancelled) return;
       setSubClientsLoading(true);
       try {
         const subClientsData = await fetchSubPartnerClients({
           perPage: 100,
           search: subFilter.search.trim() || undefined,
         });
+        if (cancelled) return;
         setSubClients(mapAffiliateClientRows(subClientsData.clients || []));
         setSubClientTotal(Number(subClientsData.pagination?.total || 0));
       } catch (err) {
-        handleLoyaltyError(err);
+        if (!cancelled) handleLoyaltyErrorRef.current?.(err);
       } finally {
-        setSubClientsLoading(false);
+        if (!cancelled) setSubClientsLoading(false);
       }
-    }, 300);
+    }, delay);
 
-    return () => clearTimeout(timer);
-  }, [tab, isPartner, subFilter.search, handleLoyaltyError]);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      setSubClientsLoading(false);
+    };
+  }, [tab, isPartner, subFilter.search]);
 
   function switchTab(nextTab) {
     setTab(nextTab);
@@ -427,9 +469,26 @@ export default function MyEarningsPage() {
       label: "Amount",
       render: (row) => <span className="font-semibold text-theme-green-action">{row.amount}</span>,
     },
+    {
+      key: "tierLabel",
+      label: "Tier",
+      render: (row) => row.tierLabel || "—",
+    },
     { key: "topupMethod", label: "Topup Method" },
     { key: "platformId", label: "Platform ID" },
     { key: "createdAt", label: "Issued At" },
+    {
+      key: "expiresAt",
+      label: "Time Left",
+      render: (row) => (
+        <VoucherCountdown
+          expiresAt={row.expiresAt}
+          createdAt={row.createdAt}
+          status={row.status}
+          compact
+        />
+      ),
+    },
     {
       key: "status",
       label: "Status",
@@ -439,16 +498,15 @@ export default function MyEarningsPage() {
       key: "action",
       label: "Action",
       render: (row) =>
-        row.voucherUrl ? (
-          <Link
-            href={row.voucherUrl}
-            target="_blank"
+        row.token && row.token !== "—" ? (
+          <button
+            type="button"
+            onClick={() => setViewVoucherToken(String(row.token))}
             className="inline-flex items-center gap-1.5 rounded-lg border border-white/20 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-white/10"
           >
             <Eye className="h-3.5 w-3.5" />
             View
-            <ExternalLink className="h-3 w-3 opacity-60" />
-          </Link>
+          </button>
         ) : (
           "—"
         ),
@@ -667,11 +725,17 @@ export default function MyEarningsPage() {
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className="inline-flex items-center text-base font-semibold text-white">
-                          Client Bonus Vouchers
+                          {clientBonusSummary?.new_tier_bonus
+                            ? `New ${clientBonusSummary.new_tier_bonus.label} Client Bonus`
+                            : "Client Bonus Vouchers"}
                           <CountBadge count={voucherSlots} />
                         </span>
                         <span className="mt-1 block text-sm text-white/50">
-                          {voucherClaims.length} issued · issue printable vouchers for client deposits
+                          {clientBonusSummary?.new_tier_bonus
+                            ? `${clientBonusSummary.new_tier_bonus.remaining} new voucher slot${
+                                clientBonusSummary.new_tier_bonus.remaining === 1 ? "" : "s"
+                              } unlocked by upgrade`
+                            : `${voucherClaims.length} issued · issue printable vouchers for client deposits`}
                         </span>
                       </span>
                     </button>
@@ -740,7 +804,7 @@ export default function MyEarningsPage() {
               columns={clientColumns}
               rows={filteredClients}
               emptyLabel="No clients found."
-              loading={clientsLoading || summaryLoading}
+              loading={clientsLoading}
             />
           </>
         ) : null}
@@ -767,7 +831,7 @@ export default function MyEarningsPage() {
               columns={clientColumns}
               rows={filteredSubClients}
               emptyLabel="No sub clients found."
-              loading={subClientsLoading || summaryLoading}
+              loading={subClientsLoading}
             />
           </>
         ) : null}
@@ -871,6 +935,12 @@ export default function MyEarningsPage() {
           </>
         ) : null}
       </div>
+
+      <VoucherViewModal
+        open={Boolean(viewVoucherToken)}
+        token={viewVoucherToken}
+        onClose={() => setViewVoucherToken("")}
+      />
     </div>
   );
 }

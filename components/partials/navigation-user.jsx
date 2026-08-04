@@ -107,13 +107,13 @@ function PanelShell({ title, onClose, children }) {
     <>
       <button
         type="button"
-        className="fixed inset-0 z-[70] bg-black/45 backdrop-blur-[2px]"
+        className="fixed inset-0 z-[10040] bg-black/45 backdrop-blur-[2px]"
         aria-label="Close panel"
         onClick={onClose}
       />
       <aside
         data-lenis-prevent
-        className="fixed inset-y-0 right-0 z-[80] flex w-full max-w-[380px] flex-col border-l border-white/10 shadow-2xl"
+        className="fixed inset-y-0 right-0 z-[10050] flex w-full max-w-[380px] flex-col border-l border-white/10 shadow-2xl"
         style={{ backgroundColor: NAV_SOLID }}
         role="dialog"
         aria-modal="true"

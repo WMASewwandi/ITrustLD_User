@@ -427,47 +427,49 @@ export default function TransactionsPage() {
               ))}
             </select>
           </div>
-          <div className="flex items-end gap-2 lg:col-span-full">
-            <button
-              type="button"
-              onClick={handleResetFilters}
-              className="inline-flex h-[42px] items-center justify-center rounded-lg border border-white/15 px-4 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              onClick={handleApplyFilters}
-              className="inline-flex h-[42px] items-center justify-center rounded-lg bg-theme-green-action px-4 text-sm font-semibold text-white transition hover:brightness-110"
-            >
-              Filter
-            </button>
-            <div className="relative">
+          <div className="lg:col-span-full">
+            <div className="flex flex-wrap items-end gap-2">
               <button
                 type="button"
-                onClick={() => setExportOpen((v) => !v)}
-                className="inline-flex h-[42px] items-center gap-1.5 rounded-lg bg-theme-green-dark px-4 text-sm font-semibold text-white transition hover:brightness-110"
+                onClick={handleResetFilters}
+                className="inline-flex h-[42px] items-center justify-center rounded-lg border border-white/15 px-4 text-sm font-medium text-white/70 transition hover:bg-white/5 hover:text-white"
               >
-                Export
-                <ChevronDown className="h-4 w-4" />
+                Reset
               </button>
-              {exportOpen ? (
-                <div className="absolute right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#141A2E] py-1 shadow-2xl">
-                  {["PDF", "CSV", "Excel"].map((type) => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => handleExport(type)}
-                      className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white/80 transition hover:bg-white/5 hover:text-white"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      {type}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              <button
+                type="button"
+                onClick={handleApplyFilters}
+                className="inline-flex h-[42px] items-center justify-center rounded-lg bg-theme-green-action px-4 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                Filter
+              </button>
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setExportOpen((v) => !v)}
+                  className="inline-flex h-[42px] items-center gap-1.5 rounded-lg bg-theme-green-dark px-4 text-sm font-semibold text-white transition hover:brightness-110"
+                >
+                  Export
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+                {exportOpen ? (
+                  <div className="absolute right-0 z-20 mt-2 w-40 overflow-hidden rounded-xl border border-white/10 bg-[#141A2E] py-1 shadow-2xl">
+                    {["PDF", "CSV", "Excel"].map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleExport(type)}
+                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-white/80 transition hover:bg-white/5 hover:text-white"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {type}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <p className="ml-auto self-center text-xs text-white/40">
+            <p className="mt-2 text-xs text-white/40">
               Showing {rows.length} result{rows.length === 1 ? "" : "s"}
               {activePagination.total ? ` of ${activePagination.total}` : ""}
             </p>
