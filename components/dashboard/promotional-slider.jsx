@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { fetchActivePromotionalBanners } from "@/lib/promotional-banners";
 import { getUserSession } from "@/lib/auth";
-import { isPromotionInActivePeriod, isPromotionVideoUrl } from "@/lib/promotion-utils";
+import {
+  consolidateSliderBanners,
+  getBannerSlideUrls,
+  isPromotionInActivePeriod,
+  isPromotionVideoUrl,
+} from "@/lib/promotion-utils";
 
 function isExternalLink(href) {
   return /^https?:\/\//i.test(String(href || ""));
@@ -16,13 +21,14 @@ function resolveAudience(user) {
   return "normal";
 }
 
-export default function PromotionalSlider({ slides: propSlides, audience }) {
-  const [fallbackSlides, setFallbackSlides] = useState([]);
-  const slides = (propSlides?.length ? propSlides : fallbackSlides).filter(isPromotionInActivePeriod);
-  const [index, setIndex] = useState(0);
+/**
+ * One promotion card. Multiple images rotate inside this card (image slider only).
+ */
+export default function PromotionalSlider({ banner: propBanner, slides, audience }) {
+  const [fallbackBanner, setFallbackBanner] = useState(null);
 
   useEffect(() => {
-    if (propSlides?.length) return undefined;
+    if (propBanner || (Array.isArray(slides) && slides.length)) return undefined;
 
     let cancelled = false;
     const resolvedAudience = audience || resolveAudience(getUserSession());
@@ -33,7 +39,10 @@ export default function PromotionalSlider({ slides: propSlides, audience }) {
           audience: resolvedAudience,
           displayType: "slider",
         });
-        if (!cancelled) setFallbackSlides(banners.filter(isPromotionInActivePeriod));
+        const consolidated = consolidateSliderBanners(
+          banners.filter(isPromotionInActivePeriod),
+        );
+        if (!cancelled) setFallbackBanner(consolidated[0] || null);
       } catch {
         // Keep section hidden when unavailable.
       }
@@ -43,27 +52,39 @@ export default function PromotionalSlider({ slides: propSlides, audience }) {
     return () => {
       cancelled = true;
     };
-  }, [audience, propSlides?.length]);
+  }, [audience, propBanner, slides]);
+
+  const banner = useMemo(() => {
+    if (propBanner && isPromotionInActivePeriod(propBanner)) return propBanner;
+    if (Array.isArray(slides) && slides.length) {
+      const [consolidated] = consolidateSliderBanners(slides.filter(isPromotionInActivePeriod));
+      return consolidated || null;
+    }
+    return fallbackBanner;
+  }, [propBanner, slides, fallbackBanner]);
+
+  const mediaUrls = useMemo(() => (banner ? getBannerSlideUrls(banner) : []), [banner]);
+  const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (index >= slides.length) setIndex(0);
-  }, [index, slides.length]);
+    if (index >= mediaUrls.length) setIndex(0);
+  }, [index, mediaUrls.length]);
 
-  if (!slides.length) return null;
+  if (!banner || !isPromotionInActivePeriod(banner)) return null;
 
-  const active = slides[index] || slides[0];
-  const color = active.color || "#0D9F1B";
-  const ctaHref = active.ctaLink || "";
-  const ctaLabel = active.ctaLabel || "Learn More";
-  const mediaUrl = active.mediaUrl;
+  const color = banner.color || "#0D9F1B";
+  const ctaHref = banner.ctaLink || "";
+  const ctaLabel = banner.ctaLabel || "Learn More";
+  const mediaUrl = mediaUrls[index] || mediaUrls[0] || null;
   const isVideo = isPromotionVideoUrl(mediaUrl);
   const hasMedia = Boolean(mediaUrl);
+  const hasMultiple = mediaUrls.length > 1;
 
   function go(delta) {
     setIndex((current) => {
       const next = current + delta;
-      if (next < 0) return slides.length - 1;
-      if (next >= slides.length) return 0;
+      if (next < 0) return mediaUrls.length - 1;
+      if (next >= mediaUrls.length) return 0;
       return next;
     });
   }
@@ -82,12 +103,24 @@ export default function PromotionalSlider({ slides: propSlides, audience }) {
       >
         <div className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-stretch">
           {hasMedia ? (
-            <div className="overflow-hidden rounded-xl border border-white/10 lg:w-[min(42%,320px)] lg:shrink-0">
+            <div className="relative overflow-hidden rounded-xl border border-white/10 lg:w-[min(42%,320px)] lg:shrink-0">
               {isVideo ? (
-                <video src={mediaUrl} className="h-44 w-full object-cover lg:h-full lg:min-h-[140px]" muted playsInline controls />
+                <video
+                  key={mediaUrl}
+                  src={mediaUrl}
+                  className="h-44 w-full object-cover transition-opacity duration-700 lg:h-full lg:min-h-[140px]"
+                  muted
+                  playsInline
+                  controls
+                />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={mediaUrl} alt="" className="h-44 w-full object-cover lg:h-full lg:min-h-[140px]" />
+                <img
+                  key={mediaUrl}
+                  src={mediaUrl}
+                  alt=""
+                  className="h-44 w-full object-cover transition-opacity duration-700 lg:h-full lg:min-h-[140px]"
+                />
               )}
             </div>
           ) : null}
@@ -96,20 +129,20 @@ export default function PromotionalSlider({ slides: propSlides, audience }) {
             <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color }}>
               Promotion
             </p>
-            <h2 className="mt-1 text-lg font-semibold text-white sm:text-xl">{active.title}</h2>
-            {active.description ? (
-              <p className="mt-1 max-w-2xl text-sm text-white/60">{active.description}</p>
+            <h2 className="mt-1 text-lg font-semibold text-white sm:text-xl">{banner.title}</h2>
+            {banner.description ? (
+              <p className="mt-1 max-w-2xl text-sm text-white/60">{banner.description}</p>
             ) : null}
           </div>
 
           <div className="flex items-center gap-2 self-end lg:self-center">
-            {slides.length > 1 ? (
+            {hasMultiple ? (
               <>
                 <button
                   type="button"
                   onClick={() => go(-1)}
                   className="rounded-lg border border-white/10 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-                  aria-label="Previous promotion"
+                  aria-label="Previous image"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
@@ -117,7 +150,7 @@ export default function PromotionalSlider({ slides: propSlides, audience }) {
                   type="button"
                   onClick={() => go(1)}
                   className="rounded-lg border border-white/10 p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-                  aria-label="Next promotion"
+                  aria-label="Next image"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -137,18 +170,18 @@ export default function PromotionalSlider({ slides: propSlides, audience }) {
           </div>
         </div>
 
-        {slides.length > 1 ? (
+        {hasMultiple ? (
           <div className="flex justify-center gap-2 border-t border-white/10 px-4 py-3">
-            {slides.map((slide, slideIndex) => (
+            {mediaUrls.map((url, slideIndex) => (
               <button
-                key={slide.id}
+                key={`${banner.id}-${url}-${slideIndex}`}
                 type="button"
                 onClick={() => setIndex(slideIndex)}
                 className={`h-2 rounded-full transition ${
                   slideIndex === index ? "w-6" : "w-2 bg-white/25 hover:bg-white/40"
                 }`}
                 style={slideIndex === index ? { backgroundColor: color } : undefined}
-                aria-label={`Show promotion ${slideIndex + 1}`}
+                aria-label={`Show image ${slideIndex + 1}`}
               />
             ))}
           </div>

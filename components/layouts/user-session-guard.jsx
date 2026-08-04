@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import UserIdleTimeout from "@/components/layouts/user-idle-timeout";
 import {
   fetchUserMe,
   getUserSession,
@@ -74,5 +75,10 @@ export default function UserSessionGuard({ children }) {
     );
   }
 
-  return children;
+  return (
+    <>
+      <UserIdleTimeout />
+      {children}
+    </>
+  );
 }

@@ -72,7 +72,7 @@ export default function LatestUpdatesSlider() {
               Latest <span className="text-theme-green-action">Updates</span>
             </h2>
             <p className="mx-auto mt-4 max-w-2xl text-md leading-7 text-theme-gray sm:text-md-lg sm:leading-8">
-              Stay informed with our latest updates, promotions, and important announcements.
+              Stay informed with our latest news and important announcements.
             </p>
           </div>
 

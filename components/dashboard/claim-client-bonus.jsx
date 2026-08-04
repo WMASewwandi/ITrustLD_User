@@ -1,12 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   createClientBonusVoucher,
   fetchVoucherTopupMethods,
 } from "@/lib/loyalty-api";
-import { ExternalLink, Ticket, X } from "lucide-react";
+import VoucherCountdown from "@/components/dashboard/voucher-countdown";
+import VoucherViewModal from "@/components/dashboard/voucher-view-modal";
+import { Eye, Sparkles, Ticket, X } from "lucide-react";
 
 const fieldClass =
   "w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-theme-green-action/50";
@@ -26,6 +27,52 @@ function StatusPill({ status }) {
   );
 }
 
+function resolveToken(rowOrUrl) {
+  if (!rowOrUrl) return "";
+  if (typeof rowOrUrl === "string") {
+    const parts = rowOrUrl.split("/").filter(Boolean);
+    return parts[parts.length - 1] || "";
+  }
+  return String(rowOrUrl.token || "").trim();
+}
+
+function VoucherRow({ row, onView }) {
+  const token = resolveToken(row);
+  return (
+    <article className="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#141A2E] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <p className="text-sm font-medium text-white">{row.token}</p>
+        <p className="mt-1 text-xs text-white/45">
+          {row.createdAt} · {row.topupMethod} · Platform {row.platformId}
+          {row.tierLabel ? ` · ${row.tierLabel}` : ""}
+        </p>
+        {row.validUntil ? (
+          <p className="mt-0.5 text-[11px] text-white/35">Valid until {row.validUntil}</p>
+        ) : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <VoucherCountdown
+          expiresAt={row.expiresAt}
+          createdAt={row.createdAt}
+          status={row.status}
+          compact
+        />
+        <StatusPill status={row.status} />
+        {token ? (
+          <button
+            type="button"
+            onClick={() => onView(token)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-theme-green-action hover:underline"
+          >
+            <Eye className="h-3.5 w-3.5" />
+            View
+          </button>
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 export default function ClaimClientBonus({
   clientBonusSummary = null,
   issuedVouchers = [],
@@ -41,14 +88,39 @@ export default function ClaimClientBonus({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [issuedVoucherUrl, setIssuedVoucherUrl] = useState("");
+  const [issuedToken, setIssuedToken] = useState("");
+  const [viewToken, setViewToken] = useState("");
 
+  const newTierBonus = clientBonusSummary?.new_tier_bonus || null;
   const canIssue = Boolean(clientBonusSummary?.can_issue);
-  const remaining = Number(clientBonusSummary?.remaining_slots || 0);
-  const amount = Number(clientBonusSummary?.amount_per_client || 0).toFixed(2);
-  const tierLabel = clientBonusSummary?.tier
-    ? clientBonusSummary.tier.charAt(0).toUpperCase() + clientBonusSummary.tier.slice(1)
-    : "Partner";
+  const remaining = Number(
+    newTierBonus?.remaining ?? clientBonusSummary?.remaining_slots ?? 0,
+  );
+  const amount = Number(
+    newTierBonus?.amount_per_client ?? clientBonusSummary?.amount_per_client ?? 0,
+  ).toFixed(2);
+  const tierLabel = (
+    newTierBonus?.label ||
+    (clientBonusSummary?.tier
+      ? clientBonusSummary.tier.charAt(0).toUpperCase() + clientBonusSummary.tier.slice(1)
+      : "Partner")
+  );
+  const currentTierKey = String(newTierBonus?.tier || clientBonusSummary?.tier || "").toLowerCase();
+
+  const { currentTierVouchers, earlierTierVouchers } = useMemo(() => {
+    if (!currentTierKey) {
+      return { currentTierVouchers: issuedVouchers, earlierTierVouchers: [] };
+    }
+    const current = [];
+    const earlier = [];
+    for (const row of issuedVouchers) {
+      const tier = String(row.tier || "").toLowerCase();
+      if (tier && tier === currentTierKey) current.push(row);
+      else if (tier && tier !== currentTierKey) earlier.push(row);
+      else current.push(row);
+    }
+    return { currentTierVouchers: current, earlierTierVouchers: earlier };
+  }, [issuedVouchers, currentTierKey]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -81,7 +153,7 @@ export default function ClaimClientBonus({
     e.preventDefault();
     setError("");
     setSuccess("");
-    setIssuedVoucherUrl("");
+    setIssuedToken("");
 
     if (!topupMethodId) {
       setError("Please select a topup method.");
@@ -104,8 +176,9 @@ export default function ClaimClientBonus({
         topup_method_id: Number(topupMethodId),
         platform_id: value,
       });
+      const token = String(result.voucher_token || resolveToken(result.voucher_url) || "");
       setSuccess(result.message || "Client bonus voucher issued successfully.");
-      setIssuedVoucherUrl(result.voucher_url || "");
+      setIssuedToken(token);
       setPlatformId("");
       setTopupMethodId("");
       onIssued?.(result);
@@ -120,13 +193,70 @@ export default function ClaimClientBonus({
     }
   }
 
-  if (!canIssue && !issuedVouchers.length && compact) {
+  function openClaimModal() {
+    setOpen(true);
+    setError("");
+    setSuccess("");
+    setIssuedToken("");
+  }
+
+  if (!canIssue && !issuedVouchers.length && !newTierBonus && compact) {
     return null;
   }
 
   return (
     <div className={className}>
-      {canIssue ? (
+      {newTierBonus ? (
+        <section className="rounded-2xl border border-theme-orange/35 bg-gradient-to-br from-theme-orange/15 via-[#0B1020] to-[#141A2E] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-theme-orange/15 ring-1 ring-theme-orange/35">
+                <Sparkles className="h-6 w-6 text-theme-orange" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-white">
+                    {newTierBonus.headline || `New ${tierLabel} Client Bonus`}
+                  </h2>
+                  <span className="rounded-full bg-theme-orange/20 px-2.5 py-0.5 text-[11px] font-semibold text-theme-orange">
+                    New upgrade
+                  </span>
+                </div>
+                <p className="mt-1 text-sm text-white/55">
+                  {newTierBonus.message ||
+                    `Unlocked with your ${tierLabel} upgrade · USD ${amount} each · ${remaining} remaining.`}
+                </p>
+                <p className="mt-1 text-xs text-white/40">
+                  Separate from Claim My Bonus. Issue printable vouchers for client deposits
+                  {newTierBonus.unlocked_at ? ` · Unlocked ${newTierBonus.unlocked_at}` : ""}.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={openClaimModal}
+              className="shrink-0 rounded-xl bg-theme-orange px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+            >
+              Claim {tierLabel} vouchers{remaining > 0 ? ` · ${remaining}` : ""}
+            </button>
+          </div>
+          {success ? (
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-medium text-theme-green-action">{success}</p>
+              {issuedToken ? (
+                <button
+                  type="button"
+                  onClick={() => setViewToken(issuedToken)}
+                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-theme-green-action hover:underline"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View voucher
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      ) : canIssue ? (
         <section className="rounded-2xl border border-theme-green-action/25 bg-gradient-to-br from-theme-green-action/10 via-[#0B1020] to-[#141A2E] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-4">
@@ -146,12 +276,7 @@ export default function ClaimClientBonus({
             </div>
             <button
               type="button"
-              onClick={() => {
-                setOpen(true);
-                setError("");
-                setSuccess("");
-                setIssuedVoucherUrl("");
-              }}
+              onClick={openClaimModal}
               className="shrink-0 rounded-xl bg-theme-green-action px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
             >
               Claim Client Bonus{remaining > 0 ? ` · ${remaining}` : ""}
@@ -160,15 +285,15 @@ export default function ClaimClientBonus({
           {success ? (
             <div className="mt-4 space-y-2">
               <p className="text-sm font-medium text-theme-green-action">{success}</p>
-              {issuedVoucherUrl ? (
-                <Link
-                  href={issuedVoucherUrl}
-                  target="_blank"
+              {issuedToken ? (
+                <button
+                  type="button"
+                  onClick={() => setViewToken(issuedToken)}
                   className="inline-flex items-center gap-1.5 text-sm font-semibold text-theme-green-action hover:underline"
                 >
+                  <Eye className="h-3.5 w-3.5" />
                   View voucher
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </Link>
+                </button>
               ) : null}
             </div>
           ) : null}
@@ -181,34 +306,28 @@ export default function ClaimClientBonus({
         </section>
       ) : null}
 
-      {!compact && issuedVouchers.length > 0 ? (
+      {!compact && currentTierVouchers.length > 0 ? (
         <section className="mt-5 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
-          <h3 className="text-base font-semibold text-white">Recently issued vouchers</h3>
+          <h3 className="text-base font-semibold text-white">
+            {currentTierKey ? `${tierLabel} tier vouchers` : "Recently issued vouchers"}
+          </h3>
           <div className="mt-4 space-y-3">
-            {issuedVouchers.slice(0, 5).map((row) => (
-              <article
-                key={row.id}
-                className="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#141A2E] px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-              >
-                <div>
-                  <p className="text-sm font-medium text-white">{row.token}</p>
-                  <p className="mt-1 text-xs text-white/45">
-                    {row.createdAt} · {row.topupMethod} · Platform {row.platformId}
-                  </p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <StatusPill status={row.status} />
-                  {row.voucherUrl ? (
-                    <Link
-                      href={row.voucherUrl}
-                      target="_blank"
-                      className="text-xs font-semibold text-theme-green-action hover:underline"
-                    >
-                      View
-                    </Link>
-                  ) : null}
-                </div>
-              </article>
+            {currentTierVouchers.slice(0, 5).map((row) => (
+              <VoucherRow key={row.id} row={row} onView={setViewToken} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {!compact && earlierTierVouchers.length > 0 ? (
+        <section className="mt-5 rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
+          <h3 className="text-base font-semibold text-white">Earlier tier vouchers</h3>
+          <p className="mt-1 text-xs text-white/40">
+            Vouchers issued before your latest level upgrade.
+          </p>
+          <div className="mt-4 space-y-3">
+            {earlierTierVouchers.slice(0, 5).map((row) => (
+              <VoucherRow key={row.id} row={row} onView={setViewToken} />
             ))}
           </div>
         </section>
@@ -220,11 +339,13 @@ export default function ClaimClientBonus({
             className="w-full max-w-lg rounded-2xl border border-white/12 bg-[#0B1020] p-6 shadow-2xl"
             role="dialog"
             aria-modal="true"
-            aria-label="Claim Client Bonus"
+            aria-label={newTierBonus ? `Claim ${tierLabel} Client Bonus` : "Claim Client Bonus"}
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-xl font-bold text-white">Claim Client Bonus</h3>
+                <h3 className="text-xl font-bold text-white">
+                  {newTierBonus ? `Claim ${tierLabel} Client Bonus` : "Claim Client Bonus"}
+                </h3>
                 <p className="mt-1 text-sm text-white/50">
                   Voucher amount: USD {amount} · {remaining} slot{remaining === 1 ? "" : "s"} left
                 </p>
@@ -282,15 +403,18 @@ export default function ClaimClientBonus({
               {success ? (
                 <div className="space-y-2">
                   <p className="text-sm text-theme-green-action">{success}</p>
-                  {issuedVoucherUrl ? (
-                    <Link
-                      href={issuedVoucherUrl}
-                      target="_blank"
+                  {issuedToken ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpen(false);
+                        setViewToken(issuedToken);
+                      }}
                       className="inline-flex items-center gap-1.5 text-sm font-semibold text-theme-green-action hover:underline"
                     >
+                      <Eye className="h-3.5 w-3.5" />
                       View printable voucher
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
+                    </button>
                   ) : null}
                 </div>
               ) : null}
@@ -317,6 +441,12 @@ export default function ClaimClientBonus({
           </div>
         </div>
       ) : null}
+
+      <VoucherViewModal
+        open={Boolean(viewToken)}
+        token={viewToken}
+        onClose={() => setViewToken("")}
+      />
     </div>
   );
 }

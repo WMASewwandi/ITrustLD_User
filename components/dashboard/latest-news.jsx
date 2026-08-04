@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ImageOff, Megaphone, X } from "lucide-react";
-import {
-  fetchLatestUpdates,
-  mapToDashboardNewsItem,
-  resolvePromotionUserType,
-} from "@/lib/latest-updates";
-import { isPromotionVideoUrl } from "@/lib/promotion-utils";
+import { ImageOff, X } from "lucide-react";
+import { fetchPublishedBlogPosts } from "@/lib/dashboard";
+import { mapBlogToUpdateItem, mapToDashboardNewsItem } from "@/lib/latest-updates";
 
 function isExternalLink(href) {
   return /^https?:\/\//i.test(String(href || ""));
@@ -17,26 +13,6 @@ function isExternalLink(href) {
 function NewsBanner({ item, className = "", iconSize = "h-10 w-10", children }) {
   const [failed, setFailed] = useState(false);
   const mediaUrl = item.image;
-  const isPromotion = item.kind === "promotion";
-  const isVideo = isPromotionVideoUrl(mediaUrl);
-  const color = item.color || "#0D9F1B";
-
-  if (isPromotion && !mediaUrl) {
-    return (
-      <div
-        className={`relative overflow-hidden ${className}`}
-        style={{
-          background: `linear-gradient(135deg, ${color} 0%, ${color}cc 45%, ${color}88 100%)`,
-        }}
-      >
-        <div className="flex h-full w-full items-center justify-center p-6">
-          <Megaphone className={`text-white/80 ${iconSize}`} aria-hidden />
-        </div>
-        {children}
-      </div>
-    );
-  }
-
   const showPlaceholder = !mediaUrl || failed;
 
   return (
@@ -45,8 +21,6 @@ function NewsBanner({ item, className = "", iconSize = "h-10 w-10", children }) 
         <div className="flex h-full w-full items-center justify-center">
           <ImageOff className={`text-white/30 ${iconSize}`} aria-hidden />
         </div>
-      ) : isVideo ? (
-        <video src={mediaUrl} className="h-full w-full object-cover" muted playsInline />
       ) : (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -64,21 +38,16 @@ function NewsBanner({ item, className = "", iconSize = "h-10 w-10", children }) 
 function NewsDetailModal({ post, onClose }) {
   if (!post) return null;
 
-  const color = post.color || "#0D9F1B";
-  const ctaHref = post.ctaLink || "";
-  const ctaLabel = post.ctaLabel || "Learn More";
-  const isPromotion = post.kind === "promotion";
-
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+      className="fixed inset-0 z-[10050] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={post.title}
     >
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0B1020] shadow-2xl [-ms-overflow-style:none] [scrollbar-width:none] sm:rounded-2xl [&::-webkit-scrollbar]:hidden"
+        className="max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom,0px)))] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0B1020] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <NewsBanner item={post} className="aspect-[16/10]" iconSize="h-12 w-12">
@@ -93,23 +62,13 @@ function NewsDetailModal({ post, onClose }) {
           </button>
         </NewsBanner>
 
-        <div className="p-5 sm:p-6">
+        <div className="p-5 pb-8 sm:p-6">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span
-                className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
-                style={{ backgroundColor: isPromotion ? color : "#25223E" }}
-              >
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#25223E] text-xs font-bold text-white">
                 {post.initial}
               </span>
-              <div>
-                <span className="text-sm font-medium text-white">{post.author}</span>
-                {isPromotion ? (
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em]" style={{ color }}>
-                    {post.category}
-                  </p>
-                ) : null}
-              </div>
+              <span className="text-sm font-medium text-white">{post.author}</span>
             </div>
             {post.date ? <time className="text-xs text-white/40">{post.date}</time> : null}
           </div>
@@ -118,46 +77,16 @@ function NewsDetailModal({ post, onClose }) {
           <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-white/70 sm:text-base">
             {post.excerpt}
           </p>
-
-          {ctaHref ? (
-            <div className="mt-6">
-              {isExternalLink(ctaHref) ? (
-                <a
-                  href={ctaHref}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
-                  style={{ backgroundColor: color }}
-                >
-                  {ctaLabel}
-                </a>
-              ) : (
-                <Link
-                  href={ctaHref}
-                  className="inline-flex items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110"
-                  style={{ backgroundColor: color }}
-                >
-                  {ctaLabel}
-                </Link>
-              )}
-            </div>
-          ) : null}
         </div>
       </div>
     </div>
   );
 }
 
-export default function LatestNews({ user, promotionalBanners = null }) {
+export default function LatestNews({ user: _user }) {
   const [activePost, setActivePost] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const userType = useMemo(() => resolvePromotionUserType(user), [user]);
-  const bannerKey = useMemo(
-    () => (Array.isArray(promotionalBanners) ? promotionalBanners.map((b) => b.id).join(',') : ''),
-    [promotionalBanners],
-  );
 
   useEffect(() => {
     let cancelled = false;
@@ -165,12 +94,9 @@ export default function LatestNews({ user, promotionalBanners = null }) {
     async function load() {
       setLoading(true);
       try {
-        const updates = await fetchLatestUpdates({
-          userType,
-          promotionalBanners: Array.isArray(promotionalBanners) ? promotionalBanners : null,
-        });
+        const posts = await fetchPublishedBlogPosts();
         if (!cancelled) {
-          setItems(updates.map(mapToDashboardNewsItem));
+          setItems(posts.map((post) => mapToDashboardNewsItem(mapBlogToUpdateItem(post))));
         }
       } catch {
         if (!cancelled) setItems([]);
@@ -183,7 +109,7 @@ export default function LatestNews({ user, promotionalBanners = null }) {
     return () => {
       cancelled = true;
     };
-  }, [userType, bannerKey, promotionalBanners]);
+  }, []);
 
   return (
     <>
@@ -194,17 +120,17 @@ export default function LatestNews({ user, promotionalBanners = null }) {
               Latest <span className="text-theme-green-action">News</span>
             </h2>
             <p className="mt-2 text-sm text-white/50">
-              Stay informed with our latest news updates and promotions
+              Stay informed with our latest news and announcements
             </p>
           </div>
 
           {loading ? (
             <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-10 text-center text-sm text-white/50">
-              Loading updates…
+              Loading news…
             </p>
           ) : items.length === 0 ? (
             <p className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-10 text-center text-sm text-white/50">
-              No news or promotions available yet. Check back soon.
+              No news posts available yet. Check back soon.
             </p>
           ) : (
             <div className="grid auto-rows-fr gap-5 md:grid-cols-2 xl:grid-cols-3">
@@ -225,25 +151,10 @@ export default function LatestNews({ user, promotionalBanners = null }) {
                   <div className="flex min-h-0 flex-1 flex-col p-5">
                     <div className="mb-3 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2.5">
-                        <span
-                          className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold text-white"
-                          style={{
-                            backgroundColor: item.kind === "promotion" ? item.color : "#25223E",
-                          }}
-                        >
+                        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[#25223E] text-xs font-bold text-white">
                           {item.initial}
                         </span>
-                        <div>
-                          <span className="text-sm font-medium text-white">{item.author}</span>
-                          {item.kind === "promotion" ? (
-                            <p
-                              className="text-[10px] font-semibold uppercase tracking-[0.14em]"
-                              style={{ color: item.color }}
-                            >
-                              Promotion
-                            </p>
-                          ) : null}
-                        </div>
+                        <span className="text-sm font-medium text-white">{item.author}</span>
                       </div>
                       {item.date ? <time className="text-xs text-white/40">{item.date}</time> : null}
                     </div>
@@ -253,13 +164,8 @@ export default function LatestNews({ user, promotionalBanners = null }) {
                     <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-white/50">
                       {item.excerpt}
                     </p>
-                    <span
-                      className="mt-auto inline-flex pt-4 text-sm font-medium transition group-hover:underline"
-                      style={{ color: item.kind === "promotion" ? item.color : undefined }}
-                    >
-                      <span className={item.kind === "promotion" ? "" : "text-theme-green-action"}>
-                        {item.ctaLabel || "Read more"}
-                      </span>
+                    <span className="mt-auto inline-flex pt-4 text-sm font-medium text-theme-green-action transition group-hover:underline">
+                      Read more
                     </span>
                   </div>
                 </button>

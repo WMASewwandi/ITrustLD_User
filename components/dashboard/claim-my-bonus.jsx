@@ -2,13 +2,51 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import VoucherCountdown, { VOUCHER_VALIDITY_DAYS } from "@/components/dashboard/voucher-countdown";
 import {
   createBonusClaim,
   decodeReceivingAccountOption,
   flattenAccountGroups,
 } from "@/lib/loyalty-api";
+import { getUserSession } from "@/lib/auth";
 import { fetchPaymentAccounts } from "@/lib/payment-accounts";
 import { Gift, X } from "lucide-react";
+
+function getClaimBonusDeadlineKey(userId) {
+  return `itrustld.claim-bonus.expiresAt.${userId || "anon"}`;
+}
+
+/** 30-day claim window once the bonus becomes available (same length as voucher validity). */
+function useClaimBonusDeadline(available) {
+  const [expiresAt, setExpiresAt] = useState(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const session = getUserSession();
+    const userId =
+      session?.id || session?.user_id || session?.account_holder?.user_id || "anon";
+    const key = getClaimBonusDeadlineKey(userId);
+
+    if (!available) {
+      window.localStorage.removeItem(key);
+      setExpiresAt(null);
+      return undefined;
+    }
+
+    let stored = window.localStorage.getItem(key);
+    if (!stored) {
+      const deadline = new Date();
+      deadline.setDate(deadline.getDate() + VOUCHER_VALIDITY_DAYS);
+      stored = deadline.toISOString();
+      window.localStorage.setItem(key, stored);
+    }
+    setExpiresAt(stored);
+    return undefined;
+  }, [available]);
+
+  return expiresAt;
+}
 
 const fieldClass =
   "w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-theme-green-action/50";
@@ -45,6 +83,14 @@ export default function ClaimMyBonus({
 
   const available = Boolean(bonusSummary?.available);
   const amount = bonusSummary?.amount_display || Number(bonusSummary?.amount || 0).toFixed(2);
+  const claimDeadline = useClaimBonusDeadline(available);
+  const validUntilLabel = claimDeadline
+    ? new Date(claimDeadline).toLocaleDateString("en-US", {
+        month: "long",
+        day: "numeric",
+        year: "numeric",
+      })
+    : null;
 
   useEffect(() => {
     if (!open) return undefined;
@@ -127,19 +173,31 @@ export default function ClaimMyBonus({
                 <p className="mt-1 text-xs text-white/40">
                   Requires more than {bonusSummary?.min_points_required ?? 201} Trust Points. Payout goes to your saved account after admin approval.
                 </p>
+                {validUntilLabel ? (
+                  <p className="mt-1 text-[11px] text-white/35">Valid until {validUntilLabel}</p>
+                ) : null}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(true);
-                setError("");
-                setSuccess("");
-              }}
-              className="shrink-0 rounded-xl bg-theme-green-action px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
-            >
-              Claim My Bonus
-            </button>
+            <div className="flex shrink-0 flex-col items-stretch gap-3 sm:items-end">
+              {claimDeadline ? (
+                <VoucherCountdown
+                  expiresAt={claimDeadline}
+                  status="Pending"
+                  footerLabel="to claim bonus"
+                />
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setOpen(true);
+                  setError("");
+                  setSuccess("");
+                }}
+                className="rounded-xl bg-theme-green-action px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+              >
+                Claim My Bonus
+              </button>
+            </div>
           </div>
           {success ? <p className="mt-4 text-sm font-medium text-theme-green-action">{success}</p> : null}
         </section>
@@ -185,6 +243,18 @@ export default function ClaimMyBonus({
               <div>
                 <h3 className="text-xl font-bold text-white">Claim My Bonus</h3>
                 <p className="mt-1 text-sm text-white/50">Bonus amount: USD {amount}</p>
+                {claimDeadline ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <VoucherCountdown
+                      expiresAt={claimDeadline}
+                      status="Pending"
+                      compact
+                    />
+                    {validUntilLabel ? (
+                      <span className="text-[11px] text-white/40">Valid until {validUntilLabel}</span>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               <button
                 type="button"
