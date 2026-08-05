@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import TransactionReceiptPrint from "@/components/dashboard/transaction-receipt-print";
 import {
   fetchDepositTransaction,
   fetchDepositTransactionsForPrint,
@@ -12,7 +13,7 @@ import {
 } from "@/lib/withdrawals";
 import { hasUserSession } from "@/lib/auth";
 
-export default function TransactionsPrintPage() {
+function TransactionsPrintContent() {
   const searchParams = useSearchParams();
   const transactionId = searchParams.get("transactionId");
   const fromDate = searchParams.get("from_date") || "";
@@ -32,9 +33,9 @@ export default function TransactionsPrintPage() {
 
   const title = useMemo(() => {
     if (transactionId) {
-      return isWithdrawal ? "Withdrawal Transaction Receipt" : "Deposit Transaction Receipt";
+      return isWithdrawal ? "Withdrawal Receipt" : "Deposit Receipt";
     }
-    return isWithdrawal ? "Withdrawal Transactions" : "Deposit Transactions";
+    return isWithdrawal ? "Withdrawal Transaction Report" : "Deposit Transaction Report";
   }, [transactionId, isWithdrawal]);
 
   useEffect(() => {
@@ -105,59 +106,42 @@ export default function TransactionsPrintPage() {
 
   const rows = single ? [single] : list;
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white font-poppins text-sm text-theme-blue-dark">
+        Loading…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white p-8 font-poppins text-sm text-theme-red-action">
+        {error}
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-white p-8 text-black print:p-4">
-      <style jsx global>{`
-        @media print {
-          body {
-            background: white !important;
-            color: black !important;
-          }
-        }
-      `}</style>
+    <TransactionReceiptPrint
+      title={title}
+      transactions={rows}
+      isWithdrawal={isWithdrawal}
+      isSingle={Boolean(transactionId)}
+    />
+  );
+}
 
-      <h1 className="text-2xl font-bold">{title}</h1>
-      <p className="mt-1 text-sm text-gray-600">
-        iTrustLD — {isWithdrawal ? "Cash-out" : "Deposit"} History
-      </p>
-
-      {loading ? <p className="mt-8 text-sm text-gray-600">Loading…</p> : null}
-      {error ? <p className="mt-8 text-sm text-red-600">{error}</p> : null}
-
-      {!loading && !error ? (
-        <div className="mt-8 space-y-6">
-          {rows.length === 0 ? (
-            <p className="text-sm text-gray-600">No transactions found.</p>
-          ) : (
-            rows.map((tx) => (
-              <section key={tx.id} className="rounded border border-gray-300 p-4">
-                <h2 className="text-lg font-semibold">Transaction ID: {tx.id}</h2>
-                <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-2">
-                  {[
-                    ["Status", tx.status],
-                    ["Method", tx.method],
-                    ["Payment Option", tx.paymentOption],
-                    ["Amount", tx.amount],
-                    [
-                      isWithdrawal ? "Receiving Amount" : "Payment Amount",
-                      tx.receivingAmount || tx.paymentAmount,
-                    ],
-                    ["Platform Account", tx.account],
-                    ["Date", `${tx.date} ${tx.time}`],
-                    ["Message", tx.note || "—"],
-                    ...(tx.rejectedReason ? [["Rejected Reason", tx.rejectedReason]] : []),
-                  ].map(([label, value]) => (
-                    <div key={label}>
-                      <dt className="font-medium text-gray-600">{label}</dt>
-                      <dd className="mt-0.5">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            ))
-          )}
+export default function TransactionsPrintPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-white font-poppins text-sm text-theme-blue-dark">
+          Loading…
         </div>
-      ) : null}
-    </div>
+      }
+    >
+      <TransactionsPrintContent />
+    </Suspense>
   );
 }

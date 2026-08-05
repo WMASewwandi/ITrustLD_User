@@ -13,7 +13,11 @@ const poppins = Poppins({
 
 export const metadata = {
   title: "iTrustLD User Web",
-  description: "Customer-facing web foundation (Day 1 UI)"
+  description: "Customer-facing web foundation (Day 1 UI)",
+  icons: {
+    icon: [{ url: "/assets/img/logos/favicon.svg", type: "image/svg+xml" }],
+    apple: "/assets/img/logos/favicon.svg"
+  }
 };
 
 export default function RootLayout({ children }) {
