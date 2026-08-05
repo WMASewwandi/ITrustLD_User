@@ -193,15 +193,10 @@ export default function AccountVerification() {
     }
     setSending(true);
     try {
-      const result = await sendVerificationEmail(email.trim());
+      await sendVerificationEmail(email.trim());
       persist({ email: email.trim() });
-      if (result.dev_code) {
-        setInfo(
-          `Development mode: your verification code is ${result.dev_code}. (Email not sent — configure SMTP or Mailpit to receive real emails.)`
-        );
-      } else {
-        setInfo(`Verification code sent to ${email.trim()}.`);
-      }
+      // Temporary: do not show OTP in the UI for email verification — customer receives it by email.
+      setInfo(`Verification code sent to ${email.trim()}.`);
       setStep("email-code");
     } catch (err) {
       setError(err.message || "Failed to send verification code.");

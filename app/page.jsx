@@ -7,6 +7,7 @@ import ReferEarnSection from "@/components/home/refer-earn-section";
 import HeroSection from "@/components/home/hero-section";
 import SpecialFeaturesSection from "@/components/home/special-features-section";
 import WhyChooseSection from "@/components/home/why-choose-section";
+import TrustBadgesSection from "@/components/home/trust-badges-section";
 import FooterGuest from "@/components/partials/footer-guest";
 
 export default function HomePage() {
@@ -19,6 +20,7 @@ export default function HomePage() {
         <SpecialFeaturesSection />
         <WhyChooseSection />
         <GuestPromotionsSection />
+        <TrustBadgesSection />
         <LatestUpdatesSlider />
         <BuildProfileSection />
         <VideoTutorialsSection />

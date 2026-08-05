@@ -1,8 +1,8 @@
 export default function ThemeHead() {
   return (
     <>
-      <link rel="icon" href="/assets/img/logos/apple-touch-icon.png" type="image/png" />
-      <link rel="apple-touch-icon" href="/assets/img/logos/apple-touch-icon.png" />
+      <link rel="icon" href="/assets/img/logos/favicon.svg" type="image/svg+xml" />
+      <link rel="apple-touch-icon" href="/assets/img/logos/favicon.svg" />
       <meta name="theme-color" content="#25223e" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
     </>

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import ClaimClientBonus from "@/components/dashboard/claim-client-bonus";
+import ClaimGift from "@/components/dashboard/claim-gift";
 import ClaimMyBonus from "@/components/dashboard/claim-my-bonus";
 import ListFilters from "@/components/dashboard/list-filters";
 import PageHeader from "@/components/dashboard/page-header";
@@ -15,12 +16,15 @@ import { inDateRange, matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils
 import { formatPartnerPoints, getTierColor } from "@/lib/loyalty";
 import {
   fetchBonusClaims,
+  fetchGiftClaims,
+  fetchAvailableGifts,
   fetchLoyaltySummary,
   fetchPartnerClients,
   fetchSubPartnerClients,
   fetchVoucherClaims,
   mapAffiliateClientRows,
   mapBonusClaimRows,
+  mapGiftClaimRows,
   mapVoucherClaimRows,
 } from "@/lib/loyalty-api";
 import {
@@ -37,6 +41,7 @@ const TABS = [
   { id: "sub-clients", label: "Sub Clients" },
   { id: "claim-vouchers", label: "Client Bonus" },
   { id: "claim-bonus", label: "Claim Bonus" },
+  { id: "claim-gift", label: "Claim Gift" },
   { id: "claim-history", label: "Claim History" },
 ];
 
@@ -204,6 +209,8 @@ export default function MyEarningsPage() {
   const [clientBonusSummary, setClientBonusSummary] = useState(null);
   const [bonusClaims, setBonusClaims] = useState([]);
   const [voucherClaims, setVoucherClaims] = useState([]);
+  const [giftClaims, setGiftClaims] = useState([]);
+  const [eligibleGiftCount, setEligibleGiftCount] = useState(0);
   const [viewVoucherToken, setViewVoucherToken] = useState("");
   const handleLoyaltyErrorRef = useRef(null);
 
@@ -262,17 +269,36 @@ export default function MyEarningsPage() {
         setSubClientTotal(0);
         setBonusClaims([]);
         setVoucherClaims([]);
+        setGiftClaims([]);
+        setEligibleGiftCount(0);
+        try {
+          const [bonusClaimsData, giftsData, giftClaimsData] = await Promise.all([
+            fetchBonusClaims({ perPage: 50 }),
+            fetchAvailableGifts(),
+            fetchGiftClaims(),
+          ]);
+          setBonusClaims(mapBonusClaimRows(bonusClaimsData.claims || []));
+          setGiftClaims(mapGiftClaimRows(giftClaimsData.claims || []));
+          setEligibleGiftCount((giftsData.gifts || []).filter((gift) => gift.is_eligible).length);
+          notifyClaimsUpdated();
+        } catch {
+          // Non-partner gift/bonus load is best-effort.
+        }
         return;
       }
 
       setClaimsLoading(true);
       try {
-        const [bonusClaimsData, voucherClaimsData] = await Promise.all([
+        const [bonusClaimsData, voucherClaimsData, giftsData, giftClaimsData] = await Promise.all([
           fetchBonusClaims({ perPage: 50 }),
           fetchVoucherClaims({ perPage: 50 }),
+          fetchAvailableGifts(),
+          fetchGiftClaims(),
         ]);
         setBonusClaims(mapBonusClaimRows(bonusClaimsData.claims || []));
         setVoucherClaims(mapVoucherClaimRows(voucherClaimsData.vouchers || []));
+        setGiftClaims(mapGiftClaimRows(giftClaimsData.claims || []));
+        setEligibleGiftCount((giftsData.gifts || []).filter((gift) => gift.is_eligible).length);
         notifyClaimsUpdated();
       } finally {
         setClaimsLoading(false);
@@ -422,6 +448,20 @@ export default function MyEarningsPage() {
     [voucherClaims],
   );
 
+  const giftHistoryRows = useMemo(
+    () =>
+      giftClaims.map((row) => ({
+        id: row.id,
+        type: "Gift",
+        ref: row.giftTitle,
+        platformId: row.deliveryAddress,
+        amount: "—",
+        claimedAt: row.date,
+        status: row.status === "Delivered" ? "Completed" : row.status,
+      })),
+    [giftClaims],
+  );
+
   const visibleTabs = useMemo(() => {
     if (!isPartner) {
       return TABS.filter((item) => !["clients", "sub-clients", "claim-vouchers"].includes(item.id));
@@ -433,7 +473,7 @@ export default function MyEarningsPage() {
   const filteredSubClients = useMemo(() => filterClients(subClients, subFilter), [subClients, subFilter]);
 
   const filteredHistory = useMemo(() => {
-    const rows = [...bonusHistoryRows, ...voucherHistoryRows];
+    const rows = [...bonusHistoryRows, ...voucherHistoryRows, ...giftHistoryRows];
     return rows.filter((row) => {
       if (!rowMatchesSearch(row, historyFilter.search, ["type", "ref", "amount", "claimedAt", "status", "platformId"])) {
         return false;
@@ -443,7 +483,7 @@ export default function MyEarningsPage() {
       if (!inDateRange(row.claimedAt, historyFilter.from, historyFilter.to)) return false;
       return true;
     });
-  }, [bonusHistoryRows, voucherHistoryRows, historyFilter]);
+  }, [bonusHistoryRows, voucherHistoryRows, giftHistoryRows, historyFilter]);
 
   const bonusClaimColumns = [
     { key: "id", label: "Trans ID" },
@@ -546,6 +586,8 @@ export default function MyEarningsPage() {
                 ? voucherSlots
                 : item.id === "claim-bonus"
                   ? (bonusAvailable ? 1 : 0)
+                  : item.id === "claim-gift"
+                    ? eligibleGiftCount
                   : 0;
             return (
               <button
@@ -891,6 +933,16 @@ export default function MyEarningsPage() {
           </div>
         ) : null}
 
+        {tab === "claim-gift" ? (
+          <ClaimGift
+            onClaimed={async () => {
+              await loadEarningsData();
+              setClaimMsg("Gift claim submitted. Our team will process your delivery details.");
+              setTimeout(() => setClaimMsg(""), 3000);
+            }}
+          />
+        ) : null}
+
         {tab === "claim-history" ? (
           <>
             <ListFilters
@@ -898,7 +950,7 @@ export default function MyEarningsPage() {
               onSearchChange={(v) => setHistoryFilter((p) => ({ ...p, search: v }))}
               searchPlaceholder="Search type, reference, amount…"
               filters={[
-                { key: "type", label: "Type", options: ["All Types", "Voucher", "Bonus"] },
+                { key: "type", label: "Type", options: ["All Types", "Voucher", "Bonus", "Gift"] },
                 {
                   key: "status",
                   label: "Status",
