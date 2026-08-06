@@ -64,6 +64,93 @@ function SecondaryButton({ children, className = "", ...props }) {
   );
 }
 
+function verificationStatusClass(status) {
+  if (status === "VERIFIED") return "text-theme-green-dark";
+  if (status === "REJECTED") return "text-theme-red-action";
+  return "text-theme-orange";
+}
+
+function DocumentStatusRows({ accountHolder }) {
+  if (!accountHolder) return null;
+
+  const identityReason =
+    accountHolder.identity_verification === "REJECTED"
+      ? accountHolder.identity_verification_rejection_message ||
+        accountHolder.identity_verification_rejection_title
+      : null;
+  const addressReason =
+    accountHolder.address_verification === "REJECTED"
+      ? accountHolder.address_verification_rejection_message ||
+        accountHolder.address_verification_rejection_title
+      : null;
+
+  return (
+    <div className="pt-1">
+      <p className="font-semibold text-theme-red-action">Document verification</p>
+      {accountHolder.identity_document_name ? (
+        <div className="mt-2">
+          <p className="text-theme-black">
+            <span className="inline-flex items-center gap-1.5">
+              <Check className="h-4 w-4 text-theme-green-action" />
+              Identity: {formatVerificationEnum(accountHolder.identity_document_type)}{" "}
+              {formatVerificationEnum(accountHolder.identity_document_status)}
+            </span>{" "}
+            <span className={`font-semibold ${verificationStatusClass(accountHolder.identity_verification)}`}>
+              {formatVerificationEnum(accountHolder.identity_verification)}
+            </span>
+          </p>
+          {identityReason ? (
+            <p className="mt-1 pl-6 text-xs text-theme-red-action">{identityReason}</p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-2 text-theme-gray">Identity: Not uploaded yet</p>
+      )}
+      {accountHolder.address_document_name ? (
+        <div className="mt-1">
+          <p className="text-theme-black">
+            <span className="inline-flex items-center gap-1.5">
+              <Check className="h-4 w-4 text-theme-green-action" />
+              Address: {formatVerificationEnum(accountHolder.address_document_type)}{" "}
+              {formatVerificationEnum(accountHolder.address_document_status)}
+            </span>{" "}
+            <span className={`font-semibold ${verificationStatusClass(accountHolder.address_verification)}`}>
+              {formatVerificationEnum(accountHolder.address_verification)}
+            </span>
+          </p>
+          {addressReason ? (
+            <p className="mt-1 pl-6 text-xs text-theme-red-action">{addressReason}</p>
+          ) : null}
+        </div>
+      ) : (
+        <p className="mt-1 text-theme-gray">Address: Not uploaded yet</p>
+      )}
+    </div>
+  );
+}
+
+function SubmittedDocumentCard({ title, documentType, status, reason }) {
+  return (
+    <div className="min-w-0 rounded-xl border border-[#D7DEE8] bg-[#F7F9FC] px-4 py-5">
+      <h2 className="text-base font-semibold text-theme-black">{title}</h2>
+      <p className="mt-3 text-sm text-theme-black">
+        Previously uploaded:{" "}
+        <span className="font-medium">{formatVerificationEnum(documentType) || "Document"}</span>
+      </p>
+      <p className="mt-2 text-sm">
+        Status:{" "}
+        <span className={`font-semibold ${verificationStatusClass(status)}`}>
+          {formatVerificationEnum(status)}
+        </span>
+      </p>
+      {reason ? <p className="mt-2 text-xs text-theme-red-action">{reason}</p> : null}
+      {status === "VERIFIED" ? (
+        <p className="mt-3 text-xs text-theme-gray">No re-upload needed for this document.</p>
+      ) : null}
+    </div>
+  );
+}
+
 export default function AccountVerification() {
   const router = useRouter();
   const [step, setStep] = useState("email");
@@ -146,6 +233,11 @@ export default function AccountVerification() {
           if (ah?.email_verification !== "VERIFIED") setStep("email");
           else if (ah?.mobile_number_verification !== "VERIFIED") setStep("phone");
           else if (
+            ah?.identity_verification === "REJECTED" ||
+            ah?.address_verification === "REJECTED"
+          ) {
+            setStep("documents");
+          } else if (
             ah?.identity_document_status === "RECEIVED" &&
             ah?.address_document_status === "RECEIVED"
           ) {
@@ -533,49 +625,7 @@ export default function AccountVerification() {
                     {phone}
                   </p>
                 </div>
-                {showPending ? (
-                  <div className="pt-1">
-                    <p className="font-semibold text-theme-red-action">Document verification</p>
-                    {accountHolder?.identity_document_name ? (
-                      <p className="mt-2 text-theme-black">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Check className="h-4 w-4 text-theme-green-action" />
-                          Identity:{" "}
-                          {formatVerificationEnum(accountHolder.identity_document_type)} Received
-                        </span>{" "}
-                        <span
-                          className={`font-semibold ${
-                            accountHolder.identity_verification === "VERIFIED"
-                              ? "text-theme-green-dark"
-                              : "text-theme-orange"
-                          }`}
-                        >
-                          {formatVerificationEnum(accountHolder.identity_verification)}
-                        </span>
-                      </p>
-                    ) : null}
-                    {accountHolder?.address_document_name ? (
-                      <p className="mt-1 text-theme-black">
-                        <span className="inline-flex items-center gap-1.5">
-                          <Check className="h-4 w-4 text-theme-green-action" />
-                          Address:{" "}
-                          {formatVerificationEnum(accountHolder.address_document_type)} Received
-                        </span>{" "}
-                        <span
-                          className={`font-semibold ${
-                            accountHolder.address_verification === "VERIFIED"
-                              ? "text-theme-green-dark"
-                              : "text-theme-orange"
-                          }`}
-                        >
-                          {formatVerificationEnum(accountHolder.address_verification)}
-                        </span>
-                      </p>
-                    ) : null}
-                  </div>
-                ) : (
-                  <p className="font-semibold text-theme-red-action">Document verification</p>
-                )}
+                <DocumentStatusRows accountHolder={accountHolder} />
               </div>
             </div>
 
@@ -594,6 +644,30 @@ export default function AccountVerification() {
                   {needIdentityUpload ? (
                     <div className="min-w-0">
                       <h2 className="text-base font-semibold text-theme-black">Confirm your identity</h2>
+                      {accountHolder?.identity_document_name ? (
+                        <div className="mt-3 rounded-lg border border-theme-orange/30 bg-theme-orange/5 px-3 py-2 text-xs text-theme-black">
+                          <p>
+                            Previously uploaded:{" "}
+                            <span className="font-medium">
+                              {formatVerificationEnum(accountHolder.identity_document_type)}
+                            </span>{" "}
+                            (
+                            <span className={verificationStatusClass(accountHolder.identity_verification)}>
+                              {formatVerificationEnum(accountHolder.identity_verification)}
+                            </span>
+                            )
+                          </p>
+                          {accountHolder.identity_verification === "REJECTED" &&
+                          (accountHolder.identity_verification_rejection_message ||
+                            accountHolder.identity_verification_rejection_title) ? (
+                            <p className="mt-1 text-theme-red-action">
+                              {accountHolder.identity_verification_rejection_message ||
+                                accountHolder.identity_verification_rejection_title}
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-theme-gray">Please upload a new document below.</p>
+                        </div>
+                      ) : null}
                       <select
                         className={`${inputClass} mt-3`}
                         value={identityType}
@@ -640,6 +714,12 @@ export default function AccountVerification() {
                         )
                       ) : null}
                     </div>
+                  ) : accountHolder?.identity_document_name ? (
+                    <SubmittedDocumentCard
+                      title="Identity document"
+                      documentType={accountHolder.identity_document_type}
+                      status={accountHolder.identity_verification}
+                    />
                   ) : null}
 
                   {needAddressUpload ? (
@@ -647,6 +727,30 @@ export default function AccountVerification() {
                       <h2 className="text-base font-semibold text-theme-black">
                         Confirm your address identity
                       </h2>
+                      {accountHolder?.address_document_name ? (
+                        <div className="mt-3 rounded-lg border border-theme-orange/30 bg-theme-orange/5 px-3 py-2 text-xs text-theme-black">
+                          <p>
+                            Previously uploaded:{" "}
+                            <span className="font-medium">
+                              {formatVerificationEnum(accountHolder.address_document_type)}
+                            </span>{" "}
+                            (
+                            <span className={verificationStatusClass(accountHolder.address_verification)}>
+                              {formatVerificationEnum(accountHolder.address_verification)}
+                            </span>
+                            )
+                          </p>
+                          {accountHolder.address_verification === "REJECTED" &&
+                          (accountHolder.address_verification_rejection_message ||
+                            accountHolder.address_verification_rejection_title) ? (
+                            <p className="mt-1 text-theme-red-action">
+                              {accountHolder.address_verification_rejection_message ||
+                                accountHolder.address_verification_rejection_title}
+                            </p>
+                          ) : null}
+                          <p className="mt-1 text-theme-gray">Please upload a new document below.</p>
+                        </div>
+                      ) : null}
                       <select
                         className={`${inputClass} mt-3`}
                         value={addressType}
@@ -674,6 +778,12 @@ export default function AccountVerification() {
                         </div>
                       ) : null}
                     </div>
+                  ) : accountHolder?.address_document_name ? (
+                    <SubmittedDocumentCard
+                      title="Address document"
+                      documentType={accountHolder.address_document_type}
+                      status={accountHolder.address_verification}
+                    />
                   ) : null}
                 </div>
 
