@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BrandLogoImage } from "@/components/brand-logo";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
@@ -10,16 +10,23 @@ import PasswordInput from "@/components/ui/password-input";
 import { checkEmailAvailable, checkMobileAvailable, registerUser, setUserSession } from "@/lib/auth";
 import {
   COUNTRIES,
+  formatNationalPhone,
+  getNationalPhoneExample,
+  getNationalPhoneRules,
   isOldEnough,
+  isValidCalendarDate,
   isValidEmail,
-  isValidPhone,
+  isValidPhoneForCountry,
   lettersOnly,
+  normalizeNationalPhoneDigits,
 } from "@/lib/validation";
 
 const labelClass =
   "mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45 lg:text-theme-gray";
 const fieldClass =
   "w-full rounded-xl border border-white/20 bg-white/[0.04] px-3 py-2.5 text-sm text-white outline-none ring-0 transition placeholder:text-white/30 focus:border-theme-green-action/50 lg:rounded-lg lg:border-[#CDD5E0] lg:bg-[#F7F9FC] lg:text-theme-black lg:placeholder:text-theme-gray/70 lg:focus:border-theme-blue-dark lg:focus:bg-white";
+const fieldErrorClass =
+  "border-theme-red-action/70 ring-1 ring-theme-red-action/25 focus:border-theme-red-action lg:border-red-400 lg:focus:border-red-500";
 const errorBoxClass =
   "rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 lg:rounded-lg lg:border-red-200 lg:bg-red-50 lg:text-red-700";
 
@@ -49,6 +56,8 @@ function RegisterForm() {
   const [turnstileRequired, setTurnstileRequired] = useState(
     Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
   );
+  const countryFieldRef = useRef(null);
+  const countryListRef = useRef(null);
 
   const filteredCountries = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -60,6 +69,33 @@ function RegisterForm() {
         c.iso.toLowerCase().includes(q)
     );
   }, [countryQuery]);
+
+  useEffect(() => {
+    if (!countryOpen) return;
+
+    function closeIfOutside(event) {
+      if (countryFieldRef.current && !countryFieldRef.current.contains(event.target)) {
+        setCountryOpen(false);
+        setCountryQuery("");
+      }
+    }
+
+    function onKeyDown(event) {
+      if (event.key === "Escape") {
+        setCountryOpen(false);
+        setCountryQuery("");
+      }
+    }
+
+    document.addEventListener("mousedown", closeIfOutside);
+    document.addEventListener("touchstart", closeIfOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", closeIfOutside);
+      document.removeEventListener("touchstart", closeIfOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [countryOpen]);
 
   async function handleSignUp(e) {
     e.preventDefault();
@@ -80,8 +116,18 @@ function RegisterForm() {
     if (!lettersOnly(first)) next.firstName = "First name: only letters are allowed.";
     if (!lettersOnly(last)) next.lastName = "Last name: only letters are allowed.";
     if (!isValidEmail(email)) next.email = "Enter a valid email with @ and a domain.";
-    if (!isValidPhone(phone)) next.phone = "Phone must be digits only within the accepted length.";
-    if (!isOldEnough(dob, 10)) next.dob = "Users below 10 years are not allowed.";
+    if (!isValidPhoneForCountry(phone, country.iso)) {
+      const { min, max } = getNationalPhoneRules(country.iso);
+      next.phone =
+        min === max
+          ? `Enter ${min} digits for ${country.name} (e.g. ${getNationalPhoneExample(country.iso)}).`
+          : `Enter ${min}–${max} digits for ${country.name}.`;
+    }
+    if (!isValidCalendarDate(dob)) {
+      next.dob = "Date must be valid.";
+    } else if (!isOldEnough(dob, 10)) {
+      next.dob = "Users below 10 years are not allowed.";
+    }
     if (!country) next.country = "Select a country from the list.";
     if (!PASSWORD_PATTERN.test(password)) {
       next.password = "Password must be 8+ chars with upper, lower, number, and symbol.";
@@ -109,7 +155,8 @@ function RegisterForm() {
         return;
       }
 
-      const mobile = `${country.code}${phone}`;
+      const nationalDigits = normalizeNationalPhoneDigits(phone, country.iso);
+      const mobile = `${country.code}${nationalDigits}`;
       const mobileCheck = await checkMobileAvailable(mobile);
       if (mobileCheck.exists) {
         setErrors({ phone: "This mobile number is already registered." });
@@ -219,7 +266,7 @@ function RegisterForm() {
                 {errors.email ? <p className="mt-1 text-xs text-theme-red-action">{errors.email}</p> : null}
               </div>
 
-              <div className="relative">
+              <div className="relative z-30" ref={countryFieldRef}>
                 <label className={labelClass}>Country *</label>
                 <input
                   className={fieldClass}
@@ -233,18 +280,48 @@ function RegisterForm() {
                     setCountryQuery(e.target.value);
                     setCountryOpen(true);
                   }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setCountryOpen(false);
+                      setCountryQuery("");
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  autoComplete="off"
+                  aria-expanded={countryOpen}
+                  aria-controls="country-search-list"
+                  role="combobox"
                 />
                 {countryOpen ? (
-                  <div className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-white/20 bg-[#12182b] shadow-lg lg:border-[#CDD5E0] lg:bg-white">
+                  <div
+                    id="country-search-list"
+                    ref={countryListRef}
+                    role="listbox"
+                    className="absolute left-0 right-0 z-40 mt-1 max-h-48 w-full overflow-y-auto overscroll-contain rounded-lg border border-white/20 bg-[#12182b] shadow-lg touch-pan-y lg:border-[#CDD5E0] lg:bg-white"
+                    onWheel={(e) => {
+                      const el = countryListRef.current;
+                      if (!el) return;
+                      const atTop = el.scrollTop <= 0 && e.deltaY < 0;
+                      const atBottom =
+                        el.scrollTop + el.clientHeight >= el.scrollHeight - 1 && e.deltaY > 0;
+                      if (!atTop && !atBottom) {
+                        e.stopPropagation();
+                      }
+                    }}
+                  >
                     {filteredCountries.map((c) => (
                       <button
                         key={c.iso}
                         type="button"
-                        className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 lg:text-theme-black lg:hover:bg-[#F7F9FC]"
+                        role="option"
+                        aria-selected={country.iso === c.iso}
+                        className="flex w-full shrink-0 items-center justify-between px-3 py-2.5 text-left text-sm text-white transition hover:bg-white/10 lg:text-theme-black lg:hover:bg-[#F7F9FC]"
+                        onMouseDown={(e) => e.preventDefault()}
                         onClick={() => {
                           setCountry(c);
                           setCountryOpen(false);
                           setCountryQuery("");
+                          setPhone((prev) => normalizeNationalPhoneDigits(prev, c.iso));
                         }}
                       >
                         <span>{c.name}</span>
@@ -268,23 +345,34 @@ function RegisterForm() {
                   <input
                     className={fieldClass}
                     inputMode="numeric"
-                    placeholder="Mobile number"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    autoComplete="tel-national"
+                    placeholder={getNationalPhoneExample(country.iso)}
+                    value={formatNationalPhone(phone, country.iso)}
+                    onChange={(e) =>
+                      setPhone(normalizeNationalPhoneDigits(e.target.value, country.iso))
+                    }
                     required
                   />
                 </div>
                 {errors.phone ? (
                   <p className="mt-1 text-xs text-theme-red-action">{errors.phone}</p>
                 ) : (
-                  <p className="mt-1 text-xs text-white/45 lg:text-theme-gray">Digits only after country code</p>
+                  <p className="mt-1 text-xs text-white/45 lg:text-theme-gray">
+                    Digits only; formatted for {country.name} (e.g. {getNationalPhoneExample(country.iso)})
+                  </p>
                 )}
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Date of Birth *</label>
-                  <input name="dob" type="date" className={fieldClass} required />
+                  <input
+                    name="dob"
+                    type="date"
+                    className={`${fieldClass} ${errors.dob ? fieldErrorClass : ""}`}
+                    aria-invalid={Boolean(errors.dob)}
+                    required
+                  />
                   {errors.dob ? <p className="mt-1 text-xs text-theme-red-action">{errors.dob}</p> : null}
                 </div>
                 <div>
