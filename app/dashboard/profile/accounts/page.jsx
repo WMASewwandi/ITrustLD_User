@@ -15,6 +15,7 @@ import {
   updatePaymentAccount,
 } from "@/lib/payment-accounts";
 import { hasUserSession } from "@/lib/auth";
+import { useAppDialog } from "@/components/app-dialog";
 import { Building2, Loader2, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 
 const fieldClass =
@@ -217,6 +218,7 @@ function EditAccountForm({ account, onCancel, onSaved }) {
 
 export default function PaymentAccountsPage() {
   const router = useRouter();
+  const { confirm } = useAppDialog();
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState("");
   const [accountGroups, setAccountGroups] = useState([]);
@@ -255,7 +257,14 @@ export default function PaymentAccountsPage() {
   }, [load, router]);
 
   async function handleDelete(account) {
-    if (!window.confirm(`Delete this ${ACCOUNT_TYPE_LABELS[account.accountType] || "account"}?`)) return;
+    if (
+      !(await confirm(`Delete this ${ACCOUNT_TYPE_LABELS[account.accountType] || "account"}?`, {
+        title: "Delete account",
+        confirmLabel: "Delete",
+      }))
+    ) {
+      return;
+    }
     try {
       const result = await deletePaymentAccount(account.id, account.accountType);
       if (result?.error) {
