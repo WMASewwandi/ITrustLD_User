@@ -90,14 +90,17 @@ export default function NavigationGuest() {
   return (
     <>
       <header
-        className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
+        className={`fixed inset-x-0 z-40 transition-all duration-300 ${
           isOpen
             ? "border-b border-white/10"
             : solidHeader
               ? "border-b border-white/10 shadow-[0_12px_40px_rgba(8,12,30,0.45)]"
               : "border-b border-transparent bg-transparent shadow-none"
         }`}
-        style={isOpen || solidHeader ? { backgroundColor: "#060C1F" } : undefined}
+        style={{
+          top: "var(--guest-promo-alert-height, 0px)",
+          ...(isOpen || solidHeader ? { backgroundColor: "#060C1F" } : null),
+        }}
       >
         <div className="container-shell flex h-16 items-center justify-between sm:h-20">
           <BrandLogo className="h-12 sm:h-11" />
@@ -156,7 +159,8 @@ export default function NavigationGuest() {
       {!isHome && <div className="h-16 sm:h-20" aria-hidden="true" />}
 
       <div
-        className={`fixed inset-0 z-30 sm:hidden ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+        className={`fixed inset-x-0 bottom-0 z-[45] sm:hidden ${isOpen ? "pointer-events-auto" : "pointer-events-none"}`}
+        style={{ top: "var(--guest-promo-alert-height, 0px)" }}
         aria-hidden={!isOpen}
       >
         <div

@@ -27,7 +27,6 @@ import {
   Copy,
   Loader2,
   Plus,
-  SquareArrowOutUpRight,
   Trash2,
   User,
   Wallet,
@@ -36,7 +35,27 @@ import {
 const fieldClass =
   "w-full rounded-xl border border-white/20 bg-[#0B1020]/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-theme-green-action/50";
 
-function MethodIcon({ type }) {
+function MethodIcon({ type, logoUrl, name = "" }) {
+  const resolvedLogo = String(logoUrl || "").trim();
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [resolvedLogo]);
+
+  if (resolvedLogo && !logoFailed) {
+    return (
+      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={resolvedLogo}
+          alt={name || "Top-up method"}
+          className="h-full w-full object-cover"
+          onError={() => setLogoFailed(true)}
+        />
+      </div>
+    );
+  }
   if (type === "usdt") {
     return (
       <div className="coin-glow-usdt relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-theme-green-action to-theme-green-dark">
@@ -687,10 +706,7 @@ export default function DepositPage() {
                 {(bootstrap?.topup_methods || []).map((m) => {
                   const active = methodId === m.id;
                   const icon = topupMethodIconKey(m.name);
-                  const navigateUrl = m.navigateUrl || m.navigate_url || "";
-                  const showView = Boolean(
-                    (m.allowNavigateButton ?? m.allow_navigate_button) && navigateUrl,
-                  );
+                  const logoUrl = m.logoUrl || m.logo_url || null;
                   return (
                     <div
                       key={m.id}
@@ -713,19 +729,7 @@ export default function DepositPage() {
                           : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
                       }`}
                     >
-                      {showView ? (
-                        <a
-                          href={navigateUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Open ${m.name}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-lg text-theme-green-action transition hover:bg-theme-green-action/15"
-                        >
-                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                        </a>
-                      ) : null}
-                      <MethodIcon type={icon} />
+                      <MethodIcon type={icon} logoUrl={logoUrl} name={m.name} />
                       <div>
                         <p className="text-sm font-semibold text-white">{m.name}</p>
                         <p className="mt-1 text-xs text-white/45">
@@ -768,12 +772,30 @@ export default function DepositPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-4 py-3 w-fit">
-              <MethodIcon type={topupMethodIconKey(topupMethod?.name)} />
-              <div>
-                <p className="text-sm font-semibold text-white">{topupMethod?.name}</p>
-                <p className="text-xs text-white/45">{depositCurrency} {amount}</p>
+            <div className="mt-4 w-fit min-w-[220px] max-w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141A2E]">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <MethodIcon
+                  type={topupMethodIconKey(topupMethod?.name)}
+                  logoUrl={topupMethod?.logoUrl || topupMethod?.logo_url || null}
+                  name={topupMethod?.name}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white">{topupMethod?.name}</p>
+                  <p className="text-xs text-white/45">{depositCurrency} {amount}</p>
+                </div>
               </div>
+              {(topupMethod?.allowNavigateButton ?? topupMethod?.allow_navigate_button) &&
+              (topupMethod?.navigateUrl || topupMethod?.navigate_url) &&
+              (topupMethod?.navigateButtonLabel || topupMethod?.navigate_button_label) ? (
+                <a
+                  href={topupMethod.navigateUrl || topupMethod.navigate_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center border-t border-white/10 bg-theme-green-action/10 px-4 py-2.5 text-xs font-semibold text-theme-green-action transition hover:bg-theme-green-action/20"
+                >
+                  {topupMethod.navigateButtonLabel || topupMethod.navigate_button_label}
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -953,7 +975,16 @@ export default function DepositPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-4 py-3">
-              <MethodIcon type={topupMethodIconKey(proofContext.deposit.topup_method_name)} />
+              <MethodIcon
+                type={topupMethodIconKey(proofContext.deposit.topup_method_name)}
+                logoUrl={
+                  proofContext.deposit.topup_method_logo_url ||
+                  topupMethod?.logoUrl ||
+                  topupMethod?.logo_url ||
+                  null
+                }
+                name={proofContext.deposit.topup_method_name}
+              />
               <div>
                 <p className="text-sm font-semibold text-white">{proofContext.deposit.topup_method_name}</p>
                 <p className="text-xs text-white/45">{proofContext.deposit.payment_option_name}</p>

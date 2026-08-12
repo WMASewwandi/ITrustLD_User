@@ -33,7 +33,6 @@ import {
   Loader2,
   Plus,
   RefreshCcw,
-  SquareArrowOutUpRight,
   Trash2,
   User,
   Wallet,
@@ -42,7 +41,27 @@ import {
 const fieldClass =
   "w-full rounded-xl border border-white/20 bg-[#0B1020]/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-theme-green-action/50";
 
-function MethodIcon({ type }) {
+function MethodIcon({ type, logoUrl, name = "" }) {
+  const resolvedLogo = String(logoUrl || "").trim();
+  const [logoFailed, setLogoFailed] = useState(false);
+
+  useEffect(() => {
+    setLogoFailed(false);
+  }, [resolvedLogo]);
+
+  if (resolvedLogo && !logoFailed) {
+    return (
+      <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-white/5 ring-1 ring-white/10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={resolvedLogo}
+          alt={name || "Cash-out method"}
+          className="h-full w-full object-cover"
+          onError={() => setLogoFailed(true)}
+        />
+      </div>
+    );
+  }
   if (type === "usdt") {
     return (
       <div className="coin-glow-usdt relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-theme-green-action to-theme-green-dark">
@@ -686,10 +705,7 @@ export default function WithdrawalPage() {
                 {(bootstrap?.cashout_methods || []).map((m) => {
                   const active = methodId === m.id;
                   const icon = cashoutMethodIconKey(m.name);
-                  const navigateUrl = m.navigateUrl || m.navigate_url || "";
-                  const showView = Boolean(
-                    (m.allowNavigateButton ?? m.allow_navigate_button) && navigateUrl,
-                  );
+                  const logoUrl = m.logoUrl || m.logo_url || null;
                   return (
                     <div
                       key={m.id}
@@ -712,19 +728,7 @@ export default function WithdrawalPage() {
                           : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
                       }`}
                     >
-                      {showView ? (
-                        <a
-                          href={navigateUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          aria-label={`Open ${m.name}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute right-2.5 top-2.5 inline-flex h-7 w-7 items-center justify-center rounded-lg text-theme-green-action transition hover:bg-theme-green-action/15"
-                        >
-                          <SquareArrowOutUpRight className="h-3.5 w-3.5" />
-                        </a>
-                      ) : null}
-                      <MethodIcon type={icon} />
+                      <MethodIcon type={icon} logoUrl={logoUrl} name={m.name} />
                       <div>
                         <p className="text-sm font-semibold text-white">{m.name}</p>
                         <p className="mt-1 text-xs text-white/45">
@@ -767,14 +771,32 @@ export default function WithdrawalPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-4 py-3 w-fit">
-              <MethodIcon type={cashoutMethodIconKey(cashoutMethod?.name)} />
-              <div>
-                <p className="text-sm font-semibold text-white">{cashoutMethod?.name}</p>
-                <p className="text-xs text-white/45">
-                  {cashoutCurrency} {amount}
-                </p>
+            <div className="mt-4 w-fit min-w-[220px] max-w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141A2E]">
+              <div className="flex items-center gap-3 px-4 py-3">
+                <MethodIcon
+                  type={cashoutMethodIconKey(cashoutMethod?.name)}
+                  logoUrl={cashoutMethod?.logoUrl || cashoutMethod?.logo_url || null}
+                  name={cashoutMethod?.name}
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white">{cashoutMethod?.name}</p>
+                  <p className="text-xs text-white/45">
+                    {cashoutCurrency} {amount}
+                  </p>
+                </div>
               </div>
+              {(cashoutMethod?.allowNavigateButton ?? cashoutMethod?.allow_navigate_button) &&
+              (cashoutMethod?.navigateUrl || cashoutMethod?.navigate_url) &&
+              (cashoutMethod?.navigateButtonLabel || cashoutMethod?.navigate_button_label) ? (
+                <a
+                  href={cashoutMethod.navigateUrl || cashoutMethod.navigate_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center border-t border-white/10 bg-theme-green-action/10 px-4 py-2.5 text-xs font-semibold text-theme-green-action transition hover:bg-theme-green-action/20"
+                >
+                  {cashoutMethod.navigateButtonLabel || cashoutMethod.navigate_button_label}
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -953,7 +975,16 @@ export default function WithdrawalPage() {
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-4 py-3">
-              <MethodIcon type={cashoutMethodIconKey(proofContext.withdrawal.cashout_method_name)} />
+              <MethodIcon
+                type={cashoutMethodIconKey(proofContext.withdrawal.cashout_method_name)}
+                logoUrl={
+                  proofContext.withdrawal.cashout_method_logo_url ||
+                  cashoutMethod?.logoUrl ||
+                  cashoutMethod?.logo_url ||
+                  null
+                }
+                name={proofContext.withdrawal.cashout_method_name}
+              />
               <div>
                 <p className="text-sm font-semibold text-white">{proofContext.withdrawal.cashout_method_name}</p>
                 <p className="text-xs text-white/45">{proofContext.withdrawal.payment_option_name}</p>

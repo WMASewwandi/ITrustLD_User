@@ -113,7 +113,7 @@ function PanelShell({ title, onClose, children }) {
       />
       <aside
         data-lenis-prevent
-        className="fixed inset-y-0 right-0 z-[10050] flex w-full max-w-[380px] flex-col border-l border-white/10 shadow-2xl"
+        className="fixed inset-0 z-[10050] flex w-full flex-col shadow-2xl lg:inset-y-0 lg:left-auto lg:right-0 lg:max-w-[380px] lg:border-l lg:border-white/10"
         style={{ backgroundColor: NAV_SOLID }}
         role="dialog"
         aria-modal="true"

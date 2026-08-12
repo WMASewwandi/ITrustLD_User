@@ -93,7 +93,10 @@ export default function PromotionalSlider({ banner: propBanner, slides, audience
     "inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110";
 
   return (
-    <section className="mx-auto w-full max-w-[1400px] px-4 py-4 sm:px-6 lg:px-8">
+    <section
+      id={banner?.id != null ? `promotion-${banner.id}` : undefined}
+      className="mx-auto w-full max-w-[1400px] scroll-mt-[var(--promo-scroll-offset,7rem)] px-4 py-4 sm:px-6 lg:px-8"
+    >
       <div
         className="relative overflow-hidden rounded-2xl border"
         style={{

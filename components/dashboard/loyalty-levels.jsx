@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Gem, Hexagon, Star } from "lucide-react";
 import { fetchMembershipTiers } from "@/lib/membership-tiers-api";
-import { getMembershipTierByPoints, MEMBERSHIP_TIERS } from "@/lib/membership-tiers";
+import { getMembershipTierByPoints, MEMBERSHIP_TIER_LADDER } from "@/lib/membership-tiers";
 
 function TierIcon({ tier, className = "h-6 w-6" }) {
   if (tier.icon === "gem") {
@@ -35,7 +35,9 @@ export default function LoyaltyLevels({
   className = "",
   tiers: tiersProp = null,
 }) {
-  const [loadedTiers, setLoadedTiers] = useState(tiersProp || MEMBERSHIP_TIERS);
+  const [loadedTiers, setLoadedTiers] = useState(
+    tiersProp || MEMBERSHIP_TIER_LADDER.map((tier) => ({ ...tier, benefits: [] })),
+  );
 
   useEffect(() => {
     if (tiersProp) {
@@ -49,7 +51,9 @@ export default function LoyaltyLevels({
         if (!cancelled) setLoadedTiers(items);
       })
       .catch(() => {
-        if (!cancelled) setLoadedTiers(MEMBERSHIP_TIERS);
+        if (!cancelled) {
+          setLoadedTiers(MEMBERSHIP_TIER_LADDER.map((tier) => ({ ...tier, benefits: [] })));
+        }
       });
 
     return () => {
@@ -67,7 +71,11 @@ export default function LoyaltyLevels({
     "Normal";
 
   const [selectedTier, setSelectedTier] = useState(resolvedCurrent);
-  const selected = tiers.find((t) => t.name === selectedTier) || tiers[0] || MEMBERSHIP_TIERS[0];
+  const selected = tiers.find((t) => t.name === selectedTier) || tiers[0] || {
+    name: "Normal",
+    points: 0,
+    benefits: [],
+  };
   const compact = variant === "compact";
   const currentIndex = tiers.findIndex((t) => t.name === resolvedCurrent);
 
@@ -137,7 +145,7 @@ export default function LoyaltyLevels({
         })}
       </div>
 
-      {showBenefits ? (
+      {showBenefits && (selected.benefits || []).length > 0 ? (
         <div key={selected.name} className="mt-5 min-w-0 rounded-2xl bg-white/[0.06] px-4 py-4 sm:px-5">
           <h3 className={`font-bold text-white ${compact ? "text-xs" : "text-sm sm:text-base"}`}>
             Benefits – {selected.name} Level
@@ -146,21 +154,17 @@ export default function LoyaltyLevels({
             ) : null}
           </h3>
           <ul className="mt-3 space-y-2.5">
-            {(selected.benefits || []).length === 0 ? (
-              <li className="text-sm text-white/50">No benefits listed for this tier yet.</li>
-            ) : (
-              (selected.benefits || []).map((item) => (
-                <li
-                  key={item}
-                  className={`flex min-w-0 items-start gap-2.5 leading-relaxed text-white/70 ${
-                    compact ? "text-xs" : "text-sm"
-                  }`}
-                >
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#64969A]" />
-                  <span className="min-w-0 break-words">{item}</span>
-                </li>
-              ))
-            )}
+            {(selected.benefits || []).map((item) => (
+              <li
+                key={item}
+                className={`flex min-w-0 items-start gap-2.5 leading-relaxed text-white/70 ${
+                  compact ? "text-xs" : "text-sm"
+                }`}
+              >
+                <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#64969A]" />
+                <span className="min-w-0 break-words">{item}</span>
+              </li>
+            ))}
           </ul>
           {showPointsHint && selected.points > 0 ? (
             <p className="mt-3 text-xs text-white/40">

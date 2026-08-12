@@ -9,11 +9,13 @@ import SpecialFeaturesSection from "@/components/home/special-features-section";
 import WhyChooseSection from "@/components/home/why-choose-section";
 import TrustBadgesSection from "@/components/home/trust-badges-section";
 import FooterGuest from "@/components/partials/footer-guest";
+import PromoTopAlert from "@/components/dashboard/promo-top-alert";
 
 export default function HomePage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#070B16]">
       <NavigationGuest />
+      <PromoTopAlert />
 
       <main>
         <HeroSection />
