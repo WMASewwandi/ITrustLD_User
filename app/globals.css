@@ -9,7 +9,9 @@ body {
 }
 
 body {
-  @apply font-poppins bg-white text-theme-black;
+  @apply font-poppins text-white antialiased;
+  background-color: #070b16;
+  color-scheme: dark;
 }
 
 /* Lenis smooth scroll (replaces lenis/dist/lenis.css import) */

@@ -74,15 +74,17 @@ export default function DashboardPage() {
         documents={dashboard?.documents}
         verificationComplete={dashboard?.verification_complete}
       />
-      <PromoBanner banner={dashboard?.promo_banner} />
-      <PromotionalSlidersList
-        banners={dashboard?.promotional_slider_banners ?? dashboard?.promotional_sliders}
-        audience={
-          dashboard?.user?.user_type === "partner" || dashboard?.user?.is_affiliate
-            ? "affiliate"
-            : "normal"
-        }
-      />
+      <div id="promotions" className="scroll-mt-[var(--promo-scroll-offset,7rem)]">
+        <PromoBanner banner={dashboard?.promo_banner} />
+        <PromotionalSlidersList
+          banners={dashboard?.promotional_slider_banners ?? dashboard?.promotional_sliders}
+          audience={
+            dashboard?.user?.user_type === "partner" || dashboard?.user?.is_affiliate
+              ? "affiliate"
+              : "normal"
+          }
+        />
+      </div>
       <RecentTransactions transactions={dashboard?.recent_transactions} />
       <LatestNews user={dashboard?.user} />
     </>

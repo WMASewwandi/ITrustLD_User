@@ -20,7 +20,10 @@ export default function PromoBanner({ banner }) {
     "inline-flex shrink-0 items-center justify-center rounded-xl bg-white/20 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-white/30";
 
   return (
-    <section className="mx-auto w-full max-w-[1400px] px-4 py-6 sm:px-6 lg:px-8">
+    <section
+      id={banner?.id != null ? `promotion-${banner.id}` : undefined}
+      className="mx-auto w-full max-w-[1400px] scroll-mt-[var(--promo-scroll-offset,7rem)] px-4 py-6 sm:px-6 lg:px-8"
+    >
       <div
         className="relative overflow-hidden rounded-2xl border p-5 sm:p-6"
         style={{

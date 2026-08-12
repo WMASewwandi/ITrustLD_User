@@ -26,7 +26,7 @@ export default function RootLayout({ children }) {
       <head>
         <ThemeHead />
       </head>
-      <body className="font-poppins bg-white">
+      <body className="font-poppins bg-[#070B16] text-white antialiased">
         <AppProviders>
           <AlpineInit />
           <SmoothScroll>{children}</SmoothScroll>

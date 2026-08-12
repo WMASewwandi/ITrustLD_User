@@ -44,7 +44,10 @@ export default function GuestPromotionsSection({ audience = "normal" }) {
   if (!staticBanner && sliderBanners.length === 0) return null;
 
   return (
-    <div className="bg-[#070B16]">
+    <div
+      id="promotions"
+      className="bg-[#070B16] scroll-mt-[var(--promo-scroll-offset,7rem)]"
+    >
       {staticBanner ? <PromoBanner banner={staticBanner} /> : null}
       {sliderBanners.length > 0 ? (
         <PromotionalSlidersList banners={sliderBanners} audience={audience} />
