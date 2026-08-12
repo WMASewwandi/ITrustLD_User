@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { getAffiliateLink } from "@/lib/affiliate";
 import { getUserAffiliateCode, getUserSession } from "@/lib/auth";
+import { copyTextToClipboard } from "@/lib/clipboard";
 
 export default function AffiliateLinkCard({
   affiliateCode: affiliateCodeProp = null,
@@ -26,7 +27,7 @@ export default function AffiliateLinkCard({
 
   async function copyLink() {
     try {
-      await navigator.clipboard.writeText(link);
+      await copyTextToClipboard(link);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {

@@ -18,6 +18,7 @@ import {
   validateTopupAccountId,
 } from "@/lib/deposits";
 import { getUserSession, hasUserSession } from "@/lib/auth";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -560,8 +561,8 @@ export default function DepositPage() {
 
   async function handleCopy(value) {
     try {
-      await navigator.clipboard.writeText(value);
-      setCopied(value);
+      const copiedText = await copyTextToClipboard(value);
+      setCopied(copiedText);
       setTimeout(() => setCopied(""), 1500);
     } catch {
       setCopied("");
