@@ -264,19 +264,17 @@ export default function TransactionsPage() {
   }
 
   function handlePrint(id) {
-    window.open(
+    router.push(
       buildPrintUrl({
         transactionId: id,
         type: tab === "Cash-out" ? "withdrawal" : "deposit",
       }),
-      "_blank",
-      "noopener,noreferrer",
     );
   }
 
   function handlePrintFiltered() {
     const filterTemplate = criteriaToFilterTemplate(filters.criteria);
-    window.open(
+    router.push(
       buildPrintUrl({
         from_date: filters.from || undefined,
         to_date: filters.to || undefined,
@@ -287,8 +285,6 @@ export default function TransactionsPage() {
         search: filters.search.trim() || undefined,
         type: tab === "Cash-out" ? "withdrawal" : "deposit",
       }),
-      "_blank",
-      "noopener,noreferrer",
     );
     setExportOpen(false);
   }

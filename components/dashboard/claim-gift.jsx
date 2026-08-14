@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Gift, Loader2, MapPin, X } from "lucide-react";
 import { claimGift, fetchAvailableGifts } from "@/lib/loyalty-api";
+import VoucherCountdown from "@/components/dashboard/voucher-countdown";
 
 const fieldClass =
   "w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-theme-green-action/50";
@@ -147,8 +148,8 @@ export default function ClaimGift({ onClaimed, className = "" }) {
 
   return (
     <div className={className}>
-      <div className="mb-5 rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-4">
-        <div className="flex items-start gap-3">
+      <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#141A2E]">
+        <div className="flex items-start gap-3 px-5 py-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-theme-green-action/15 ring-1 ring-theme-green-action/30">
             <Gift className="h-5 w-5 text-theme-green-action" />
           </div>
@@ -162,66 +163,76 @@ export default function ClaimGift({ onClaimed, className = "" }) {
             </p>
           </div>
         </div>
-      </div>
 
-      {error ? <p className="mb-4 text-sm text-theme-red-action">{error}</p> : null}
+        {error ? (
+          <p className="border-t border-white/10 px-5 py-3 text-sm text-theme-red-action">{error}</p>
+        ) : null}
 
-      {loading ? (
-        <div className="rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-10">
-          <p className="text-sm text-white/50">Loading available gifts…</p>
-        </div>
-      ) : !gifts.length ? (
-        <div className="rounded-2xl border border-white/10 bg-[#141A2E] px-5 py-10">
-          <p className="text-sm text-white/50">No gifts are available for your account type at the moment.</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          {gifts.map((gift) => {
-            const canClaim = gift.is_eligible;
-            const claimed = gift.already_claimed;
-            return (
-              <article
-                key={gift.id}
-                className="flex flex-col rounded-2xl border border-white/10 bg-[#0B1020]/70 p-5"
-              >
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-white">{gift.title}</h3>
-                  {gift.description ? (
-                    <p className="mt-2 text-sm text-white/45">{gift.description}</p>
-                  ) : null}
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    {(gift.allowed_levels || []).map((level) => (
-                      <span
-                        key={level}
-                        className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-white/70"
-                      >
-                        {level}
-                      </span>
-                    ))}
+        {loading ? (
+          <p className="border-t border-white/10 px-5 py-8 text-sm text-white/50">Loading available gifts…</p>
+        ) : !gifts.length ? (
+          <p className="border-t border-white/10 px-5 py-8 text-sm text-white/50">
+            No gifts are available for your account type at the moment.
+          </p>
+        ) : (
+          <ul className="divide-y divide-white/10 border-t border-white/10">
+            {gifts.map((gift) => {
+              const claimed = gift.already_claimed;
+              const expired = Boolean(gift.is_expired);
+              const canClaim = gift.is_eligible && !expired;
+              const validUntilLabel = gift.expires_at
+                ? new Date(gift.expires_at).toLocaleDateString("en-US", {
+                    month: "long",
+                    day: "numeric",
+                    year: "numeric",
+                  })
+                : null;
+              return (
+                <li
+                  key={gift.id}
+                  className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{gift.title}</p>
+                    {gift.description ? (
+                      <p className="mt-1 text-sm text-white/45">{gift.description}</p>
+                    ) : null}
+                    {validUntilLabel && !claimed ? (
+                      <p className="mt-1 text-[11px] text-white/35">Valid until {validUntilLabel}</p>
+                    ) : null}
                   </div>
-                </div>
-
-                <div className="mt-4 flex items-center justify-between gap-3 border-t border-white/10 pt-4">
-                  {claimed ? (
-                    <StatusPill status={gift.claim_status} />
-                  ) : canClaim ? (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedGift(gift)}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-theme-green-action px-4 py-2 text-sm font-semibold text-white"
-                    >
-                      <Gift className="h-4 w-4" />
-                      Claim Gift
-                    </button>
-                  ) : (
-                    <p className="text-xs text-white/40">Not eligible at your current level</p>
-                  )}
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+                  <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
+                    {!claimed ? (
+                      <VoucherCountdown
+                        expiresAt={gift.expires_at}
+                        createdAt={gift.created_at}
+                        status={expired ? "Expired" : "Pending"}
+                        footerLabel="to claim gift"
+                      />
+                    ) : null}
+                    {claimed ? (
+                      <StatusPill status={gift.claim_status} />
+                    ) : canClaim ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedGift(gift)}
+                        className="inline-flex items-center gap-1.5 rounded-xl bg-theme-green-action px-4 py-2 text-sm font-semibold text-white"
+                      >
+                        <Gift className="h-4 w-4" />
+                        Claim Gift
+                      </button>
+                    ) : expired ? (
+                      <p className="text-xs text-theme-red-action">Offer expired</p>
+                    ) : (
+                      <p className="text-xs text-white/40">Not eligible at your current level</p>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       <ClaimGiftModal
         gift={selectedGift}

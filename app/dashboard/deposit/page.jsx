@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLenis } from "lenis/react";
 import BottomMessage from "@/components/dashboard/bottom-message";
+import FlowActions from "@/components/dashboard/flow-actions";
 import {
   createDeposit,
   divideAndRound,
@@ -21,7 +22,6 @@ import { getUserSession, hasUserSession } from "@/lib/auth";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   ArrowLeftRight,
-  ArrowRight,
   Building2,
   Check,
   Copy,
@@ -743,18 +743,7 @@ export default function DepositPage() {
             </section>
           </div>
 
-          <div className="mt-8 flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              onClick={goNext}
-              disabled={busy}
-              className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Next
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
+          <FlowActions onNext={goNext} busy={busy} />
         </>
       ) : null}
 
@@ -933,26 +922,7 @@ export default function DepositPage() {
             </div>
           </section>
 
-          <div className="mt-8 flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              onClick={goBack}
-              disabled={busy}
-              className="rounded-xl border border-white/20 bg-transparent px-7 py-3 text-sm font-semibold text-white transition hover:bg-white/5 disabled:opacity-50"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              disabled={busy}
-              className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Next
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
+          <FlowActions onBack={goBack} onNext={goNext} busy={busy} />
         </>
       ) : null}
 
@@ -1113,26 +1083,7 @@ export default function DepositPage() {
             ) : null}
           </section>
 
-          <div className="mt-8 flex flex-wrap justify-end gap-3">
-            <button
-              type="button"
-              onClick={goBack}
-              disabled={busy}
-              className="rounded-xl border border-white/20 bg-transparent px-7 py-3 text-sm font-semibold text-white transition hover:bg-white/5 disabled:opacity-50"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={goNext}
-              disabled={busy}
-              className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-7 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Submit
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          </div>
+          <FlowActions onBack={goBack} onNext={goNext} nextLabel="Submit" busy={busy} />
         </>
       ) : null}
     </div>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import BottomMessage from "@/components/dashboard/bottom-message";
+import ClaimGift from "@/components/dashboard/claim-gift";
 import ClaimMyBonus from "@/components/dashboard/claim-my-bonus";
 import ListFilters from "@/components/dashboard/list-filters";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
@@ -345,6 +346,10 @@ export default function LoyaltyPage() {
               claimHistory={bonusClaims}
               onClaimed={() => loadLoyaltyData()}
             />
+
+            {!isPartner ? (
+              <ClaimGift onClaimed={() => loadLoyaltyData()} />
+            ) : null}
 
             <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
               <h2 className="text-base font-semibold text-white">
