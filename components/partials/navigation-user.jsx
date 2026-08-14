@@ -272,7 +272,7 @@ export default function NavigationUser() {
     <>
       {/* Top bar */}
       <header
-        className="sticky top-0 z-50 border-b border-white/10 lg:pl-[60px]"
+        className="sticky top-0 z-50 border-b border-white/10 lg:pl-[60px] print:hidden"
         style={{ backgroundColor: NAV_SOLID }}
       >
         <div className="flex h-14 w-full items-center justify-between gap-3 px-3 sm:h-16 sm:px-5 lg:px-6">
@@ -313,7 +313,7 @@ export default function NavigationUser() {
 
       {/* Desktop left sidebar */}
       <aside
-        className="fixed bottom-0 left-0 top-0 z-40 hidden w-[60px] flex-col border-r border-white/10 lg:flex"
+        className="fixed bottom-0 left-0 top-0 z-40 hidden w-[60px] flex-col border-r border-white/10 lg:flex print:hidden"
         style={{ backgroundColor: NAV_SOLID }}
       >
         <div className="flex h-14 items-center justify-center border-b border-white/10 sm:h-16">
@@ -348,7 +348,7 @@ export default function NavigationUser() {
         ? createPortal(
             <>
               <nav
-                className="fixed inset-x-0 bottom-0 z-[9998] border-t border-white/15 px-1 pb-[env(safe-area-inset-bottom)] lg:hidden"
+                className="fixed inset-x-0 bottom-0 z-[9998] border-t border-white/15 px-1 pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
                 style={{ backgroundColor: NAV_SOLID, opacity: 1 }}
               >
                 <div
@@ -393,13 +393,13 @@ export default function NavigationUser() {
                 <>
                   <button
                     type="button"
-                    className="fixed inset-0 z-[9997] lg:hidden"
+                    className="fixed inset-0 z-[9997] lg:hidden print:hidden"
                     style={{ backgroundColor: NAV_SOLID }}
                     aria-label="Close more menu"
                     onClick={() => setMoreOpen(false)}
                   />
                   <div
-                    className="fixed inset-x-0 bottom-[64px] z-[9999] border-t border-white/15 px-4 pb-4 pt-3 lg:hidden"
+                    className="fixed inset-x-0 bottom-[64px] z-[9999] border-t border-white/15 px-4 pb-4 pt-3 lg:hidden print:hidden"
                     style={{ backgroundColor: NAV_SOLID }}
                   >
                     <div className="mb-3 flex items-center justify-between">

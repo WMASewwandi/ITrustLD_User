@@ -77,6 +77,13 @@ function TierBadge({ name }) {
   );
 }
 
+function maskAccountId(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw || raw === "—") return "—";
+  if (raw.length <= 8) return "X".repeat(raw.length);
+  return `${"X".repeat(8)}${raw.slice(8)}`;
+}
+
 function CountBadge({ count }) {
   if (!count) return null;
   return (
@@ -229,6 +236,9 @@ export default function MyEarningsPage() {
     setRateLabel(summaryData.rate_label || "");
     setBonusSummary(summaryData.bonus_summary || null);
     setClientBonusSummary(summaryData.client_bonus_summary || null);
+    if (summaryData.direct_client_count != null) {
+      setClientTotal(Number(summaryData.direct_client_count) || 0);
+    }
     patchUserSessionAccountHolder({
       is_patner: summaryData.is_partner ? "YES" : "NO",
       affiliate_code: summaryData.affiliate_code || null,
@@ -260,6 +270,15 @@ export default function MyEarningsPage() {
       setSummaryLoading(false);
 
       const partner = Boolean(summaryData.is_partner);
+
+      if (partner && summaryData.direct_client_count == null) {
+        try {
+          const clientsData = await fetchPartnerClients({ countOnly: true, perPage: 1 });
+          setClientTotal(Number(clientsData.pagination?.total || 0));
+        } catch {
+          // Overview can still render; the clients tab will fill this in.
+        }
+      }
 
       // Phase 2 — claims only (client lists load on their own tabs).
       if (!partner) {
@@ -474,15 +493,22 @@ export default function MyEarningsPage() {
 
   const filteredHistory = useMemo(() => {
     const rows = [...bonusHistoryRows, ...voucherHistoryRows, ...giftHistoryRows];
-    return rows.filter((row) => {
-      if (!rowMatchesSearch(row, historyFilter.search, ["type", "ref", "amount", "claimedAt", "status", "platformId"])) {
-        return false;
-      }
-      if (historyFilter.type !== "All Types" && row.type !== historyFilter.type) return false;
-      if (historyFilter.status !== "All Statuses" && row.status !== historyFilter.status) return false;
-      if (!inDateRange(row.claimedAt, historyFilter.from, historyFilter.to)) return false;
-      return true;
-    });
+    return rows
+      .filter((row) => {
+        if (!rowMatchesSearch(row, historyFilter.search, ["type", "ref", "amount", "claimedAt", "status", "platformId"])) {
+          return false;
+        }
+        if (historyFilter.type !== "All Types" && row.type !== historyFilter.type) return false;
+        if (historyFilter.status !== "All Statuses" && row.status !== historyFilter.status) return false;
+        if (!inDateRange(row.claimedAt, historyFilter.from, historyFilter.to)) return false;
+        return true;
+      })
+      .sort((a, b) => {
+        const aTime = Date.parse(String(a.claimedAt || "").replace(" ", "T")) || 0;
+        const bTime = Date.parse(String(b.claimedAt || "").replace(" ", "T")) || 0;
+        if (bTime !== aTime) return bTime - aTime;
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
   }, [bonusHistoryRows, voucherHistoryRows, giftHistoryRows, historyFilter]);
 
   const bonusClaimColumns = [
@@ -554,7 +580,11 @@ export default function MyEarningsPage() {
   ];
 
   const clientColumns = [
-    { key: "accountId", label: "Account ID" },
+    {
+      key: "accountId",
+      label: "Account ID",
+      render: (row) => maskAccountId(row.accountId),
+    },
     { key: "firstTransaction", label: "First Transaction" },
     { key: "lastTransaction", label: "Last Transaction" },
     { key: "points", label: "Points" },

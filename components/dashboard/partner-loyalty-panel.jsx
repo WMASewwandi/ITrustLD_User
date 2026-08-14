@@ -148,7 +148,7 @@ export default function PartnerLoyaltyPanel({
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/40">
               Level progress
             </p>
-            <div className="relative mt-4 h-36 w-36">
+            <div className="relative mt-4 h-44 w-44">
               <svg className="h-full w-full -rotate-90" viewBox="0 0 120 120" aria-hidden>
                 <circle cx="60" cy="60" r="48" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="9" />
                 <circle

@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import TransactionReceiptPrint from "@/components/dashboard/transaction-receipt-print";
 import {
   fetchDepositTransaction,
@@ -14,6 +14,7 @@ import {
 import { hasUserSession } from "@/lib/auth";
 
 function TransactionsPrintContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const transactionId = searchParams.get("transactionId");
   const fromDate = searchParams.get("from_date") || "";
@@ -98,11 +99,44 @@ function TransactionsPrintContent() {
   ]);
 
   useEffect(() => {
-    if (!loading && !error) {
-      const timer = window.setTimeout(() => window.print(), 400);
-      return () => window.clearTimeout(timer);
-    }
-  }, [loading, error]);
+    if (loading || error) return undefined;
+
+    let cancelled = false;
+    let afterPrint = null;
+    const printWhenReady = async () => {
+      const images = Array.from(document.querySelectorAll(".transaction-print-root img"));
+      await Promise.all(
+        images.map(
+          (img) =>
+            img.complete
+              ? Promise.resolve()
+              : new Promise((resolve) => {
+                  img.addEventListener("load", resolve, { once: true });
+                  img.addEventListener("error", resolve, { once: true });
+                }),
+        ),
+      );
+      if (cancelled) return;
+      afterPrint = () => {
+        if (window.history.length > 1) {
+          router.back();
+        } else {
+          router.push("/dashboard/transactions");
+        }
+      };
+      window.addEventListener("afterprint", afterPrint, { once: true });
+      window.setTimeout(() => {
+        if (!cancelled) window.print();
+      }, 150);
+    };
+
+    const timer = window.setTimeout(printWhenReady, 200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+      if (afterPrint) window.removeEventListener("afterprint", afterPrint);
+    };
+  }, [loading, error, router]);
 
   const rows = single ? [single] : list;
 
