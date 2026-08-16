@@ -4,16 +4,19 @@ import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
 import { fetchAuthConfig } from "@/lib/auth";
 
+/** Same public site key as Laravel `auth/register.blade.php`. */
+const DEFAULT_TURNSTILE_SITE_KEY = "0x4AAAAAABgpWO1byq2Cgv3v";
+
 export default function TurnstileWidget({ onToken, onExpire, onReady }) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
   const [siteKey, setSiteKey] = useState(
-    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "",
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || DEFAULT_TURNSTILE_SITE_KEY,
   );
   const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
-    if (siteKey) return;
+    if (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY) return;
     fetchAuthConfig()
       .then((config) => {
         if (config?.turnstileSiteKey) {
@@ -21,7 +24,7 @@ export default function TurnstileWidget({ onToken, onExpire, onReady }) {
         }
       })
       .catch(() => {});
-  }, [siteKey]);
+  }, []);
 
   useEffect(() => {
     if (siteKey) {
@@ -63,7 +66,7 @@ export default function TurnstileWidget({ onToken, onExpire, onReady }) {
   return (
     <>
       <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
         strategy="afterInteractive"
         onLoad={() => setScriptReady(true)}
       />

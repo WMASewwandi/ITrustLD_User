@@ -53,9 +53,7 @@ function RegisterForm() {
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileRequired, setTurnstileRequired] = useState(
-    Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY),
-  );
+  const [turnstileRequired, setTurnstileRequired] = useState(true);
   const countryFieldRef = useRef(null);
   const countryListRef = useRef(null);
 

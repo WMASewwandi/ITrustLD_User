@@ -607,8 +607,8 @@ export default function MyEarningsPage() {
         }
       />
 
-      <div className="overflow-x-auto border-b border-white/10 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex min-w-max gap-6">
+      <div className="border-b border-white/10">
+        <div className="flex flex-wrap gap-x-6 gap-y-1">
           {visibleTabs.map((item) => {
             const active = tab === item.id;
             const badge =

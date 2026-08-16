@@ -2,7 +2,6 @@ import Link from "next/link";
 import { Clock3, Download, List } from "lucide-react";
 
 function formatStatus(status) {
-  if (status === "Pending") return "Pending Authorization";
   return status || "Pending";
 }
 
