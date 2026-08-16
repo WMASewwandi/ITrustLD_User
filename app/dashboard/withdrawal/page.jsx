@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLenis } from "lenis/react";
 import BottomMessage from "@/components/dashboard/bottom-message";
 import FlowActions from "@/components/dashboard/flow-actions";
+import MethodTerms from "@/components/method-terms";
 import AddPaymentAccountForm from "@/components/dashboard/add-payment-account-form";
 import {
   mapCreatedAccountToReceivingOption,
@@ -600,14 +601,6 @@ export default function WithdrawalPage() {
     }
   }
 
-  const termsLines = useMemo(() => {
-    const raw = proofContext?.terms || cashoutMethod?.terms || "";
-    return String(raw)
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean);
-  }, [proofContext, cashoutMethod]);
-
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center text-white/60">
@@ -993,11 +986,7 @@ export default function WithdrawalPage() {
                 data-lenis-prevent-wheel
                 className="custom-scrollbar mt-4 max-h-[280px] space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm leading-relaxed text-white/85"
               >
-                {termsLines.length ? (
-                  termsLines.map((line, index) => <p key={index}>* {line}</p>)
-                ) : (
-                  <p className="text-white/50">No terms available for this method.</p>
-                )}
+                <MethodTerms html={proofContext?.terms || cashoutMethod?.terms} />
               </div>
             </section>
           </div>
