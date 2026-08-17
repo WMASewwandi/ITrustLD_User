@@ -7,7 +7,7 @@ import { BrandLogoImage } from "@/components/brand-logo";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
 import TurnstileWidget from "@/components/auth/turnstile-widget";
 import PasswordInput from "@/components/ui/password-input";
-import { checkEmailAvailable, checkMobileAvailable, registerUser, setUserSession } from "@/lib/auth";
+import { checkEmailAvailable, checkMobileAvailable, fetchAuthConfig, registerUser, setUserSession } from "@/lib/auth";
 import {
   COUNTRIES,
   formatNationalPhone,
@@ -56,6 +56,16 @@ function RegisterForm() {
   const [turnstileRequired, setTurnstileRequired] = useState(true);
   const countryFieldRef = useRef(null);
   const countryListRef = useRef(null);
+
+  useEffect(() => {
+    fetchAuthConfig()
+      .then((config) => {
+        setTurnstileRequired(Boolean(config?.turnstileRequired));
+      })
+      .catch(() => {
+        setTurnstileRequired(true);
+      });
+  }, []);
 
   const filteredCountries = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -458,13 +468,14 @@ function RegisterForm() {
                 </a>
               </p>
 
-              <TurnstileWidget
-                onReady={() => setTurnstileRequired(true)}
-                onToken={(token) => {
-                  setTurnstileToken(token);
-                }}
-                onExpire={() => setTurnstileToken("")}
-              />
+              {turnstileRequired ? (
+                <TurnstileWidget
+                  onToken={(token) => {
+                    setTurnstileToken(token);
+                  }}
+                  onExpire={() => setTurnstileToken("")}
+                />
+              ) : null}
               {errors.turnstile ? <p className="text-xs text-theme-red-action">{errors.turnstile}</p> : null}
 
               <button
