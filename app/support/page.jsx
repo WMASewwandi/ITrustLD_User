@@ -5,8 +5,10 @@ import { useEffect, useRef, useState } from "react";
 import UserAppLayout from "@/components/layouts/user-app-layout";
 import NavigationGuest from "@/components/partials/navigation-guest";
 import FooterGuest from "@/components/partials/footer-guest";
+import TurnstileWidget from "@/components/auth/turnstile-widget";
 import { getUserSession, hasUserSession } from "@/lib/auth";
-import { submitHelpTicket } from "@/lib/help-api";
+import { fetchHelpTicketConfig, submitHelpTicket } from "@/lib/help-api";
+import { hasTurnstileSiteKey } from "@/lib/turnstile";
 import { Headphones, Mail, MessageCircle, Phone, X } from "lucide-react";
 
 const faqs = [
@@ -88,6 +90,10 @@ function SupportContent({ isLoggedIn, guestNav = false }) {
   const [openFaq, setOpenFaq] = useState(0);
   const [modal, setModal] = useState({ open: false, kind: "success", message: "" });
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileRequired, setTurnstileRequired] = useState(false);
+  const [showTurnstile, setShowTurnstile] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileResetKey, setTurnstileResetKey] = useState(0);
   const formRef = useRef(null);
 
   useEffect(() => {
@@ -105,9 +111,44 @@ function SupportContent({ isLoggedIn, guestNav = false }) {
     if (session.email && form.email && !form.email.value) form.email.value = session.email;
   }, [isLoggedIn]);
 
+  useEffect(() => {
+    if (isLoggedIn) {
+      setTurnstileRequired(false);
+      setShowTurnstile(false);
+      setTurnstileToken("");
+      return;
+    }
+
+    if (!hasTurnstileSiteKey()) {
+      setTurnstileRequired(false);
+      setShowTurnstile(false);
+      return;
+    }
+
+    setShowTurnstile(true);
+
+    fetchHelpTicketConfig()
+      .then((config) => {
+        setTurnstileRequired(Boolean(config?.turnstileRequired));
+      })
+      .catch(() => {
+        setTurnstileRequired(true);
+      });
+  }, [isLoggedIn]);
+
   const onSubmit = async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
+
+    if (showTurnstile && turnstileRequired && !turnstileToken) {
+      setModal({
+        open: true,
+        kind: "error",
+        message: "Please complete the Cloudflare security check before sending your support request.",
+      });
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -117,6 +158,7 @@ function SupportContent({ isLoggedIn, guestNav = false }) {
         email: form.email.value.trim(),
         subject: form.subject.value.trim(),
         message: form.message.value.trim(),
+        cf_turnstile_response: showTurnstile ? turnstileToken || undefined : undefined,
       });
 
       setModal({
@@ -127,6 +169,8 @@ function SupportContent({ isLoggedIn, guestNav = false }) {
           "Your support ticket has been submitted successfully. Our team will get back to you soon.",
       });
       form.reset();
+      setTurnstileToken("");
+      setTurnstileResetKey((key) => key + 1);
 
       if (isLoggedIn) {
         const session = getUserSession();
@@ -138,6 +182,8 @@ function SupportContent({ isLoggedIn, guestNav = false }) {
         if (session?.email) form.email.value = session.email;
       }
     } catch (err) {
+      setTurnstileToken("");
+      setTurnstileResetKey((key) => key + 1);
       setModal({
         open: true,
         kind: "error",
@@ -342,6 +388,23 @@ function SupportContent({ isLoggedIn, guestNav = false }) {
                   </label>
                   <textarea id="message" name="message" rows={5} required className={fieldClass} />
                 </div>
+
+                {showTurnstile ? (
+                  <div>
+                    <label className={labelClass}>
+                      Security Check <span className="text-theme-orange">*</span>
+                    </label>
+                    <TurnstileWidget
+                      theme="dark"
+                      resetKey={turnstileResetKey}
+                      onToken={setTurnstileToken}
+                      onExpire={() => setTurnstileToken("")}
+                    />
+                    <p className="mt-2 text-xs text-white/45">
+                      Protected by Cloudflare Turnstile. Complete the check to submit as a guest.
+                    </p>
+                  </div>
+                ) : null}
 
                 <button
                   type="submit"
