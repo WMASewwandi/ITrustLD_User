@@ -2,17 +2,20 @@
 
 import Script from "next/script";
 import { useEffect, useRef, useState } from "react";
+import { TURNSTILE_SITE_KEY } from "@/lib/turnstile";
 
-/** Same public site key as Laravel `auth/register.blade.php`. Not a secret. */
-const TURNSTILE_SITE_KEY = "0x4AAAAAABgpWO1byq2Cgv3v";
-
-export default function TurnstileWidget({ onToken, onExpire }) {
+export default function TurnstileWidget({
+  onToken,
+  onExpire,
+  theme = "light",
+  resetKey = 0,
+}) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
   const [scriptReady, setScriptReady] = useState(false);
 
   useEffect(() => {
-    if (!scriptReady || !containerRef.current || !window.turnstile) {
+    if (!scriptReady || !containerRef.current || !window.turnstile || !TURNSTILE_SITE_KEY) {
       return undefined;
     }
 
@@ -23,7 +26,7 @@ export default function TurnstileWidget({ onToken, onExpire }) {
 
     widgetIdRef.current = window.turnstile.render(containerRef.current, {
       sitekey: TURNSTILE_SITE_KEY,
-      theme: "light",
+      theme,
       callback: (token) => onToken?.(token),
       "expired-callback": () => {
         onToken?.("");
@@ -38,7 +41,9 @@ export default function TurnstileWidget({ onToken, onExpire }) {
         widgetIdRef.current = null;
       }
     };
-  }, [scriptReady, onToken, onExpire]);
+  }, [scriptReady, onToken, onExpire, theme, resetKey]);
+
+  if (!TURNSTILE_SITE_KEY) return null;
 
   return (
     <>
