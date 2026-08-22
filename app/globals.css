@@ -6,12 +6,26 @@ html,
 body {
   margin: 0;
   padding: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   @apply font-poppins text-white antialiased;
   background-color: #070b16;
   color-scheme: dark;
+}
+
+/* iOS zooms the page when focusing inputs smaller than 16px, then often
+   fails to restore scale when the keyboard hides. */
+@media (max-width: 1023px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
 }
 
 /* Lenis smooth scroll (replaces lenis/dist/lenis.css import) */
@@ -292,4 +306,17 @@ html.lenis body {
   display: none;
   width: 0;
   height: 0;
+}
+
+/*
+ * Tidio sits position:fixed in the bottom-right with a huge z-index, so on
+ * mobile it covers the 64px bottom nav (History). Lift it above the bar.
+ * lg breakpoint is 1024px — same as navigation-user.jsx `lg:hidden`.
+ */
+@media (max-width: 1023px) {
+  #tidio-chat,
+  #tidio-chat iframe,
+  iframe#tidio-chat-iframe {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+  }
 }

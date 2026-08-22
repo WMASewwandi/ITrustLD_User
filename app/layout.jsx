@@ -4,6 +4,7 @@ import ThemeHead from "@/components/layouts/theme-head";
 import AlpineInit from "@/components/alpine-init";
 import SmoothScroll from "@/components/smooth-scroll";
 import AppProviders from "@/components/app-providers";
+import MobileViewportFix from "@/components/layouts/mobile-viewport-fix";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -20,6 +21,12 @@ export const metadata = {
   }
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className={poppins.variable}>
@@ -29,6 +36,7 @@ export default function RootLayout({ children }) {
       <body className="font-poppins bg-[#070B16] text-white antialiased">
         <AppProviders>
           <AlpineInit />
+          <MobileViewportFix />
           <SmoothScroll>{children}</SmoothScroll>
         </AppProviders>
       </body>
