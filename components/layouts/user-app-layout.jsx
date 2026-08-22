@@ -15,10 +15,8 @@ export default function UserAppLayout({ children }) {
         aria-hidden
       />
       <div className="print:hidden">
-        <NavigationUser />
-      </div>
-      <div className="print:hidden">
         <PromoTopAlert />
+        <NavigationUser />
       </div>
       <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden pb-[calc(72px+env(safe-area-inset-bottom))] lg:pl-[60px] lg:pb-0 print:overflow-visible print:p-0 print:pl-0">
         <main className="relative min-w-0 flex-1 overflow-x-hidden print:overflow-visible">{children}</main>

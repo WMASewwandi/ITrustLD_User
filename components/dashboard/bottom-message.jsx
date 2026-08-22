@@ -16,6 +16,7 @@ export default function BottomMessage({
   onClose,
   primaryAction,
   secondaryAction,
+  dismissible = true,
   className = "",
 }) {
   const router = useRouter();
@@ -60,12 +61,16 @@ export default function BottomMessage({
 
   return (
     <div className={`fixed inset-0 z-[90] ${className}`} role="dialog" aria-modal="true" aria-label={titles[variant]}>
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
-        aria-label="Close"
-        onClick={onClose}
-      />
+      {dismissible ? (
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/60 backdrop-blur-[2px]"
+          aria-label="Close"
+          onClick={onClose}
+        />
+      ) : (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-[2px]" aria-hidden />
+      )}
 
       <div
         data-lenis-prevent
@@ -77,7 +82,7 @@ export default function BottomMessage({
           <h3 className={`text-lg font-bold ${titleColor[variant] || "text-white"}`}>
             {titles[variant]}
           </h3>
-          {onClose ? (
+          {dismissible && onClose ? (
             <button
               type="button"
               onClick={onClose}

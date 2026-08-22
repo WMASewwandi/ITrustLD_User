@@ -9,6 +9,7 @@ import RecentTransactions from "@/components/dashboard/recent-transactions";
 import LatestNews from "@/components/dashboard/latest-news";
 import { fetchDashboard } from "@/lib/dashboard";
 import { getUserSession } from "@/lib/auth";
+import { consumePromotionScrollTarget, waitAndScrollToPromotion } from "@/lib/promotion-utils";
 
 export default function DashboardPage() {
   const [userName, setUserName] = useState("there");
@@ -53,6 +54,13 @@ export default function DashboardPage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (loading) return undefined;
+    const targetId = consumePromotionScrollTarget();
+    if (!targetId) return undefined;
+    return waitAndScrollToPromotion(targetId, 120);
+  }, [loading]);
+
   if (loading) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center text-sm text-white/50">
@@ -69,11 +77,6 @@ export default function DashboardPage() {
           {error}
         </p>
       ) : null}
-      <AccountOverview
-        user={dashboard?.user}
-        documents={dashboard?.documents}
-        verificationComplete={dashboard?.verification_complete}
-      />
       <div id="promotions" className="scroll-mt-[var(--promo-scroll-offset,7rem)]">
         <PromoBanner banner={dashboard?.promo_banner} />
         <PromotionalSlidersList
@@ -85,6 +88,11 @@ export default function DashboardPage() {
           }
         />
       </div>
+      <AccountOverview
+        user={dashboard?.user}
+        documents={dashboard?.documents}
+        verificationComplete={dashboard?.verification_complete}
+      />
       <RecentTransactions transactions={dashboard?.recent_transactions} />
       <LatestNews user={dashboard?.user} />
     </>

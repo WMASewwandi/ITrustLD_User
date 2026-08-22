@@ -84,6 +84,14 @@ function maskAccountId(value) {
   return `${"X".repeat(8)}${raw.slice(8)}`;
 }
 
+function PartnerClientBadge() {
+  return (
+    <span className="inline-block rounded bg-theme-green-action px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+      PTNR
+    </span>
+  );
+}
+
 function CountBadge({ count }) {
   if (!count) return null;
   return (
@@ -583,7 +591,28 @@ export default function MyEarningsPage() {
     {
       key: "accountId",
       label: "Account ID",
-      render: (row) => maskAccountId(row.accountId),
+      render: (row) => (
+        <span className="inline-flex items-center gap-2">
+          {row.isPartner ? <PartnerClientBadge /> : null}
+          <span>{row.accountId || "—"}</span>
+        </span>
+      ),
+    },
+    { key: "firstTransaction", label: "First Transaction" },
+    { key: "lastTransaction", label: "Last Transaction" },
+    { key: "points", label: "Points" },
+  ];
+
+  const subClientColumns = [
+    {
+      key: "accountId",
+      label: "Account ID",
+      render: (row) => (
+        <span className="inline-flex items-center gap-2">
+          {row.isPartner ? <PartnerClientBadge /> : null}
+          <span>{maskAccountId(row.accountId)}</span>
+        </span>
+      ),
     },
     { key: "firstTransaction", label: "First Transaction" },
     { key: "lastTransaction", label: "Last Transaction" },
@@ -900,7 +929,7 @@ export default function MyEarningsPage() {
             />
             <p className="mb-3 text-xs text-white/45">{subClientTotal} total sub-clients from your network</p>
             <TableShell
-              columns={clientColumns}
+              columns={subClientColumns}
               rows={filteredSubClients}
               emptyLabel="No sub clients found."
               loading={subClientsLoading}
