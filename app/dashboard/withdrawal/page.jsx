@@ -1136,6 +1136,7 @@ export default function WithdrawalPage() {
               <BottomMessage
                 title="Cash-out submitted"
                 variant="success"
+                dismissible={false}
                 onClose={() => setSubmitted(false)}
                 primaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
                 secondaryAction={{

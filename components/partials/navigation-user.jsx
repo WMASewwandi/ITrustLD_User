@@ -272,8 +272,11 @@ export default function NavigationUser() {
     <>
       {/* Top bar */}
       <header
-        className="sticky top-0 z-50 border-b border-white/10 lg:pl-[60px] print:hidden"
-        style={{ backgroundColor: NAV_SOLID }}
+        className="sticky z-50 border-b border-white/10 lg:pl-[60px] print:hidden"
+        style={{
+          top: "var(--guest-promo-alert-height, 0px)",
+          backgroundColor: NAV_SOLID,
+        }}
       >
         <div className="flex h-14 w-full items-center justify-between gap-3 px-3 sm:h-16 sm:px-5 lg:px-6">
           <div className="flex min-w-0 items-center gap-2">
@@ -313,8 +316,11 @@ export default function NavigationUser() {
 
       {/* Desktop left sidebar */}
       <aside
-        className="fixed bottom-0 left-0 top-0 z-40 hidden w-[60px] flex-col border-r border-white/10 lg:flex print:hidden"
-        style={{ backgroundColor: NAV_SOLID }}
+        className="fixed bottom-0 left-0 z-40 hidden w-[60px] flex-col border-r border-white/10 lg:flex print:hidden"
+        style={{
+          top: "var(--guest-promo-alert-height, 0px)",
+          backgroundColor: NAV_SOLID,
+        }}
       >
         <div className="flex h-14 items-center justify-center border-b border-white/10 sm:h-16">
           <Link href="/dashboard" className="flex h-9 w-9 items-center justify-center" aria-label="iTrustLD Home">

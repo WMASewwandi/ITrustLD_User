@@ -4,7 +4,11 @@ import { useEffect, useState } from "react";
 import PromoBanner from "@/components/dashboard/promo-banner";
 import PromotionalSlidersList from "@/components/dashboard/promotional-sliders-list";
 import { fetchActivePromotionalBanners } from "@/lib/promotional-banners";
-import { isPromotionInActivePeriod } from "@/lib/promotion-utils";
+import {
+  consumePromotionScrollTarget,
+  isPromotionInActivePeriod,
+  waitAndScrollToPromotion,
+} from "@/lib/promotion-utils";
 
 /**
  * Public-site promotions — static banner + slider carousel (not mixed into Latest Updates).
@@ -40,6 +44,13 @@ export default function GuestPromotionsSection({ audience = "normal" }) {
       cancelled = true;
     };
   }, [audience]);
+
+  useEffect(() => {
+    if (!staticBanner && sliderBanners.length === 0) return undefined;
+    const targetId = consumePromotionScrollTarget();
+    if (!targetId) return undefined;
+    return waitAndScrollToPromotion(targetId, 140);
+  }, [staticBanner, sliderBanners]);
 
   if (!staticBanner && sliderBanners.length === 0) return null;
 

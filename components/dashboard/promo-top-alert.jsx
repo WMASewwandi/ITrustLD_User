@@ -8,9 +8,16 @@ import { getUserSession, getUserToken } from "@/lib/auth";
 import { fetchActivePromotionalBanners } from "@/lib/promotional-banners";
 import { resolvePromotionAudience } from "@/lib/latest-updates";
 import { DASHBOARD_UPDATED_EVENT, fetchDashboard } from "@/lib/dashboard";
-import { consolidateSliderBanners, isPromotionInActivePeriod } from "@/lib/promotion-utils";
+import {
+  consolidateSliderBanners,
+  consumePromotionScrollTarget,
+  getPromotionHashTarget,
+  isPromotionInActivePeriod,
+  PROMO_SECTION_ID,
+  rememberPromotionScroll,
+  waitAndScrollToPromotion,
+} from "@/lib/promotion-utils";
 
-const PROMO_SECTION_ID = "promotions";
 const SLIDE_MS = 4000;
 
 function contentKey(item) {
@@ -53,7 +60,8 @@ function bannerMessage(banner) {
 }
 
 /**
- * Fixed promo alert under the sticky user nav (does not cover the desktop sidebar).
+ * Fixed promo alert at the top of the viewport (same position on guest and dashboard).
+ * Nav sits below via --guest-promo-alert-height.
  * When 2+ promotions exist, the message auto-rotates like a slider.
  * Close only hides until refresh; active period controls whether it loads again.
  */
@@ -66,6 +74,7 @@ export default function PromoTopAlert() {
   const [barHeight, setBarHeight] = useState(0);
   const barRef = useRef(null);
   const bannersRef = useRef(banners);
+  const pendingScrollRef = useRef("");
   bannersRef.current = banners;
 
   useEffect(() => setMounted(true), []);
@@ -165,30 +174,22 @@ export default function PromoTopAlert() {
   }, [active, mounted, index]);
 
   const isDashboard = pathname?.startsWith("/dashboard");
+  const loggedIn = Boolean(getUserToken() || getUserSession());
+  const homePath = pathname === "/" ? "/" : isDashboard || loggedIn ? "/dashboard" : "/";
+  const offsetFallback = homePath === "/dashboard" ? 120 : 140;
 
-  // Landing: push guest nav below this bar so the nav stays visible.
+  // Push nav below this bar (guest + dashboard) so the strip stays at the top.
   // Also expose total sticky offset for View / hash scroll targets.
   useEffect(() => {
     const guestNav = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches ? 80 : 64;
     const dashNav = typeof window !== "undefined" && window.matchMedia("(min-width: 640px)").matches ? 64 : 56;
     const alertH = active ? barHeight || 0 : 0;
-
-    if (isDashboard) {
-      document.documentElement.style.setProperty("--guest-promo-alert-height", "0px");
-      document.documentElement.style.setProperty(
-        "--promo-scroll-offset",
-        `${dashNav + alertH + 12}px`,
-      );
-      return () => {
-        document.documentElement.style.setProperty("--guest-promo-alert-height", "0px");
-        document.documentElement.style.setProperty("--promo-scroll-offset", "0px");
-      };
-    }
+    const navH = isDashboard ? dashNav : guestNav;
 
     document.documentElement.style.setProperty("--guest-promo-alert-height", `${alertH}px`);
     document.documentElement.style.setProperty(
       "--promo-scroll-offset",
-      `${alertH + guestNav + 12}px`,
+      `${alertH + navH + 12}px`,
     );
     return () => {
       document.documentElement.style.setProperty("--guest-promo-alert-height", "0px");
@@ -209,31 +210,26 @@ export default function PromoTopAlert() {
     });
   }
 
+  useEffect(() => {
+    if (pathname !== homePath) return undefined;
+    const targetId =
+      pendingScrollRef.current || consumePromotionScrollTarget() || getPromotionHashTarget();
+    if (!targetId) return undefined;
+    pendingScrollRef.current = "";
+    return waitAndScrollToPromotion(targetId, offsetFallback);
+  }, [pathname, homePath, offsetFallback]);
+
   function goToPromotions() {
     const targetId = active?.id != null ? `promotion-${active.id}` : PROMO_SECTION_ID;
-    const homePath = isDashboard ? "/dashboard" : "/";
-
-    const scrollToSection = () => {
-      const el =
-        document.getElementById(targetId) || document.getElementById(PROMO_SECTION_ID);
-      if (!el) return false;
-
-      const raw = getComputedStyle(document.documentElement)
-        .getPropertyValue("--promo-scroll-offset")
-        .trim();
-      const offset = Number.parseFloat(raw) || (isDashboard ? 120 : 140);
-      const top = window.scrollY + el.getBoundingClientRect().top - offset;
-      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-      return true;
-    };
+    rememberPromotionScroll(targetId);
 
     if (pathname === homePath) {
-      if (!scrollToSection()) window.setTimeout(scrollToSection, 80);
+      waitAndScrollToPromotion(targetId, offsetFallback);
       return;
     }
 
+    pendingScrollRef.current = targetId;
     router.push(`${homePath}#${targetId}`);
-    window.setTimeout(scrollToSection, 350);
   }
 
   const color = active?.color || "#0D9F1B";
@@ -242,11 +238,7 @@ export default function PromoTopAlert() {
   const bar = active ? (
     <div
       ref={barRef}
-      className={
-        isDashboard
-          ? "fixed right-0 top-14 z-[55] left-0 lg:left-[60px] sm:top-16"
-          : "fixed inset-x-0 top-0 z-[41]"
-      }
+      className="fixed inset-x-0 top-0 z-[55]"
       role="status"
       aria-live="polite"
       style={{ backgroundColor: color }}
