@@ -5,9 +5,10 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BrandLogoImage } from "@/components/brand-logo";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
-import TurnstileWidget from "@/components/auth/turnstile-widget";
+// TEMPORARY: Cloudflare Turnstile disabled on register.
+// import TurnstileWidget from "@/components/auth/turnstile-widget";
 import PasswordInput from "@/components/ui/password-input";
-import { checkEmailAvailable, checkMobileAvailable, fetchAuthConfig, registerUser, setUserSession } from "@/lib/auth";
+import { checkEmailAvailable, checkMobileAvailable, registerUser, setUserSession } from "@/lib/auth";
 import {
   COUNTRIES,
   formatNationalPhone,
@@ -52,20 +53,22 @@ function RegisterForm() {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileRequired, setTurnstileRequired] = useState(true);
+  // TEMPORARY: Cloudflare Turnstile disabled on register.
+  // const [turnstileToken, setTurnstileToken] = useState("");
+  // const [turnstileRequired, setTurnstileRequired] = useState(true);
   const countryFieldRef = useRef(null);
   const countryListRef = useRef(null);
 
-  useEffect(() => {
-    fetchAuthConfig()
-      .then((config) => {
-        setTurnstileRequired(Boolean(config?.turnstileRequired));
-      })
-      .catch(() => {
-        setTurnstileRequired(true);
-      });
-  }, []);
+  // TEMPORARY: Cloudflare Turnstile disabled on register.
+  // useEffect(() => {
+  //   fetchAuthConfig()
+  //     .then((config) => {
+  //       setTurnstileRequired(Boolean(config?.turnstileRequired));
+  //     })
+  //     .catch(() => {
+  //       setTurnstileRequired(true);
+  //     });
+  // }, []);
 
   const filteredCountries = useMemo(() => {
     const q = countryQuery.trim().toLowerCase();
@@ -146,9 +149,10 @@ function RegisterForm() {
     if (!form.terms.checked) {
       next.terms = "You must accept the Terms and Conditions.";
     }
-    if (turnstileRequired && !turnstileToken) {
-      next.turnstile = "Please complete the security check.";
-    }
+    // TEMPORARY: Cloudflare Turnstile disabled on register.
+    // if (turnstileRequired && !turnstileToken) {
+    //   next.turnstile = "Please complete the security check.";
+    // }
 
     setErrors(next);
     if (Object.keys(next).length) return;
@@ -187,7 +191,8 @@ function RegisterForm() {
         zip_code: zipCode,
         is_affiliated: Boolean(affiliateCode),
         affiliate_code: affiliateCode || undefined,
-        cf_turnstile_response: turnstileToken || undefined,
+        // TEMPORARY: Cloudflare Turnstile disabled on register.
+        // cf_turnstile_response: turnstileToken || undefined,
       });
 
       setUserSession({ token: result.token, user: result.user });
@@ -468,6 +473,7 @@ function RegisterForm() {
                 </a>
               </p>
 
+              {/* TEMPORARY: Cloudflare Turnstile disabled on register.
               {turnstileRequired ? (
                 <TurnstileWidget
                   onToken={(token) => {
@@ -477,6 +483,7 @@ function RegisterForm() {
                 />
               ) : null}
               {errors.turnstile ? <p className="text-xs text-theme-red-action">{errors.turnstile}</p> : null}
+              */}
 
               <button
                 type="submit"
