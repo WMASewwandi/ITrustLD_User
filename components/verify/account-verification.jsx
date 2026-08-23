@@ -333,7 +333,7 @@ export default function AccountVerification() {
       persist({ phone, emailVerified: true });
       if (result.dev_code) {
         setInfo(
-          `Development mode: your verification code is ${result.dev_code}. (SMS/email not sent — configure SMTP or Mailpit for real delivery.)`
+          `Development mode: your verification code is ${result.dev_code}. (SMS not sent — configure SMS for real delivery.)`
         );
       } else {
         setInfo(`Verification code sent to ${phone}.`);
