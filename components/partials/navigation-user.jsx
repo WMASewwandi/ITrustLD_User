@@ -17,7 +17,7 @@ import {
   DASHBOARD_UPDATED_EVENT,
   deriveNotificationsFromUser,
 } from "@/lib/dashboard";
-import { getMembershipTierByPoints } from "@/lib/membership-tiers";
+import { canShowAffiliateLink, getMembershipTierByPoints } from "@/lib/membership-tiers";
 import { useMembershipTiers } from "@/hooks/use-membership-tiers";
 import {
   ArrowDownToLine,
@@ -167,8 +167,11 @@ export default function NavigationUser() {
       const points = Number(parsed?.trust_points) || 0;
       setLoyaltyPoints(points);
       setNotifications(deriveNotificationsFromUser(parsed));
-      setIsPartner(isPartnerUser(parsed));
-      setAffiliateCode(getUserAffiliateCode(parsed) || "");
+      const partner = isPartnerUser(parsed);
+      setIsPartner(partner);
+      const tierName = getMembershipTierByPoints(points).name;
+      const code = getUserAffiliateCode(parsed) || "";
+      setAffiliateCode(canShowAffiliateLink(partner, tierName) ? code : "");
     } catch {
       // ignore
     }
@@ -192,6 +195,9 @@ export default function NavigationUser() {
         const summary = await fetchLoyaltySummary();
         if (!cancelled) {
           setClaimsCount(getActionableClaimsCount(summary));
+          setAffiliateCode(
+            summary.has_affiliate_link ? summary.affiliate_code || "" : "",
+          );
         }
       } catch {
         if (!cancelled) setClaimsCount(0);
@@ -483,7 +489,7 @@ export default function NavigationUser() {
             />
           </div>
 
-          {affiliateCode ? (
+          {canShowAffiliateLink(isPartner, loyaltyTier, membershipTiers) && affiliateCode ? (
             <div className="mt-5 rounded-xl border border-white/15 bg-[#141A2E] px-4 py-4">
               <AffiliateLinkCard affiliateCode={affiliateCode} />
             </div>
