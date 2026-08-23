@@ -15,7 +15,10 @@ export default function AffiliateLinkCard({
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    const code = affiliateCodeProp || getUserAffiliateCode(getUserSession());
+    const code =
+      affiliateCodeProp !== undefined && affiliateCodeProp !== null
+        ? affiliateCodeProp
+        : getUserAffiliateCode(getUserSession());
     if (!code) {
       setLink("");
       return;

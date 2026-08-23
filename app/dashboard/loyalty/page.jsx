@@ -24,7 +24,7 @@ import {
 } from "@/lib/loyalty-api";
 import { fetchPaymentAccounts } from "@/lib/payment-accounts";
 import { getPartnerTiers } from "@/lib/loyalty";
-import { getMembershipProgress } from "@/lib/membership-tiers";
+import { canShowAffiliateLink, getMembershipProgress } from "@/lib/membership-tiers";
 import { useMembershipTiers } from "@/hooks/use-membership-tiers";
 import { ChevronDown, Medal, Star, Trophy } from "lucide-react";
 
@@ -109,6 +109,7 @@ export default function LoyaltyPage() {
   const pointsToNext = tierDisplay.remaining;
   const currentLevel = `${currentTier.name} Level`;
   const safeLevelProgress = tierDisplay.progressPct;
+  const showAffiliateLink = canShowAffiliateLink(isPartner, currentTier.name, membershipTiers);
 
   const filteredHistory = useMemo(() => {
     return withdrawalHistory.filter((row) => {
@@ -150,8 +151,11 @@ export default function LoyaltyPage() {
       setTierLabel(pointSummary.level_label || "Normal");
       setTrustPointsForTier(Number(pointSummary.earned_for_year ?? pointSummary.earned) || 0);
       setIsPartner(Boolean(summaryData.is_partner));
-      setAffiliateCode(summaryData.affiliate_code || "");
-      setHasAffiliateLink(Boolean(summaryData.has_affiliate_link || summaryData.affiliate_code));
+      const nextAffiliateCode = summaryData.has_affiliate_link
+        ? summaryData.affiliate_code || ""
+        : "";
+      setAffiliateCode(nextAffiliateCode);
+      setHasAffiliateLink(Boolean(summaryData.has_affiliate_link && nextAffiliateCode));
       setPartnerTier(
         summaryData.partner_tier || pointSummary.level_label || (summaryData.is_partner ? "Normal" : "Normal"),
       );
@@ -164,7 +168,7 @@ export default function LoyaltyPage() {
       }
       patchUserSessionAccountHolder({
         is_patner: summaryData.is_partner ? "YES" : "NO",
-        affiliate_code: summaryData.affiliate_code || null,
+        affiliate_code: nextAffiliateCode || null,
       });
       setAccounts(flattenAccountGroups(accountsData.account_groups || []));
       setWithdrawalHistory(mapWithdrawalRows(historyData.transactions || []));
@@ -304,7 +308,7 @@ export default function LoyaltyPage() {
       {section === "overview" && isPartner ? (
         <div className="mt-8">
           <PartnerLoyaltyPanel
-            affiliateCode={affiliateCode}
+            affiliateCode={showAffiliateLink ? affiliateCode : ""}
             partnerTier={partnerTier}
             partnerPoints={partnerPoints}
             partnerProgress={partnerProgress}
@@ -361,45 +365,49 @@ export default function LoyaltyPage() {
               <ClaimGift onClaimed={() => loadLoyaltyData()} />
             ) : null}
 
-            <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
-              <h2 className="text-base font-semibold text-white">
-                {isPartner ? "Partner loyalty benefits" : "Standard user with affiliate"}
-              </h2>
-              <ul className="mt-3 space-y-2 text-sm text-white/55">
-                {isPartner ? (
-                  <>
-                    <li className="flex min-w-0 items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                      <span className="min-w-0 break-words">
-                        Earn referral points when your clients&apos; deposits are approved
-                      </span>
-                    </li>
-                    <li className="flex min-w-0 items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                      <span className="min-w-0 break-words">
-                        Partner cash-out rate: 10,000 Trust Points = 35 USD
-                      </span>
-                    </li>
-                  </>
-                ) : (
-                  <>
-                    <li className="flex min-w-0 items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                      <span className="min-w-0 break-words">Recognized with affiliate users</span>
-                    </li>
-                    <li className="flex min-w-0 items-start gap-2">
-                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
-                      <span className="min-w-0 break-words">
-                        Earn Trust Points from eligible top-ups and referrals
-                      </span>
-                    </li>
-                  </>
-                )}
-              </ul>
-              <div className="mt-5 min-w-0 border-t border-white/10 pt-5">
-                {hasAffiliateLink ? <AffiliateLinkCard affiliateCode={affiliateCode} /> : null}
-              </div>
-            </section>
+            {showAffiliateLink ? (
+              <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#141A2E] p-5 sm:p-6">
+                <h2 className="text-base font-semibold text-white">
+                  {isPartner ? "Partner loyalty benefits" : "Standard user with affiliate"}
+                </h2>
+                <ul className="mt-3 space-y-2 text-sm text-white/55">
+                  {isPartner ? (
+                    <>
+                      <li className="flex min-w-0 items-start gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                        <span className="min-w-0 break-words">
+                          Earn referral points when your clients&apos; deposits are approved
+                        </span>
+                      </li>
+                      <li className="flex min-w-0 items-start gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                        <span className="min-w-0 break-words">
+                          Partner cash-out rate: 10,000 Trust Points = 35 USD
+                        </span>
+                      </li>
+                    </>
+                  ) : (
+                    <>
+                      <li className="flex min-w-0 items-start gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                        <span className="min-w-0 break-words">Recognized with affiliate users</span>
+                      </li>
+                      <li className="flex min-w-0 items-start gap-2">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-theme-green-action" />
+                        <span className="min-w-0 break-words">
+                          Earn Trust Points from eligible top-ups and referrals
+                        </span>
+                      </li>
+                    </>
+                  )}
+                </ul>
+                {hasAffiliateLink ? (
+                  <div className="mt-5 min-w-0 border-t border-white/10 pt-5">
+                    <AffiliateLinkCard affiliateCode={affiliateCode} />
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
             <section className="min-w-0 overflow-hidden rounded-2xl border border-white/12 bg-[#0B1020]/85 p-5 sm:p-6">
               <LoyaltyLevels

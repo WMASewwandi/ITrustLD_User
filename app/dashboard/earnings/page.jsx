@@ -236,7 +236,7 @@ export default function MyEarningsPage() {
   const applySummaryData = useCallback((summaryData) => {
     const summary = summaryData.point_summary || {};
     setIsPartner(Boolean(summaryData.is_partner));
-    setAffiliateCode(summaryData.affiliate_code || "");
+    setAffiliateCode(summaryData.has_affiliate_link ? summaryData.affiliate_code || "" : "");
     setPartnerTier(summaryData.partner_tier || summary.level_label || "Normal");
     setPartnerProgress(summaryData.partner_progress || null);
     setPointSummary(summary);
@@ -249,7 +249,7 @@ export default function MyEarningsPage() {
     }
     patchUserSessionAccountHolder({
       is_patner: summaryData.is_partner ? "YES" : "NO",
-      affiliate_code: summaryData.affiliate_code || null,
+      affiliate_code: summaryData.has_affiliate_link ? summaryData.affiliate_code || null : null,
     });
   }, []);
 
