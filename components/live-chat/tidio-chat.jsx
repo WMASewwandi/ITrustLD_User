@@ -52,22 +52,22 @@ function restoreTidioDom() {
   });
 }
 
+function applyTidioVisibility(visible) {
+  if (visible) {
+    restoreTidioDom();
+    window.tidioChatApi?.show?.();
+    offsetTidioForMobileNav();
+    return;
+  }
+  window.tidioChatApi?.hide?.();
+  hideTidioDom();
+}
+
 function setTidioVisible(visible) {
   if (typeof window === "undefined") return;
 
-  const apply = () => {
-    if (visible) {
-      restoreTidioDom();
-      window.tidioChatApi?.show?.();
-      offsetTidioForMobileNav();
-    } else {
-      window.tidioChatApi?.hide?.();
-      hideTidioDom();
-    }
-  };
-
   if (window.tidioChatApi) {
-    apply();
+    applyTidioVisibility(visible);
     return;
   }
 
@@ -76,59 +76,62 @@ function setTidioVisible(visible) {
     return;
   }
 
-  document.addEventListener("tidioChat-ready", apply, { once: true });
+  const showWhenReady = () => applyTidioVisibility(true);
+  document.addEventListener("tidioChat-ready", showWhenReady, { once: true });
+
+  let attempts = 0;
+  const timer = window.setInterval(() => {
+    attempts += 1;
+    if (window.tidioChatApi) {
+      window.clearInterval(timer);
+      showWhenReady();
+    } else if (attempts >= 20) {
+      window.clearInterval(timer);
+    }
+  }, 250);
 }
 
-/**
- * Tidio live chat — members only (same as Laravel `footer-customer.blade.php`).
- * Guests never see the widget, including after client-side navigation from dashboard.
- */
 function isPrintPath(pathname) {
   return /\/print(?:\/|$)/.test(String(pathname || ""));
 }
 
+/**
+ * Tidio live chat — members only (same as Laravel `footer-customer.blade.php`).
+ * Script stays mounted after login so client-side navigations do not hide it.
+ */
 export default function TidioChat() {
   const pathname = usePathname();
-  const [enabled, setEnabled] = useState(false);
-  const onPrintPage = isPrintPath(pathname);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const shouldShow = loggedIn && !isPrintPath(pathname);
 
   useEffect(() => {
-    function sync() {
-      const loggedIn = hasUserSession() && !isPrintPath(window.location.pathname);
-      setEnabled(loggedIn);
-      setTidioVisible(loggedIn);
+    function syncAuth() {
+      setLoggedIn(hasUserSession());
     }
 
-    function hideForPrint() {
-      setTidioVisible(false);
-    }
-
-    sync();
-    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, sync);
-    window.addEventListener("storage", sync);
-    window.addEventListener("beforeprint", hideForPrint);
-    window.addEventListener("afterprint", sync);
+    syncAuth();
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, syncAuth);
+    window.addEventListener("storage", syncAuth);
 
     return () => {
-      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, sync);
-      window.removeEventListener("storage", sync);
-      window.removeEventListener("beforeprint", hideForPrint);
-      window.removeEventListener("afterprint", sync);
-      setTidioVisible(false);
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, syncAuth);
+      window.removeEventListener("storage", syncAuth);
     };
-  }, [pathname]);
+  }, []);
 
   useEffect(() => {
-    if (!enabled) return undefined;
+    setTidioVisible(shouldShow);
+    if (!shouldShow) return undefined;
 
     const mq = window.matchMedia(MOBILE_MQ);
-    const onReady = () => offsetTidioForMobileNav();
-    offsetTidioForMobileNav();
+    const onReady = () => {
+      applyTidioVisibility(true);
+    };
     document.addEventListener("tidioChat-ready", onReady);
     mq.addEventListener("change", onReady);
     window.addEventListener("resize", onReady);
 
-    const observer = new MutationObserver(onReady);
+    const observer = new MutationObserver(() => offsetTidioForMobileNav());
     observer.observe(document.body, {
       childList: true,
       subtree: true,
@@ -142,20 +145,16 @@ export default function TidioChat() {
       window.removeEventListener("resize", onReady);
       observer.disconnect();
     };
-  }, [enabled]);
+  }, [shouldShow]);
 
-  if (!enabled || onPrintPage || !TIDIO_KEY) return null;
+  if (!loggedIn || !TIDIO_KEY) return null;
 
   return (
     <Script
       src={`https://code.tidio.co/${TIDIO_KEY}.js`}
       strategy="afterInteractive"
       onLoad={() => {
-        if (hasUserSession() && !isPrintPath(window.location.pathname)) {
-          setTidioVisible(true);
-        } else {
-          setTidioVisible(false);
-        }
+        setTidioVisible(hasUserSession() && !isPrintPath(window.location.pathname));
       }}
     />
   );
