@@ -102,6 +102,17 @@ export default function TransactionReceiptPrint({
           body * {
             overflow: visible !important;
           }
+          #tidio-chat,
+          #tidio-chat iframe,
+          iframe#tidio-chat-iframe,
+          iframe[id*="tidio"],
+          iframe[src*="tidio"],
+          [id^="tidio-"] {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            overflow: hidden !important;
+          }
           .transaction-print-root {
             position: static !important;
             left: auto !important;

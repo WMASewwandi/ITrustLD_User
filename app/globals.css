@@ -320,3 +320,17 @@ html.lenis body {
     bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
+
+@media print {
+  #tidio-chat,
+  #tidio-chat iframe,
+  iframe#tidio-chat-iframe,
+  iframe[id*="tidio"],
+  iframe[src*="tidio"],
+  [id^="tidio-"] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}

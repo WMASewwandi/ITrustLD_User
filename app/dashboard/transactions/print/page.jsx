@@ -126,7 +126,10 @@ function TransactionsPrintContent() {
       };
       window.addEventListener("afterprint", afterPrint, { once: true });
       window.setTimeout(() => {
-        if (!cancelled) window.print();
+        if (!cancelled) {
+          window.tidioChatApi?.hide?.();
+          window.print();
+        }
       }, 150);
     };
 
