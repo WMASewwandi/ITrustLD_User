@@ -7,7 +7,7 @@ body {
   margin: 0;
   padding: 0;
   max-width: 100%;
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -309,15 +309,20 @@ html.lenis body {
 }
 
 /*
- * Tidio sits position:fixed in the bottom-right with a huge z-index, so on
- * mobile it covers the 64px bottom nav (History). Lift it above the bar.
- * lg breakpoint is 1024px — same as navigation-user.jsx `lg:hidden`.
+ * Keep Tidio out of document flow (avoids extra space under the footer)
+ * without collapsing the widget itself.
  */
+#tidio-chat,
+#tidio-chat-code {
+  position: fixed !important;
+  z-index: 999999 !important;
+}
+
 @media (max-width: 1023px) {
   #tidio-chat,
   #tidio-chat iframe,
   iframe#tidio-chat-iframe {
-    bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important;
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important;
   }
 }
 

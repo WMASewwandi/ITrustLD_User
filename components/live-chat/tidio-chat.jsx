@@ -8,8 +8,8 @@ import { AUTH_SESSION_CHANGED_EVENT, hasUserSession } from "@/lib/auth";
 const TIDIO_KEY =
   process.env.NEXT_PUBLIC_TIDIO_KEY || "e3tkzblgnc6o2jkryjhomfcotdsnyybp";
 
-/** Matches mobile bottom nav: 64px bar + 12px gap + iOS safe area. */
-const MOBILE_NAV_OFFSET = "calc(76px + env(safe-area-inset-bottom, 0px))";
+/** Sit just above the 64px mobile bottom nav. */
+const MOBILE_NAV_OFFSET = "calc(66px + env(safe-area-inset-bottom, 0px))";
 const MOBILE_MQ = "(max-width: 1023px)";
 
 function tidioFrames() {
@@ -23,6 +23,10 @@ function tidioFrames() {
 
 function offsetTidioForMobileNav() {
   if (typeof window === "undefined") return;
+  const wrapper = document.getElementById("tidio-chat") || document.getElementById("tidio-chat-code");
+  if (wrapper) {
+    wrapper.style.setProperty("position", "fixed", "important");
+  }
   const mobile = window.matchMedia(MOBILE_MQ).matches;
   tidioFrames().forEach((el) => {
     if (mobile) {

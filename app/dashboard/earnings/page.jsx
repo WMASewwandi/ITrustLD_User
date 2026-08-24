@@ -39,11 +39,14 @@ const TABS = [
   { id: "overview", label: "Overview" },
   { id: "clients", label: "My Clients" },
   { id: "sub-clients", label: "Sub Clients" },
+  { id: "sub-partners", label: "Sub Partners" },
   { id: "claim-vouchers", label: "Client Bonus" },
   { id: "claim-bonus", label: "Claim Bonus" },
   { id: "claim-gift", label: "Claim Gift" },
   { id: "claim-history", label: "Claim History" },
 ];
+
+const PARTNER_ONLY_TABS = ["clients", "sub-clients", "sub-partners", "claim-vouchers"];
 
 const CLIENT_DEFAULTS = {
   search: "",
@@ -212,11 +215,14 @@ export default function MyEarningsPage() {
   const [rateLabel, setRateLabel] = useState("");
   const [myClients, setMyClients] = useState([]);
   const [subClients, setSubClients] = useState([]);
+  const [subPartners, setSubPartners] = useState([]);
   const [clientTotal, setClientTotal] = useState(0);
   const [subClientTotal, setSubClientTotal] = useState(0);
+  const [subPartnerTotal, setSubPartnerTotal] = useState(0);
   const [summaryLoading, setSummaryLoading] = useState(true);
   const [clientsLoading, setClientsLoading] = useState(false);
   const [subClientsLoading, setSubClientsLoading] = useState(false);
+  const [subPartnersLoading, setSubPartnersLoading] = useState(false);
   const [claimsLoading, setClaimsLoading] = useState(false);
   const [claimMsg, setClaimMsg] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -231,6 +237,7 @@ export default function MyEarningsPage() {
 
   const [clientFilter, setClientFilter] = useState(CLIENT_DEFAULTS);
   const [subFilter, setSubFilter] = useState(CLIENT_DEFAULTS);
+  const [subPartnerFilter, setSubPartnerFilter] = useState(CLIENT_DEFAULTS);
   const [historyFilter, setHistoryFilter] = useState(HISTORY_DEFAULTS);
 
   const applySummaryData = useCallback((summaryData) => {
@@ -355,7 +362,7 @@ export default function MyEarningsPage() {
 
   useEffect(() => {
     // Only bounce off partner tabs after summary confirms non-partner.
-    if (!summaryLoading && !isPartner && ["clients", "sub-clients", "claim-vouchers"].includes(tab)) {
+    if (!summaryLoading && !isPartner && PARTNER_ONLY_TABS.includes(tab)) {
       setTab("overview");
     }
   }, [isPartner, tab, summaryLoading]);
@@ -419,6 +426,48 @@ export default function MyEarningsPage() {
       setSubClientsLoading(false);
     };
   }, [tab, isPartner, subFilter.search]);
+
+  useEffect(() => {
+    if (!isPartner || tab !== "sub-partners") return undefined;
+
+    let cancelled = false;
+    const delay = subPartnerFilter.search.trim() ? 300 : 0;
+    const timer = setTimeout(async () => {
+      if (cancelled) return;
+      setSubPartnersLoading(true);
+      try {
+        const search = subPartnerFilter.search.trim() || undefined;
+        const [directData, networkData] = await Promise.all([
+          fetchPartnerClients({ perPage: 100, search }),
+          fetchSubPartnerClients({ perPage: 100, search }),
+        ]);
+        if (cancelled) return;
+        const seen = new Set();
+        const partners = [
+          ...mapAffiliateClientRows(directData.clients || []).map((row) => ({ ...row, source: "direct" })),
+          ...mapAffiliateClientRows(networkData.clients || []).map((row) => ({ ...row, source: "sub" })),
+        ].filter((row) => {
+          if (!row.isPartner) return false;
+          const key = String(row.accountId || row.id);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setSubPartners(partners);
+        setSubPartnerTotal(partners.length);
+      } catch (err) {
+        if (!cancelled) handleLoyaltyErrorRef.current?.(err);
+      } finally {
+        if (!cancelled) setSubPartnersLoading(false);
+      }
+    }, delay);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      setSubPartnersLoading(false);
+    };
+  }, [tab, isPartner, subPartnerFilter.search]);
 
   function switchTab(nextTab) {
     setTab(nextTab);
@@ -491,13 +540,17 @@ export default function MyEarningsPage() {
 
   const visibleTabs = useMemo(() => {
     if (!isPartner) {
-      return TABS.filter((item) => !["clients", "sub-clients", "claim-vouchers"].includes(item.id));
+      return TABS.filter((item) => !PARTNER_ONLY_TABS.includes(item.id));
     }
     return TABS;
   }, [isPartner]);
 
   const filteredClients = useMemo(() => filterClients(myClients, clientFilter), [myClients, clientFilter]);
   const filteredSubClients = useMemo(() => filterClients(subClients, subFilter), [subClients, subFilter]);
+  const filteredSubPartners = useMemo(
+    () => filterClients(subPartners, subPartnerFilter),
+    [subPartners, subPartnerFilter],
+  );
 
   const filteredHistory = useMemo(() => {
     const rows = [...bonusHistoryRows, ...voucherHistoryRows, ...giftHistoryRows];
@@ -611,6 +664,22 @@ export default function MyEarningsPage() {
         <span className="inline-flex items-center gap-2">
           <span>{maskAccountId(row.accountId)}</span>
           {row.isPartner ? <PartnerClientBadge /> : null}
+        </span>
+      ),
+    },
+    { key: "firstTransaction", label: "First Transaction" },
+    { key: "lastTransaction", label: "Last Transaction" },
+    { key: "points", label: "Points" },
+  ];
+
+  const subPartnerColumns = [
+    {
+      key: "accountId",
+      label: "Account ID",
+      render: (row) => (
+        <span className="inline-flex items-center gap-2">
+          <span>{row.source === "sub" ? maskAccountId(row.accountId) : row.accountId || "—"}</span>
+          <PartnerClientBadge />
         </span>
       ),
     },
@@ -933,6 +1002,35 @@ export default function MyEarningsPage() {
               rows={filteredSubClients}
               emptyLabel="No sub clients found."
               loading={subClientsLoading}
+            />
+          </>
+        ) : null}
+
+        {tab === "sub-partners" ? (
+          <>
+            <ListFilters
+              search={subPartnerFilter.search}
+              onSearchChange={(v) => setSubPartnerFilter((p) => ({ ...p, search: v }))}
+              searchPlaceholder="Search account ID…"
+              filters={clientFilterDefs}
+              values={subPartnerFilter}
+              onFilterChange={(key, value) => setSubPartnerFilter((p) => ({ ...p, [key]: value }))}
+              showDates
+              from={subPartnerFilter.from}
+              to={subPartnerFilter.to}
+              onFromChange={(v) => setSubPartnerFilter((p) => ({ ...p, from: v }))}
+              onToChange={(v) => setSubPartnerFilter((p) => ({ ...p, to: v }))}
+              onReset={() => setSubPartnerFilter(CLIENT_DEFAULTS)}
+              resultCount={filteredSubPartners.length}
+            />
+            <p className="mb-3 text-xs text-white/45">
+              {subPartnerTotal} partner{subPartnerTotal === 1 ? "" : "s"} with a PTNR badge in your network
+            </p>
+            <TableShell
+              columns={subPartnerColumns}
+              rows={filteredSubPartners}
+              emptyLabel="No sub partners found."
+              loading={subPartnersLoading}
             />
           </>
         ) : null}

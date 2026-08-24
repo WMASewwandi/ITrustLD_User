@@ -24,6 +24,7 @@ import {
   uploadWithdrawalProof,
   validateCashoutAccountId,
 } from "@/lib/withdrawals";
+import { rewritePublicAssetUrl } from "@/lib/api";
 import { getUserSession, hasUserSession } from "@/lib/auth";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
@@ -43,7 +44,7 @@ const fieldClass =
   "w-full rounded-xl border border-white/20 bg-[#0B1020]/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-theme-green-action/50";
 
 function MethodIcon({ type, logoUrl, name = "" }) {
-  const resolvedLogo = String(logoUrl || "").trim();
+  const resolvedLogo = rewritePublicAssetUrl(logoUrl);
   const [logoFailed, setLogoFailed] = useState(false);
 
   useEffect(() => {

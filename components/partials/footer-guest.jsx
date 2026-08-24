@@ -53,10 +53,12 @@ export default function FooterGuest() {
         aria-hidden="true"
       />
       <div className="absolute inset-0 bg-[#070B16]/70" aria-hidden="true" />
-      <div className="pointer-events-none absolute -left-16 top-10 h-72 w-72 rounded-full bg-white/10 blur-[110px]" aria-hidden="true" />
-      <div className="pointer-events-none absolute -right-20 bottom-20 h-80 w-80 rounded-full bg-theme-green-action/10 blur-[120px]" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+        <div className="absolute -left-16 top-10 h-72 w-72 rounded-full bg-white/10 blur-[110px]" />
+        <div className="absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-theme-green-action/10 blur-[120px]" />
+      </div>
 
-      <div className="relative mx-auto w-full px-4 py-12 sm:px-6 sm:py-14 lg:px-8 xl:px-12 2xl:px-16">
+      <div className="relative mx-auto w-full px-4 pb-4 pt-12 sm:px-6 sm:pb-5 sm:pt-14 lg:px-8 xl:px-12 2xl:px-16">
         <div className="grid gap-10 lg:grid-cols-[1.35fr_1.65fr] lg:items-start lg:gap-8">
           <div>
             <Link href="/" className="inline-flex items-center">
