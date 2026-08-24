@@ -311,19 +311,15 @@ html.lenis body {
 /*
  * Keep Tidio out of document flow (avoids extra space under the footer)
  * without collapsing the widget itself.
+ * Do not force `bottom` on every iframe — the closed conversation panel is a
+ * large white iframe that Tidio hides with a negative bottom. Overriding that
+ * on mobile pulls a white box onto the left of the page.
  */
 #tidio-chat,
 #tidio-chat-code {
   position: fixed !important;
   z-index: 999999 !important;
-}
-
-@media (max-width: 1023px) {
-  #tidio-chat,
-  #tidio-chat iframe,
-  iframe#tidio-chat-iframe {
-    bottom: calc(66px + env(safe-area-inset-bottom, 0px)) !important;
-  }
+  background: transparent !important;
 }
 
 @media print {

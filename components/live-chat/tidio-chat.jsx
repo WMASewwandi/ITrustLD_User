@@ -21,20 +21,34 @@ function tidioFrames() {
   ].filter((el, index, list) => el && list.indexOf(el) === index);
 }
 
+function tidioIframes() {
+  return tidioFrames().filter((el) => el.tagName === "IFRAME");
+}
+
+/** Launcher bubble is a small square; the conversation panel is a large white iframe. */
+function isTidioLauncher(el) {
+  if (!el || el.tagName !== "IFRAME") return false;
+  const w = el.offsetWidth || el.getBoundingClientRect().width;
+  const h = el.offsetHeight || el.getBoundingClientRect().height;
+  return w > 0 && h > 0 && w <= 140 && h <= 180;
+}
+
 function offsetTidioForMobileNav() {
   if (typeof window === "undefined") return;
   const wrapper = document.getElementById("tidio-chat") || document.getElementById("tidio-chat-code");
   if (wrapper) {
     wrapper.style.setProperty("position", "fixed", "important");
+    wrapper.style.setProperty("background", "transparent", "important");
   }
+
   const mobile = window.matchMedia(MOBILE_MQ).matches;
-  tidioFrames().forEach((el) => {
-    if (mobile) {
-      if (el.style.getPropertyValue("bottom") === MOBILE_NAV_OFFSET) return;
-      el.style.setProperty("bottom", MOBILE_NAV_OFFSET, "important");
-    } else if (el.style.getPropertyValue("bottom") === MOBILE_NAV_OFFSET) {
-      el.style.removeProperty("bottom");
+  tidioIframes().forEach((el) => {
+    const ours = el.style.getPropertyValue("bottom") === MOBILE_NAV_OFFSET;
+    if (mobile && isTidioLauncher(el)) {
+      if (!ours) el.style.setProperty("bottom", MOBILE_NAV_OFFSET, "important");
+      return;
     }
+    if (ours) el.style.removeProperty("bottom");
   });
 }
 
