@@ -18,9 +18,11 @@ export default function UserAppLayout({ children }) {
         <PromoTopAlert />
         <NavigationUser />
       </div>
-      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden pb-[calc(72px+env(safe-area-inset-bottom))] lg:pl-[60px] lg:pb-0 print:overflow-visible print:p-0 print:pl-0">
-        <main className="relative min-w-0 flex-1 overflow-x-hidden print:overflow-visible">{children}</main>
-        <div className="hidden lg:block print:hidden">
+      <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-x-clip lg:pl-[60px] print:overflow-visible print:p-0 print:pl-0">
+        <main className="relative min-w-0 flex-1 overflow-x-clip max-lg:pb-[calc(72px+env(safe-area-inset-bottom))] print:overflow-visible print:pb-0">
+          {children}
+        </main>
+        <div className="hidden shrink-0 lg:block print:hidden">
           <FooterGuest />
         </div>
       </div>
