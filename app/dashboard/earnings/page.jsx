@@ -593,8 +593,8 @@ export default function MyEarningsPage() {
       label: "Account ID",
       render: (row) => (
         <span className="inline-flex items-center gap-2">
-          {row.isPartner ? <PartnerClientBadge /> : null}
           <span>{row.accountId || "—"}</span>
+          {row.isPartner ? <PartnerClientBadge /> : null}
         </span>
       ),
     },
@@ -609,8 +609,8 @@ export default function MyEarningsPage() {
       label: "Account ID",
       render: (row) => (
         <span className="inline-flex items-center gap-2">
-          {row.isPartner ? <PartnerClientBadge /> : null}
           <span>{maskAccountId(row.accountId)}</span>
+          {row.isPartner ? <PartnerClientBadge /> : null}
         </span>
       ),
     },

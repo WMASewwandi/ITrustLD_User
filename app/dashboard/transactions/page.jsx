@@ -89,6 +89,11 @@ function tabToQuery(tab) {
   return tab === "Cash-out" ? "cash-out" : "top-up";
 }
 
+function buildFilterParams(filters, methodIdKey) {
+  const { page, per_page, ...params } = buildListParams(filters, 1, methodIdKey);
+  return params;
+}
+
 export default function TransactionsPage() {
   const router = useRouter();
   const pathname = usePathname();
@@ -273,16 +278,13 @@ export default function TransactionsPage() {
   }
 
   function handlePrintFiltered() {
-    const filterTemplate = criteriaToFilterTemplate(filters.criteria);
+    const exportParams =
+      tab === "Cash-out"
+        ? buildFilterParams(filters, "cashout_method_id")
+        : buildFilterParams(filters, "topup_method_id");
     router.push(
       buildPrintUrl({
-        from_date: filters.from || undefined,
-        to_date: filters.to || undefined,
-        topup_method_id: tab === "Top-up" ? filters.method || undefined : undefined,
-        cashout_method_id: tab === "Cash-out" ? filters.method || undefined : undefined,
-        filter_template: filterTemplate || undefined,
-        status: filters.status !== "All Statuses" ? filters.status : undefined,
-        search: filters.search.trim() || undefined,
+        ...exportParams,
         type: tab === "Cash-out" ? "withdrawal" : "deposit",
       }),
     );
@@ -294,10 +296,14 @@ export default function TransactionsPage() {
 
     if (type === "CSV" || type === "Excel") {
       try {
+        const exportParams =
+          tab === "Cash-out"
+            ? buildFilterParams(filters, "cashout_method_id")
+            : buildFilterParams(filters, "topup_method_id");
         const { blob, filename } =
           tab === "Cash-out"
-            ? await downloadWithdrawalTransactionsExport()
-            : await downloadDepositTransactionsExport();
+            ? await downloadWithdrawalTransactionsExport(exportParams)
+            : await downloadDepositTransactionsExport(exportParams);
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -393,7 +399,13 @@ export default function TransactionsPage() {
             <input
               type="date"
               value={filters.from}
-              onChange={(e) => setFilters((prev) => ({ ...prev, from: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  from: e.target.value,
+                  ...(e.target.value ? { criteria: "Custom" } : {}),
+                }))
+              }
               className={fieldClass}
             />
           </div>
@@ -402,7 +414,13 @@ export default function TransactionsPage() {
             <input
               type="date"
               value={filters.to}
-              onChange={(e) => setFilters((prev) => ({ ...prev, to: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  to: e.target.value,
+                  ...(e.target.value ? { criteria: "Custom" } : {}),
+                }))
+              }
               className={fieldClass}
             />
           </div>
