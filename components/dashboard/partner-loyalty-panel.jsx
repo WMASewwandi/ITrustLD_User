@@ -179,9 +179,9 @@ export default function PartnerLoyaltyPanel({
 
           <div className="mt-5 grid grid-cols-2 gap-3 rounded-xl bg-white/[0.04] px-3 py-3">
             <div className="text-center">
-              <p className="text-[11px] uppercase tracking-wide text-white/40">Days left</p>
+              <p className="text-[11px] uppercase tracking-wide text-white/40">Todays Left Points</p>
               <p className="mt-1 text-lg font-bold text-theme-orange">
-                {evaluation.days_left ?? 0}
+                {formatPoints(evaluation.todays_left_points ?? 0)}
               </p>
             </div>
             <div className="text-center">
