@@ -1,7 +1,12 @@
 "use client";
 
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
-import { formatPartnerPoints, getPartnerProgress, getTierColor } from "@/lib/loyalty";
+import {
+  formatPartnerPoints,
+  getPartnerProgress,
+  getTierColor,
+  getTierProgressReward,
+} from "@/lib/loyalty";
 
 function TierBadge({ name, active = false, compact = false }) {
   const colors = getTierColor(name);
@@ -272,8 +277,12 @@ export default function PartnerLoyaltyPanel({
                     className="flex flex-col items-center px-1 text-center"
                   >
                     <TierBadge name={tier.name} active={active || reached} compact />
-                    <p className="mt-3 w-full text-center text-[11px] font-bold uppercase leading-snug text-white">
-                      Up to {tier.pointsPerLot} points per lot
+                    <p className="mt-3 flex min-h-[2.5rem] w-full flex-col justify-start text-center text-[11px] font-bold uppercase leading-tight text-white">
+                      {getTierProgressReward(tier).map((line) => (
+                        <span key={line} className="block font-bold">
+                          {line}
+                        </span>
+                      ))}
                     </p>
                     <p className="mt-1 w-full text-center text-[10px] text-white/45">
                       {tier.levelPoints === 0

@@ -33,6 +33,7 @@ export default function LoyaltyLevels({
   showPointsHint = true,
   variant = "full",
   className = "",
+  audience = "normal",
   tiers: tiersProp = null,
 }) {
   const [loadedTiers, setLoadedTiers] = useState(
@@ -46,7 +47,7 @@ export default function LoyaltyLevels({
     }
 
     let cancelled = false;
-    fetchMembershipTiers()
+    fetchMembershipTiers({ audience })
       .then((items) => {
         if (!cancelled) setLoadedTiers(items);
       })
@@ -59,7 +60,7 @@ export default function LoyaltyLevels({
     return () => {
       cancelled = true;
     };
-  }, [tiersProp]);
+  }, [tiersProp, audience]);
 
   const tiers = tiersProp || loadedTiers;
 
