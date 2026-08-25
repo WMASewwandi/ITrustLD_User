@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { getMembershipProgress } from "@/lib/membership-tiers";
+import { getMembershipProgress, resolveCurrentLoyaltyTier } from "@/lib/membership-tiers";
 import {
   AlertCircle,
   CheckCircle2,
@@ -36,7 +36,13 @@ function formatPendingLabel(deposits, withdrawals) {
 
 export default function AccountOverview({ user, documents = [], verificationComplete = false }) {
   const points = Number(user?.trust_points) || 0;
-  const { current, next, remaining, progressPct } = getMembershipProgress(points);
+  const yearlyPoints = Number(user?.earned_for_year);
+  const progressPoints = Number.isFinite(yearlyPoints) ? yearlyPoints : points;
+  const officialTier = resolveCurrentLoyaltyTier(user, progressPoints);
+  const { current, next, remaining, progressPct } = getMembershipProgress(
+    progressPoints,
+    officialTier,
+  );
   const nextTier = next?.name || current.name;
   const progress = progressPct;
   const userType = user?.user_type === "partner" ? "partner" : "normal";

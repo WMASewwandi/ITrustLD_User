@@ -17,7 +17,7 @@ import {
   DASHBOARD_UPDATED_EVENT,
   deriveNotificationsFromUser,
 } from "@/lib/dashboard";
-import { canShowAffiliateLink, getMembershipTierByPoints } from "@/lib/membership-tiers";
+import { canShowAffiliateLink, resolveCurrentLoyaltyTier } from "@/lib/membership-tiers";
 import { useMembershipTiers } from "@/hooks/use-membership-tiers";
 import {
   ArrowDownToLine,
@@ -151,10 +151,13 @@ export default function NavigationUser() {
   const [claimsCount, setClaimsCount] = useState(0);
   const [accountId, setAccountId] = useState("");
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
+  const [loyaltyTier, setLoyaltyTier] = useState("Normal");
   const [notifications, setNotifications] = useState([]);
-  const [isPartner, setIsPartner] = useState(false);
+  const [isPartner, setIsPartner] = useState(null);
   const [affiliateCode, setAffiliateCode] = useState("");
-  const { tiers: membershipTiers } = useMembershipTiers();
+  const { tiers: membershipTiers } = useMembershipTiers(
+    isPartner == null ? null : isPartner ? "affiliate" : "normal",
+  );
 
   function syncFromSession() {
     try {
@@ -169,11 +172,12 @@ export default function NavigationUser() {
       setNotifications(deriveNotificationsFromUser(parsed));
       const partner = isPartnerUser(parsed);
       setIsPartner(partner);
-      const tierName = getMembershipTierByPoints(points).name;
+      const tierName = resolveCurrentLoyaltyTier(parsed, points);
+      setLoyaltyTier(tierName);
       const code = getUserAffiliateCode(parsed) || "";
       setAffiliateCode(canShowAffiliateLink(partner, tierName) ? code : "");
     } catch {
-      // ignore
+      setIsPartner(false);
     }
   }
 
@@ -195,6 +199,8 @@ export default function NavigationUser() {
         const summary = await fetchLoyaltySummary();
         if (!cancelled) {
           setClaimsCount(getActionableClaimsCount(summary));
+          const tierName = resolveCurrentLoyaltyTier(summary);
+          if (tierName) setLoyaltyTier(tierName);
           setAffiliateCode(
             summary.has_affiliate_link ? summary.affiliate_code || "" : "",
           );
@@ -231,6 +237,7 @@ export default function NavigationUser() {
       if (detail?.user) {
         if (detail.user.name) setUserName(detail.user.name);
         setLoyaltyPoints(Number(detail.user.trust_points) || 0);
+        setLoyaltyTier(resolveCurrentLoyaltyTier(detail.user, Number(detail.user.trust_points) || 0));
         if (detail.user.accountId) setAccountId(String(detail.user.accountId));
       }
     }
@@ -242,7 +249,6 @@ export default function NavigationUser() {
     };
   }, []);
 
-  const loyaltyTier = getMembershipTierByPoints(loyaltyPoints, membershipTiers).name;
   const loyaltyPointsLabel = loyaltyPoints.toLocaleString();
 
   useEffect(() => {
@@ -360,6 +366,7 @@ export default function NavigationUser() {
         ? createPortal(
             <>
               <nav
+                data-mobile-bottom-nav
                 className="fixed inset-x-0 bottom-0 z-[9998] border-t border-white/15 px-1 pb-[env(safe-area-inset-bottom)] lg:hidden print:hidden"
                 style={{ backgroundColor: NAV_SOLID, opacity: 1 }}
               >

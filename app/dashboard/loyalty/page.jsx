@@ -10,7 +10,7 @@ import ClaimMyBonus from "@/components/dashboard/claim-my-bonus";
 import ListFilters from "@/components/dashboard/list-filters";
 import LoyaltyLevels from "@/components/dashboard/loyalty-levels";
 import PartnerLoyaltyPanel from "@/components/dashboard/partner-loyalty-panel";
-import { hasUserSession, patchUserSessionAccountHolder } from "@/lib/auth";
+import { getUserSession, hasUserSession, isPartnerUser, patchUserSessionAccountHolder } from "@/lib/auth";
 import { inDateRange, rowMatchesSearch } from "@/lib/filter-utils";
 import {
   createLoyaltyWithdrawal,
@@ -26,7 +26,7 @@ import { fetchPaymentAccounts } from "@/lib/payment-accounts";
 import { getPartnerTiers } from "@/lib/loyalty";
 import { canShowAffiliateLink, getMembershipProgress } from "@/lib/membership-tiers";
 import { useMembershipTiers } from "@/hooks/use-membership-tiers";
-import { ChevronDown, Medal, Star, Trophy } from "lucide-react";
+import { ChevronDown, Loader2, Medal, Star, Trophy } from "lucide-react";
 
 const HISTORY_FILTER_DEFAULTS = {
   search: "",
@@ -57,7 +57,7 @@ export default function LoyaltyPage() {
   const [trustPointsForTier, setTrustPointsForTier] = useState(0);
   const [accounts, setAccounts] = useState([]);
   const [withdrawalHistory, setWithdrawalHistory] = useState([]);
-  const [isPartner, setIsPartner] = useState(false);
+  const [isPartner, setIsPartner] = useState(null);
   const [hasAffiliateLink, setHasAffiliateLink] = useState(false);
   const [affiliateCode, setAffiliateCode] = useState("");
   const [partnerTier, setPartnerTier] = useState("Normal");
@@ -69,7 +69,9 @@ export default function LoyaltyPage() {
   const [bonusClaims, setBonusClaims] = useState([]);
   const [historyFilter, setHistoryFilter] = useState(HISTORY_FILTER_DEFAULTS);
   const [expandedHistoryId, setExpandedHistoryId] = useState(null);
-  const { tiers: membershipTiers } = useMembershipTiers();
+  const benefitAudience = isPartner == null ? null : isPartner ? "affiliate" : "normal";
+  const { tiers: membershipTiers, loading: tiersLoading } = useMembershipTiers(benefitAudience);
+  const overviewReady = isPartner != null && !loading && !tiersLoading;
 
   const tierDisplay = useMemo(() => {
     if (partnerProgress?.current_tier) {
@@ -131,8 +133,8 @@ export default function LoyaltyPage() {
     });
   }, [historyFilter, withdrawalHistory]);
 
-  const loadLoyaltyData = useCallback(async () => {
-    setLoading(true);
+  const loadLoyaltyData = useCallback(async (options = {}) => {
+    if (!options.silent) setLoading(true);
     try {
       const [summaryData, accountsData, historyData, bonusClaimsData] = await Promise.all([
         fetchLoyaltySummary(),
@@ -188,6 +190,7 @@ export default function LoyaltyPage() {
       router.replace("/login");
       return;
     }
+    setIsPartner(isPartnerUser(getUserSession()));
     setPartnerTiers(getPartnerTiers());
     loadLoyaltyData();
   }, [loadLoyaltyData, router]);
@@ -305,7 +308,14 @@ export default function LoyaltyPage() {
         </div>
       </div>
 
-      {section === "overview" && isPartner ? (
+      {section === "overview" && !overviewReady ? (
+        <div className="mt-8 flex items-center justify-center gap-2 rounded-2xl border border-white/12 bg-[#0B1020]/85 px-4 py-16 text-sm text-white/50">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          Loading loyalty…
+        </div>
+      ) : null}
+
+      {section === "overview" && overviewReady && isPartner ? (
         <div className="mt-8">
           <PartnerLoyaltyPanel
             affiliateCode={showAffiliateLink ? affiliateCode : ""}
@@ -317,7 +327,7 @@ export default function LoyaltyPage() {
         </div>
       ) : null}
 
-      {section === "overview" ? (
+      {section === "overview" && overviewReady ? (
         <div
           className={`${isPartner ? "mt-2" : "mt-8"} grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,0.65fr)] lg:items-start lg:gap-6`}
         >
@@ -358,11 +368,11 @@ export default function LoyaltyPage() {
             <ClaimMyBonus
               bonusSummary={bonusSummary}
               claimHistory={bonusClaims}
-              onClaimed={() => loadLoyaltyData()}
+              onClaimed={() => loadLoyaltyData({ silent: true })}
             />
 
             {!isPartner ? (
-              <ClaimGift onClaimed={() => loadLoyaltyData()} />
+              <ClaimGift onClaimed={() => loadLoyaltyData({ silent: true })} />
             ) : null}
 
             {showAffiliateLink ? (
@@ -463,7 +473,7 @@ export default function LoyaltyPage() {
             </button>
           </aside>
         </div>
-      ) : (
+      ) : section !== "overview" ? (
         <div className="mt-8">
           <div className="flex gap-6 border-b border-white/10">
             {[
@@ -733,7 +743,7 @@ export default function LoyaltyPage() {
             </div>
           )}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

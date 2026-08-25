@@ -8,14 +8,15 @@ import { AUTH_SESSION_CHANGED_EVENT, hasUserSession } from "@/lib/auth";
 const TIDIO_KEY =
   process.env.NEXT_PUBLIC_TIDIO_KEY || "e3tkzblgnc6o2jkryjhomfcotdsnyybp";
 
-/** Sit just above the 64px mobile bottom nav. */
-const MOBILE_NAV_OFFSET = "calc(66px + env(safe-area-inset-bottom, 0px))";
 const MOBILE_MQ = "(max-width: 1023px)";
+const NAV_GAP_PX = 8;
 
 function tidioFrames() {
   return [
     document.getElementById("tidio-chat"),
+    document.getElementById("tidio-chat-code"),
     document.getElementById("tidio-chat-iframe"),
+    document.getElementById("tidio"),
     ...document.querySelectorAll("#tidio-chat iframe"),
     ...document.querySelectorAll('iframe[id*="tidio"], iframe[src*="tidio"]'),
   ].filter((el, index, list) => el && list.indexOf(el) === index);
@@ -25,12 +26,68 @@ function tidioIframes() {
   return tidioFrames().filter((el) => el.tagName === "IFRAME");
 }
 
-/** Launcher bubble is a small square; the conversation panel is a large white iframe. */
+function mobileNavClearance() {
+  const nav = document.querySelector("[data-mobile-bottom-nav]");
+  if (!nav) return 0;
+  const rect = nav.getBoundingClientRect();
+  if (rect.height < 8 || rect.width < 8) return 0;
+  return Math.max(0, Math.round(window.innerHeight - rect.top + NAV_GAP_PX));
+}
+
+function isHiddenTidioPanel(el) {
+  const style = window.getComputedStyle(el);
+  const bottom = parseFloat(style.bottom);
+  return (
+    style.display === "none" ||
+    style.visibility === "hidden" ||
+    (Number.isFinite(bottom) && bottom < -40)
+  );
+}
+
+/**
+ * Launcher / greeting chip only. Do not touch the conversation iframe —
+ * Tidio hides that panel with a negative bottom; overriding it shows a
+ * white box on the page.
+ */
 function isTidioLauncher(el) {
-  if (!el || el.tagName !== "IFRAME") return false;
+  if (!el || el.tagName !== "IFRAME" || isHiddenTidioPanel(el)) return false;
   const w = el.offsetWidth || el.getBoundingClientRect().width;
   const h = el.offsetHeight || el.getBoundingClientRect().height;
-  return w > 0 && h > 0 && w <= 140 && h <= 180;
+  return w > 0 && h > 0 && w <= 420 && h <= 240;
+}
+
+function applyLauncherOffset(el, clearancePx) {
+  const next = `${clearancePx}px`;
+  el.style.setProperty("position", "fixed", "important");
+  if (el.style.getPropertyValue("bottom") !== next) {
+    el.style.setProperty("bottom", next, "important");
+  }
+  el.dataset.itrustNavOffset = next;
+}
+
+function clearLauncherOffset(el) {
+  if (!el.dataset.itrustNavOffset) return;
+  el.style.removeProperty("bottom");
+  delete el.dataset.itrustNavOffset;
+}
+
+function applyOfficialTidioOffset(clearancePx) {
+  const api = window.tidioChatApi;
+  if (!api?.adjustStyles || clearancePx <= 0) return;
+  if (applyOfficialTidioOffset.last === clearancePx) return;
+  applyOfficialTidioOffset.last = clearancePx;
+  try {
+    api.adjustStyles(
+      `@media only screen and (max-width: 1023px) { #tidio { bottom: ${clearancePx}px !important; } }`,
+    );
+  } catch {
+    applyOfficialTidioOffset.last = undefined;
+  }
+}
+
+function overlapsMobileNav(el, navTop) {
+  const rect = el.getBoundingClientRect();
+  return rect.width > 0 && rect.height > 0 && rect.bottom > navTop + 2;
 }
 
 function offsetTidioForMobileNav() {
@@ -42,13 +99,31 @@ function offsetTidioForMobileNav() {
   }
 
   const mobile = window.matchMedia(MOBILE_MQ).matches;
+  const clearance = mobile ? mobileNavClearance() : 0;
+  const navTop = mobile ? window.innerHeight - Math.max(clearance - NAV_GAP_PX, 0) : 0;
+
+  if (clearance > 0) {
+    applyOfficialTidioOffset(clearance);
+  }
+
   tidioIframes().forEach((el) => {
-    const ours = el.style.getPropertyValue("bottom") === MOBILE_NAV_OFFSET;
-    if (mobile && isTidioLauncher(el)) {
-      if (!ours) el.style.setProperty("bottom", MOBILE_NAV_OFFSET, "important");
+    if (clearance <= 0) {
+      clearLauncherOffset(el);
       return;
     }
-    if (ours) el.style.removeProperty("bottom");
+
+    const w = el.offsetWidth || el.getBoundingClientRect().width;
+    const h = el.offsetHeight || el.getBoundingClientRect().height;
+    if ((w === 0 && h === 0) || isHiddenTidioPanel(el)) return;
+
+    // Skip the open conversation panel (large iframe). Lift the bubble if it
+    // is a launcher, or if a compact iframe is still sitting on the nav.
+    const conversation = w > 280 && h > 280;
+    if (!conversation && (isTidioLauncher(el) || overlapsMobileNav(el, navTop))) {
+      applyLauncherOffset(el, clearance);
+      return;
+    }
+    clearLauncherOffset(el);
   });
 }
 
@@ -141,11 +216,23 @@ export default function TidioChat() {
     const onReady = () => {
       applyTidioVisibility(true);
     };
+    const onTidioEvent = () => offsetTidioForMobileNav();
+
     document.addEventListener("tidioChat-ready", onReady);
     mq.addEventListener("change", onReady);
     window.addEventListener("resize", onReady);
+    window.addEventListener("orientationchange", onReady);
+    window.tidioChatApi?.on?.("ready", onTidioEvent);
+    window.tidioChatApi?.on?.("close", onTidioEvent);
 
-    const observer = new MutationObserver(() => offsetTidioForMobileNav());
+    let rafId = 0;
+    const observer = new MutationObserver(() => {
+      if (rafId) return;
+      rafId = window.requestAnimationFrame(() => {
+        rafId = 0;
+        offsetTidioForMobileNav();
+      });
+    });
     observer.observe(document.body, {
       childList: true,
       subtree: true,
@@ -153,11 +240,21 @@ export default function TidioChat() {
       attributeFilter: ["style"],
     });
 
+    let tries = 0;
+    const retry = window.setInterval(() => {
+      offsetTidioForMobileNav();
+      tries += 1;
+      if (tries >= 20) window.clearInterval(retry);
+    }, 300);
+
     return () => {
       document.removeEventListener("tidioChat-ready", onReady);
       mq.removeEventListener("change", onReady);
       window.removeEventListener("resize", onReady);
+      window.removeEventListener("orientationchange", onReady);
       observer.disconnect();
+      window.clearInterval(retry);
+      if (rafId) window.cancelAnimationFrame(rafId);
     };
   }, [shouldShow]);
 
