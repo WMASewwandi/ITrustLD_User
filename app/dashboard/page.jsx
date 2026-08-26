@@ -94,7 +94,7 @@ export default function DashboardPage() {
         verificationComplete={dashboard?.verification_complete}
       />
       <RecentTransactions transactions={dashboard?.recent_transactions} />
-      <LatestNews user={dashboard?.user} />
+      <LatestNews user={dashboard?.user} posts={dashboard?.blog_posts} />
     </>
   );
 }

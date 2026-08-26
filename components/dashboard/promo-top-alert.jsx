@@ -7,7 +7,7 @@ import { X } from "lucide-react";
 import { getUserSession, getUserToken } from "@/lib/auth";
 import { fetchActivePromotionalBanners } from "@/lib/promotional-banners";
 import { resolvePromotionAudience } from "@/lib/latest-updates";
-import { DASHBOARD_UPDATED_EVENT, fetchDashboard } from "@/lib/dashboard";
+import { DASHBOARD_UPDATED_EVENT } from "@/lib/dashboard";
 import {
   consolidateSliderBanners,
   consumePromotionScrollTarget,
@@ -91,37 +91,11 @@ export default function PromoTopAlert() {
     async function load() {
       try {
         const audience = resolvePromotionAudience(getUserSession());
-        let list = [];
-
-        if (getUserToken()) {
-          try {
-            const dash = await fetchDashboard();
-            list = bannersFromDashboard(dash);
-          } catch {
-            /* public fallback below */
-          }
-        }
-
-        // Guests always use the public API; logged-in users merge it when needed.
-        if (!getUserToken() || list.length < 2) {
-          try {
-            const [staticBanners, sliderBanners, allBanners] = await Promise.all([
-              fetchActivePromotionalBanners({ audience, displayType: "static" }),
-              fetchActivePromotionalBanners({ audience, displayType: "slider" }),
-              fetchActivePromotionalBanners({ audience, displayType: "all" }),
-            ]);
-            list = dedupeBanners([
-              ...list,
-              ...(staticBanners || []),
-              ...consolidateSliderBanners(sliderBanners || []),
-              ...consolidateSliderBanners(allBanners || []),
-            ]);
-          } catch {
-            /* keep whatever we already have */
-          }
-        }
-
-        applyList(list);
+        const allBanners = await fetchActivePromotionalBanners({
+          audience,
+          displayType: "all",
+        });
+        applyList(dedupeBanners(allBanners || []));
       } catch {
         if (!cancelled) applyList([]);
       }
