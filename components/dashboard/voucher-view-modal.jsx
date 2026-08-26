@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import GiftVoucherCard from "@/components/dashboard/gift-voucher-card";
+import GiftVoucherCard, { printGiftVoucher } from "@/components/dashboard/gift-voucher-card";
 import VoucherCountdown from "@/components/dashboard/voucher-countdown";
 import { fetchVoucherByToken } from "@/lib/loyalty-api";
 import { Printer, X } from "lucide-react";
 
 export default function VoucherViewModal({ token, open, onClose }) {
+  const voucherRef = useRef(null);
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -92,7 +93,7 @@ export default function VoucherViewModal({ token, open, onClose }) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => printGiftVoucher(voucherRef.current)}
               disabled={!data?.voucher}
               className="inline-flex items-center gap-1.5 rounded-lg bg-theme-green-action px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110 disabled:opacity-40 sm:text-sm"
             >
@@ -120,7 +121,11 @@ export default function VoucherViewModal({ token, open, onClose }) {
               <p className="text-sm font-medium text-theme-red-action">{error}</p>
             </div>
           ) : (
-            <GiftVoucherCard voucher={data?.voucher} accountHolder={data?.account_holder} />
+            <GiftVoucherCard
+              ref={voucherRef}
+              voucher={data?.voucher}
+              accountHolder={data?.account_holder}
+            />
           )}
         </div>
       </div>

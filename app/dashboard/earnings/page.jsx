@@ -13,7 +13,7 @@ import VoucherCountdown from "@/components/dashboard/voucher-countdown";
 import VoucherViewModal from "@/components/dashboard/voucher-view-modal";
 import { notifyClaimsUpdated } from "@/lib/earnings";
 import { inDateRange, matchesPeriod, rowMatchesSearch } from "@/lib/filter-utils";
-import { formatPartnerPoints, getTierColor } from "@/lib/loyalty";
+import { formatPartnerPoints, formatTierProgressReward, getTierColor } from "@/lib/loyalty";
 import {
   fetchBonusClaims,
   fetchGiftClaims,
@@ -767,7 +767,7 @@ export default function MyEarningsPage() {
                           USD {earningsUsd}
                         </p>
                         <p className="mt-1 text-sm text-white/45">
-                          {formatPartnerPoints(periodPoints)} level points · up to {pointsPerLot} pts/lot
+                          {formatPartnerPoints(periodPoints)} level points · {formatTierProgressReward({ name: currentTier })}
                         </p>
                         {rateLabel ? <p className="mt-1 text-xs text-white/35">{rateLabel}</p> : null}
                       </div>
