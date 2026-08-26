@@ -83,12 +83,22 @@ function NewsDetailModal({ post, onClose }) {
   );
 }
 
-export default function LatestNews({ user: _user }) {
+export default function LatestNews({ user: _user, posts: initialPosts }) {
   const [activePost, setActivePost] = useState(null);
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState(() =>
+    Array.isArray(initialPosts) && initialPosts.length
+      ? initialPosts.map((post) => mapToDashboardNewsItem(mapBlogToUpdateItem(post)))
+      : [],
+  );
+  const [loading, setLoading] = useState(!(Array.isArray(initialPosts) && initialPosts.length));
 
   useEffect(() => {
+    if (Array.isArray(initialPosts) && initialPosts.length) {
+      setItems(initialPosts.map((post) => mapToDashboardNewsItem(mapBlogToUpdateItem(post))));
+      setLoading(false);
+      return undefined;
+    }
+
     let cancelled = false;
 
     async function load() {
@@ -109,7 +119,7 @@ export default function LatestNews({ user: _user }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [initialPosts]);
 
   return (
     <>
