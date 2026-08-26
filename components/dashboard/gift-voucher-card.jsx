@@ -1,5 +1,33 @@
 "use client";
 
+import { forwardRef } from "react";
+
+export function printGiftVoucher(voucherEl) {
+  if (!voucherEl || typeof window === "undefined") return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "voucher-print-overlay";
+  overlay.appendChild(voucherEl.cloneNode(true));
+  document.body.appendChild(overlay);
+  document.body.classList.add("printing-voucher");
+
+  const pageStyle = document.createElement("style");
+  pageStyle.setAttribute("data-voucher-print", "true");
+  pageStyle.textContent = "@media print { @page { size: landscape; margin: 8mm; } }";
+  document.head.appendChild(pageStyle);
+
+  const cleanup = () => {
+    document.body.classList.remove("printing-voucher");
+    overlay.remove();
+    pageStyle.remove();
+    window.removeEventListener("afterprint", cleanup);
+  };
+
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+  window.setTimeout(cleanup, 2000);
+}
+
 // Prefer local copies under /public/assets/img (mirrors Laravel assets).
 // Override with NEXT_PUBLIC_VOUCHER_ASSET_BASE if serving from another host.
 const VOUCHER_ASSET_BASE = (process.env.NEXT_PUBLIC_VOUCHER_ASSET_BASE || "/assets/img").replace(
@@ -23,7 +51,10 @@ function parseAmount(value) {
 /**
  * Matches Laravel `loyalty-client-bonus-voucher.blade.php` layout.
  */
-export default function GiftVoucherCard({ voucher, accountHolder, className = "" }) {
+const GiftVoucherCard = forwardRef(function GiftVoucherCard(
+  { voucher, accountHolder, className = "" },
+  ref,
+) {
   const amount = parseAmount(voucher?.amount ?? voucher?.amount_display);
   const amountLabel = Number.isInteger(amount) ? String(amount) : amount.toFixed(0);
   const platformId = voucher?.platform_id || voucher?.platformId || "—";
@@ -34,11 +65,12 @@ export default function GiftVoucherCard({ voucher, accountHolder, className = ""
 
   return (
     <article
-      className={`w-full overflow-hidden border border-black bg-white text-[#0B1020] shadow-md ${className}`}
+      ref={ref}
+      className={`voucher-print-target w-full overflow-hidden border border-black bg-white text-[#0B1020] shadow-md ${className}`}
     >
-      <div className="flex min-w-[720px] flex-nowrap md:min-w-0">
+      <div className="voucher-print-row flex min-w-[720px] flex-nowrap md:min-w-0">
         {/* Left — same structure as Laravel */}
-        <div className="relative w-2/5 min-h-[420px] bg-[#0B1B4D] md:min-h-[520px] lg:h-[650px] lg:max-h-[650px]">
+        <div className="voucher-print-col relative w-2/5 min-h-[420px] bg-[#0B1B4D] md:min-h-[520px] lg:h-[650px] lg:max-h-[650px]">
           <img
             src={LEFT_BG}
             alt=""
@@ -72,7 +104,7 @@ export default function GiftVoucherCard({ voucher, accountHolder, className = ""
         </div>
 
         {/* Right — same structure as Laravel */}
-        <div className="flex w-3/5 min-h-[420px] flex-col md:min-h-[520px] lg:h-[650px] lg:max-h-[650px]">
+        <div className="voucher-print-col flex w-3/5 min-h-[420px] flex-col md:min-h-[520px] lg:h-[650px] lg:max-h-[650px]">
           <img src={TOP_RIGHT} alt="" className="ml-auto h-auto w-auto max-w-[45%]" />
           <img src={GIFT_TITLE} alt="Gift voucher" className="ml-5 mt-1 h-auto w-1/2" />
           <p className="px-4 py-4 text-sm font-medium text-[#0B1020] lg:px-6 lg:py-6 lg:text-base">
@@ -102,4 +134,6 @@ export default function GiftVoucherCard({ voucher, accountHolder, className = ""
       </div>
     </article>
   );
-}
+});
+
+export default GiftVoucherCard;

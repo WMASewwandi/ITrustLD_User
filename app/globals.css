@@ -334,4 +334,42 @@ html.lenis body {
     opacity: 0 !important;
     pointer-events: none !important;
   }
+
+  body.printing-voucher {
+    background: #fff !important;
+    height: auto !important;
+    overflow: hidden !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.printing-voucher > *:not(.voucher-print-overlay) {
+    display: none !important;
+  }
+
+  body.printing-voucher .voucher-print-overlay {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body.printing-voucher .voucher-print-target {
+    box-shadow: none !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    page-break-after: avoid;
+  }
+
+  body.printing-voucher .voucher-print-row {
+    min-width: 0 !important;
+  }
+
+  body.printing-voucher .voucher-print-col {
+    min-height: 0 !important;
+    height: 170mm !important;
+    max-height: 170mm !important;
+  }
 }

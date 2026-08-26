@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import GiftVoucherCard from "@/components/dashboard/gift-voucher-card";
+import GiftVoucherCard, { printGiftVoucher } from "@/components/dashboard/gift-voucher-card";
 import { fetchVoucherByToken } from "@/lib/loyalty-api";
 import { hasUserSession } from "@/lib/auth";
 import { ArrowLeft, Printer } from "lucide-react";
@@ -12,6 +12,7 @@ export default function ClientBonusVoucherPage() {
   const router = useRouter();
   const params = useParams();
   const token = String(params?.token || "");
+  const voucherRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [data, setData] = useState(null);
@@ -66,7 +67,7 @@ export default function ClientBonusVoucherPage() {
         </Link>
         <button
           type="button"
-          onClick={() => window.print()}
+          onClick={() => printGiftVoucher(voucherRef.current)}
           disabled={!data?.voucher}
           className="inline-flex items-center gap-2 rounded-xl bg-theme-green-action px-4 py-2.5 text-sm font-semibold text-white hover:brightness-110 disabled:opacity-40"
         >
@@ -84,7 +85,11 @@ export default function ClientBonusVoucherPage() {
           <p className="text-sm font-medium text-theme-red-action">{error}</p>
         </div>
       ) : (
-        <GiftVoucherCard voucher={data?.voucher} accountHolder={data?.account_holder} />
+        <GiftVoucherCard
+          ref={voucherRef}
+          voucher={data?.voucher}
+          accountHolder={data?.account_holder}
+        />
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import {
   formatPartnerPoints,
   getPartnerProgress,
   getTierColor,
+  formatTierProgressReward,
   getTierProgressReward,
 } from "@/lib/loyalty";
 
@@ -52,7 +53,6 @@ export default function PartnerLoyaltyPanel({
   );
 
   const displayProgressPct = Number(partnerProgress?.progress_percentage ?? progressPct) || 0;
-  const pointsPerLot = partnerProgress?.points_per_lot ?? current?.pointsPerLot ?? 20;
   const pointsToNext = Number(partnerProgress?.points_to_next ?? remaining) || 0;
   const tierTarget = Number(partnerProgress?.tier_target ?? required) || required;
 
@@ -122,10 +122,14 @@ export default function PartnerLoyaltyPanel({
           <div className="flex flex-wrap items-center gap-3">
             <TierBadge name={current?.name || resolvedTier || "Normal"} active />
             <div>
-              <p className="text-xs uppercase tracking-wide text-white/45">Currently earning up to</p>
-              <p className="mt-1 text-2xl font-bold text-theme-green-action sm:text-3xl">
-                {pointsPerLot} points per lot
-              </p>
+              {getTierProgressReward(current).map((line) => (
+                <p
+                  key={line}
+                  className="text-xl font-bold uppercase leading-tight text-theme-green-action sm:text-2xl"
+                >
+                  {line}
+                </p>
+              ))}
             </div>
           </div>
           <dl className="mt-5 space-y-2.5 text-sm">
@@ -366,8 +370,7 @@ export default function PartnerLoyaltyPanel({
         </div>
         {next ? (
           <p className="mt-4 text-xs text-white/40">
-            Next target: {next.name} at {formatPoints(tierTarget)} level points ({next.pointsPerLot}{" "}
-            points per lot).
+            Next target: {next.name} — {formatTierProgressReward(next)}
           </p>
         ) : null}
       </section>
