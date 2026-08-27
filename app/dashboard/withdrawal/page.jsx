@@ -21,6 +21,8 @@ import {
   fetchWithdrawalPaymentProofContext,
   findWithdrawalRate,
   multiplyAndRound,
+  parseMoneyInput,
+  toPositiveRate,
   uploadWithdrawalProof,
   validateCashoutAccountId,
 } from "@/lib/withdrawals";
@@ -245,7 +247,7 @@ export default function WithdrawalPage() {
   const [methodDetails, setMethodDetails] = useState(null);
   const [proofContext, setProofContext] = useState(null);
 
-  const [amount, setAmount] = useState("100.00");
+  const [amount, setAmount] = useState("");
   const [cashoutCurrency] = useState("USD");
   const [methodId, setMethodId] = useState(null);
   const [paymentOptionId, setPaymentOptionId] = useState(null);
@@ -304,6 +306,19 @@ export default function WithdrawalPage() {
     selectedPaymentOption?.currency || methodDetails?.initial_receiving_currency || "LKR";
   const canSwitchToReceivingCurrency = receivingCurrency !== "USD";
   const editingCashoutAmount = currencySwitch === cashoutCurrency;
+  const rateValue = toPositiveRate(selectedRate?.rate);
+
+  const converted = useMemo(() => {
+    if (!rateValue) return { cashout: 0, receiving: 0 };
+    if (editingCashoutAmount) {
+      const cashoutValue = parseMoneyInput(amount);
+      if (cashoutValue <= 0) return { cashout: 0, receiving: 0 };
+      return { cashout: cashoutValue, receiving: multiplyAndRound(cashoutValue, rateValue) };
+    }
+    const receivingValue = parseMoneyInput(receivingAmount);
+    if (receivingValue <= 0) return { cashout: 0, receiving: 0 };
+    return { cashout: divideAndRound(receivingValue, rateValue), receiving: receivingValue };
+  }, [amount, editingCashoutAmount, rateValue, receivingAmount]);
 
   const rateDate = formatRateDate();
 
@@ -325,8 +340,6 @@ export default function WithdrawalPage() {
           return;
         }
         setBootstrap(data);
-        if (data.recent_amounts?.[0]) setAmount(data.recent_amounts[0]);
-        if (data.cashout_methods?.[0]) setMethodId(data.cashout_methods[0].id);
       } catch (err) {
         if (!cancelled) {
           if (err.status === 403) {
@@ -351,20 +364,17 @@ export default function WithdrawalPage() {
     };
   }, [slipPreview]);
 
-  useEffect(() => {
-    if (!methodDetails || !selectedRate || !paymentOptionId) return;
-
-    const cashoutValue = Number(amount);
-    if (!Number.isFinite(cashoutValue) || cashoutValue <= 0) return;
-
-    if (editingCashoutAmount) {
-      setReceivingAmount(String(multiplyAndRound(cashoutValue, selectedRate.rate)));
-    } else {
-      const receivingValue = Number(receivingAmount);
-      if (!Number.isFinite(receivingValue) || receivingValue <= 0) return;
-      setAmount(String(divideAndRound(receivingValue, selectedRate.rate)));
+  function handleCurrencySwitch(nextCurrency) {
+    const next = String(nextCurrency || "");
+    if (next === currencySwitch) return;
+    if (next === cashoutCurrency) {
+      if (converted.cashout > 0) setAmount(String(converted.cashout));
+    } else if (converted.receiving > 0) {
+      setReceivingAmount(String(converted.receiving));
     }
-  }, [amount, editingCashoutAmount, methodDetails, paymentOptionId, receivingAmount, selectedRate]);
+    setCurrencySwitch(next);
+    setErrors((prev) => ({ ...prev, amount: undefined, receivingAmount: undefined }));
+  }
 
   function scrollToPageTop() {
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
@@ -433,19 +443,9 @@ export default function WithdrawalPage() {
     setErrors((prev) => ({ ...prev, slip: undefined }));
   }
 
-  function validateStep1() {
+  function validateStep1(nextMethodId = methodId) {
     const next = {};
-    const amt = String(amount || "").trim();
-    const method = bootstrap?.cashout_methods?.find((m) => m.id === methodId);
-    if (!/^\d+(\.\d+)?$/.test(amt)) {
-      next.amount = "Only numeric characters are allowed.";
-    } else if (method) {
-      const n = Number(amt);
-      if (n < method.minLimit || n > method.maxLimit) {
-        next.amount = `Amount must be between USD ${method.minLimit.toLocaleString()} and USD ${method.maxLimit.toLocaleString()}.`;
-      }
-    }
-    if (!methodId) next.method = "Select a cash-out method to continue.";
+    if (!nextMethodId) next.method = "Select a cash-out method to continue.";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -456,8 +456,10 @@ export default function WithdrawalPage() {
     if (accountError) next.cashoutAccountId = accountError;
     if (!paymentOptionId) next.paymentOption = "Select a receiving payment option.";
 
-    const cashoutValue = Number(amount);
-    if (!Number.isFinite(cashoutValue) || cashoutValue <= 0) {
+    const cashoutValue = converted.cashout;
+    if (!rateValue) {
+      next.paymentOption = "No rate is available for the selected payment option.";
+    } else if (cashoutValue <= 0) {
       next.amount = "Please enter a valid cash-out amount.";
     } else if (cashoutMethod) {
       if (cashoutValue < cashoutMethod.minLimit || cashoutValue > cashoutMethod.maxLimit) {
@@ -465,8 +467,7 @@ export default function WithdrawalPage() {
       }
     }
 
-    const recvValue = Number(receivingAmount);
-    if (!Number.isFinite(recvValue) || recvValue <= 0) {
+    if (converted.receiving <= 0) {
       next.receivingAmount = "Please enter a valid receiving amount.";
     }
 
@@ -500,20 +501,27 @@ export default function WithdrawalPage() {
     }
   }
 
+  async function proceedWithMethod(nextMethodId) {
+    if (busy) return;
+    if (!validateStep1(nextMethodId)) return;
+    setMethodId(nextMethodId);
+    setPageError("");
+    setBusy(true);
+    try {
+      await loadMethodDetails(nextMethodId);
+      setStep(2);
+      setErrors({});
+    } catch (err) {
+      setPageError(err.message || "Failed to load cash-out details.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function goNext() {
     setPageError("");
     if (step === 1) {
-      if (!validateStep1()) return;
-      setBusy(true);
-      try {
-        await loadMethodDetails();
-        setStep(2);
-        setErrors({});
-      } catch (err) {
-        setPageError(err.message || "Failed to load cash-out details.");
-      } finally {
-        setBusy(false);
-      }
+      await proceedWithMethod(methodId);
       return;
     }
 
@@ -524,9 +532,9 @@ export default function WithdrawalPage() {
         const created = await createWithdrawal({
           receiving_payment_option_id: paymentOptionId,
           cashout_amount_currency: cashoutCurrency,
-          cashout_amount: Number(amount),
+          cashout_amount: converted.cashout,
           receiving_amount_currency: receivingCurrency,
-          receiving_amount: Number(receivingAmount),
+          receiving_amount: converted.receiving,
           cashout_method_id: methodId,
           receiving_payment_option_rate: selectedRate.rate,
           receiving_payment_option_rate_id: selectedRate.id,
@@ -593,12 +601,14 @@ export default function WithdrawalPage() {
   function handlePaymentOptionChange(nextId) {
     const option = methodDetails?.payment_options?.find((opt) => opt.id === Number(nextId));
     const rate = findWithdrawalRate(methodDetails?.withdrawal_rates, methodId, Number(nextId));
+    const nextRate = toPositiveRate(rate?.rate);
     setPaymentOptionId(Number(nextId));
     if (option?.currency && option.currency !== "USD") {
       setCurrencySwitch(cashoutCurrency);
     }
-    if (rate && Number(amount) > 0) {
-      setReceivingAmount(String(multiplyAndRound(Number(amount), rate.rate)));
+    const cashoutValue = parseMoneyInput(amount) || converted.cashout;
+    if (nextRate && cashoutValue > 0) {
+      setReceivingAmount(String(multiplyAndRound(cashoutValue, nextRate)));
     }
   }
 
@@ -630,7 +640,7 @@ export default function WithdrawalPage() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white sm:text-4xl">Cash-out</h1>
             <p className="mt-2 text-sm text-white/50 sm:text-base">
-              Select a cash-out method and amount from below to proceed.
+              Choose a cash-out method to continue. Amount can be entered on the next step.
             </p>
           </div>
 
@@ -705,18 +715,16 @@ export default function WithdrawalPage() {
                       key={m.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => {
-                        setMethodId(m.id);
-                        setErrors((prev) => ({ ...prev, method: undefined }));
-                      }}
+                      onClick={() => proceedWithMethod(m.id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setMethodId(m.id);
-                          setErrors((prev) => ({ ...prev, method: undefined }));
+                          proceedWithMethod(m.id);
                         }
                       }}
                       className={`relative flex cursor-pointer flex-col items-center gap-3 rounded-2xl border px-4 py-6 text-center transition ${
+                        busy ? "pointer-events-none opacity-60" : ""
+                      } ${
                         active
                           ? "border-theme-green-action/50 bg-theme-green-action/10"
                           : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
@@ -736,7 +744,6 @@ export default function WithdrawalPage() {
             </section>
           </div>
 
-          <FlowActions onNext={goNext} busy={busy} />
         </>
       ) : null}
 
@@ -818,7 +825,7 @@ export default function WithdrawalPage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <select
                       value={currencySwitch}
-                      onChange={(e) => setCurrencySwitch(e.target.value)}
+                      onChange={(e) => handleCurrencySwitch(e.target.value)}
                       className={fieldClass}
                     >
                       <option value={cashoutCurrency} className="bg-[#141A2E]">
@@ -886,14 +893,14 @@ export default function WithdrawalPage() {
                   <p className="text-sm text-white/50">Receiving Amount</p>
                   <p className="mt-1 text-3xl font-bold text-theme-green-action">
                     {receivingCurrency}{" "}
-                    {Number(receivingAmount || 0).toLocaleString(undefined, {
+                    {Number(converted.receiving || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
                   </p>
                   <p className="mt-1 text-sm text-white/45">
                     Cash-out: {cashoutCurrency}{" "}
-                    {Number(amount || 0).toLocaleString(undefined, {
+                    {Number(converted.cashout || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -908,7 +915,7 @@ export default function WithdrawalPage() {
                   <div className="mt-4 flex items-center gap-3">
                     <ArrowLeftRight className="h-5 w-5 text-theme-green-shaded" />
                     <p className="text-2xl font-bold text-white">
-                      {receivingCurrency} {selectedRate?.rate?.toFixed?.(2) ?? "—"}
+                      {receivingCurrency} {rateValue ? rateValue.toFixed(2) : "—"}
                     </p>
                   </div>
                 </div>

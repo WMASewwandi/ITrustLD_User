@@ -14,6 +14,8 @@ import {
   fetchDepositPaymentProofContext,
   findDepositRate,
   multiplyAndRound,
+  parseMoneyInput,
+  toPositiveRate,
   topupAccountPlaceholder,
   topupMethodIconKey,
   uploadDepositProof,
@@ -230,14 +232,13 @@ export default function DepositPage() {
   const [methodDetails, setMethodDetails] = useState(null);
   const [proofContext, setProofContext] = useState(null);
 
-  const [amount, setAmount] = useState("100.00");
+  const [amount, setAmount] = useState("");
   const [depositCurrency, setDepositCurrency] = useState("USD");
   const [methodId, setMethodId] = useState(null);
   const [paymentOptionId, setPaymentOptionId] = useState(null);
   const [currencySwitch, setCurrencySwitch] = useState("USD");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [topupAccountId, setTopupAccountId] = useState("");
-  const [commissionNote, setCommissionNote] = useState("");
 
   const [depositId, setDepositId] = useState(null);
   const [transactionId, setTransactionId] = useState("");
@@ -287,6 +288,39 @@ export default function DepositPage() {
   const paymentCurrency = selectedPaymentOption?.currency || methodDetails?.initial_payment_currency || "LKR";
   const canSwitchToPaymentCurrency = paymentCurrency !== "USD";
   const editingDepositAmount = currencySwitch === depositCurrency;
+  const rateValue = toPositiveRate(selectedRate?.rate);
+  const isCardPayment = String(selectedPaymentOption?.name || "").toLowerCase() === "card payment";
+
+  const converted = useMemo(() => {
+    if (!rateValue) return { deposit: 0, payment: 0, note: "" };
+
+    if (editingDepositAmount) {
+      const depositValue = parseMoneyInput(amount);
+      if (depositValue <= 0) return { deposit: 0, payment: 0, note: "" };
+      let payment = multiplyAndRound(depositValue, rateValue);
+      let note = "";
+      if (isCardPayment) {
+        payment = multiplyAndRound(payment, 1.03);
+        note = "+3% commission";
+      }
+      return { deposit: depositValue, payment, note };
+    }
+
+    const paymentValue = parseMoneyInput(paymentAmount);
+    if (paymentValue <= 0) return { deposit: 0, payment: 0, note: "" };
+    if (isCardPayment) {
+      return {
+        deposit: divideAndRound(multiplyAndRound(paymentValue, 0.97), rateValue),
+        payment: paymentValue,
+        note: "+3% commission",
+      };
+    }
+    return {
+      deposit: divideAndRound(paymentValue, rateValue),
+      payment: paymentValue,
+      note: "",
+    };
+  }, [amount, editingDepositAmount, isCardPayment, paymentAmount, rateValue]);
 
   const rateDate = formatRateDate();
 
@@ -308,8 +342,6 @@ export default function DepositPage() {
           return;
         }
         setBootstrap(data);
-        if (data.recent_amounts?.[0]) setAmount(data.recent_amounts[0]);
-        if (data.topup_methods?.[0]) setMethodId(data.topup_methods[0].id);
       } catch (err) {
         if (!cancelled) {
           if (err.status === 403) {
@@ -334,48 +366,17 @@ export default function DepositPage() {
     };
   }, [slipPreview]);
 
-  useEffect(() => {
-    if (!methodDetails || !selectedRate || !paymentOptionId) return;
-
-    const depositValue = Number(amount);
-    if (!Number.isFinite(depositValue) || depositValue <= 0) return;
-
-    const paymentOptionName = selectedPaymentOption?.name || "";
-    const isCard = paymentOptionName.toLowerCase() === "card payment";
-    let nextDeposit = depositValue;
-    let nextPayment = multiplyAndRound(depositValue, selectedRate.rate);
-    let note = "";
-
-    if (editingDepositAmount) {
-      if (isCard) {
-        nextPayment = multiplyAndRound(nextPayment, 1.03);
-        note = "+3% commission";
-      }
-    } else {
-      const paymentValue = Number(paymentAmount);
-      if (!Number.isFinite(paymentValue) || paymentValue <= 0) return;
-      nextPayment = paymentValue;
-      if (isCard) {
-        const deducted = multiplyAndRound(paymentValue, 0.97);
-        nextDeposit = divideAndRound(deducted, selectedRate.rate);
-        note = "+3% commission";
-      } else {
-        nextDeposit = divideAndRound(paymentValue, selectedRate.rate);
-      }
-      setAmount(String(nextDeposit));
+  function handleCurrencySwitch(nextCurrency) {
+    const next = String(nextCurrency || "");
+    if (next === currencySwitch) return;
+    if (next === depositCurrency) {
+      if (converted.deposit > 0) setAmount(String(converted.deposit));
+    } else if (converted.payment > 0) {
+      setPaymentAmount(String(converted.payment));
     }
-
-    setPaymentAmount(String(nextPayment));
-    setCommissionNote(note);
-  }, [
-    amount,
-    editingDepositAmount,
-    methodDetails,
-    paymentAmount,
-    paymentOptionId,
-    selectedPaymentOption,
-    selectedRate,
-  ]);
+    setCurrencySwitch(next);
+    setErrors((prev) => ({ ...prev, amount: undefined, paymentAmount: undefined }));
+  }
 
   function scrollToPageTop() {
     if (typeof document !== "undefined" && document.activeElement instanceof HTMLElement) {
@@ -444,19 +445,9 @@ export default function DepositPage() {
     setErrors((prev) => ({ ...prev, slip: undefined }));
   }
 
-  function validateStep1() {
+  function validateStep1(nextMethodId = methodId) {
     const next = {};
-    const amt = String(amount || "").trim();
-    const method = bootstrap?.topup_methods?.find((m) => m.id === methodId);
-    if (!/^\d+(\.\d+)?$/.test(amt)) {
-      next.amount = "Only numeric characters are allowed.";
-    } else if (method) {
-      const n = Number(amt);
-      if (n < method.minLimit || n > method.maxLimit) {
-        next.amount = `Amount must be between USD ${method.minLimit.toLocaleString()} and USD ${method.maxLimit.toLocaleString()}.`;
-      }
-    }
-    if (!methodId) next.method = "Select a top-up method to continue.";
+    if (!nextMethodId) next.method = "Select a top-up method to continue.";
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -467,8 +458,10 @@ export default function DepositPage() {
     if (accountError) next.topupAccountId = accountError;
     if (!paymentOptionId) next.paymentOption = "Select a payment option.";
 
-    const depositValue = Number(amount);
-    if (!Number.isFinite(depositValue) || depositValue <= 0) {
+    const depositValue = converted.deposit;
+    if (!rateValue) {
+      next.paymentOption = "No rate is available for the selected payment option.";
+    } else if (depositValue <= 0) {
       next.amount = "Please enter a valid deposit amount.";
     } else if (topupMethod) {
       if (depositValue < topupMethod.minLimit || depositValue > topupMethod.maxLimit) {
@@ -476,8 +469,7 @@ export default function DepositPage() {
       }
     }
 
-    const payValue = Number(paymentAmount);
-    if (!Number.isFinite(payValue) || payValue <= 0) {
+    if (converted.payment <= 0) {
       next.paymentAmount = "Please enter a valid payment amount.";
     }
 
@@ -510,20 +502,27 @@ export default function DepositPage() {
     }
   }
 
+  async function proceedWithMethod(nextMethodId) {
+    if (busy) return;
+    if (!validateStep1(nextMethodId)) return;
+    setMethodId(nextMethodId);
+    setPageError("");
+    setBusy(true);
+    try {
+      await loadMethodDetails(nextMethodId);
+      setStep(2);
+      setErrors({});
+    } catch (err) {
+      setPageError(err.message || "Failed to load deposit details.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function goNext() {
     setPageError("");
     if (step === 1) {
-      if (!validateStep1()) return;
-      setBusy(true);
-      try {
-        await loadMethodDetails();
-        setStep(2);
-        setErrors({});
-      } catch (err) {
-        setPageError(err.message || "Failed to load deposit details.");
-      } finally {
-        setBusy(false);
-      }
+      await proceedWithMethod(methodId);
       return;
     }
 
@@ -534,9 +533,9 @@ export default function DepositPage() {
         const created = await createDeposit({
           payment_option_id: paymentOptionId,
           deposit_amount_currency: depositCurrency,
-          deposit_amount: Number(amount),
+          deposit_amount: converted.deposit,
           payment_amount_currency: paymentCurrency,
-          payment_amount: Number(paymentAmount),
+          payment_amount: converted.payment,
           topup_method_id: methodId,
           payment_option_rate: selectedRate.rate,
           payment_option_rate_id: selectedRate.id,
@@ -593,13 +592,14 @@ export default function DepositPage() {
   function handlePaymentOptionChange(nextId) {
     const option = methodDetails?.payment_options?.find((opt) => opt.id === Number(nextId));
     const rate = findDepositRate(methodDetails?.deposit_rates, methodId, Number(nextId));
+    const nextRate = toPositiveRate(rate?.rate);
     setPaymentOptionId(Number(nextId));
-    setCommissionNote("");
     if (option?.currency && option.currency !== "USD") {
       setCurrencySwitch(depositCurrency);
     }
-    if (rate && Number(amount) > 0) {
-      setPaymentAmount(String(multiplyAndRound(Number(amount), rate.rate)));
+    const depositValue = parseMoneyInput(amount) || converted.deposit;
+    if (nextRate && depositValue > 0) {
+      setPaymentAmount(String(multiplyAndRound(depositValue, nextRate)));
     }
   }
 
@@ -631,7 +631,7 @@ export default function DepositPage() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-white sm:text-4xl">Top-up</h1>
             <p className="mt-2 text-sm text-white/50 sm:text-base">
-              Select a top-up method and amount from below to proceed.
+              Choose a top-up method to continue. Amount can be entered on the next step.
             </p>
           </div>
 
@@ -706,18 +706,16 @@ export default function DepositPage() {
                       key={m.id}
                       role="button"
                       tabIndex={0}
-                      onClick={() => {
-                        setMethodId(m.id);
-                        setErrors((prev) => ({ ...prev, method: undefined }));
-                      }}
+                      onClick={() => proceedWithMethod(m.id)}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
-                          setMethodId(m.id);
-                          setErrors((prev) => ({ ...prev, method: undefined }));
+                          proceedWithMethod(m.id);
                         }
                       }}
                       className={`relative flex cursor-pointer flex-col items-center gap-3 rounded-2xl border px-4 py-6 text-center transition ${
+                        busy ? "pointer-events-none opacity-60" : ""
+                      } ${
                         active
                           ? "border-theme-green-action/50 bg-theme-green-action/10"
                           : "border-white/10 bg-white/[0.03] hover:border-white/20 hover:bg-white/[0.05]"
@@ -737,7 +735,6 @@ export default function DepositPage() {
             </section>
           </div>
 
-          <FlowActions onNext={goNext} busy={busy} />
         </>
       ) : null}
 
@@ -805,8 +802,8 @@ export default function DepositPage() {
                       </option>
                     ))}
                   </select>
-                  {commissionNote ? (
-                    <p className="mt-2 text-xs text-theme-red-action">{commissionNote}</p>
+                  {converted.note ? (
+                    <p className="mt-2 text-xs text-theme-red-action">{converted.note}</p>
                   ) : null}
                   {errors.paymentOption ? (
                     <p className="mt-2 text-xs text-theme-red-action">{errors.paymentOption}</p>
@@ -820,7 +817,7 @@ export default function DepositPage() {
                   <div className="grid gap-3 sm:grid-cols-2">
                     <select
                       value={currencySwitch}
-                      onChange={(e) => setCurrencySwitch(e.target.value)}
+                      onChange={(e) => handleCurrencySwitch(e.target.value)}
                       className={fieldClass}
                     >
                       <option value={depositCurrency} className="bg-[#141A2E]">
@@ -886,14 +883,14 @@ export default function DepositPage() {
                   <p className="text-sm text-white/50">Payment Amount</p>
                   <p className="mt-1 text-3xl font-bold text-theme-green-action">
                     {paymentCurrency}{" "}
-                    {Number(paymentAmount || 0).toLocaleString(undefined, {
+                    {Number(converted.payment || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
                   </p>
                   <p className="mt-1 text-sm text-white/45">
                     Deposit: {depositCurrency}{" "}
-                    {Number(amount || 0).toLocaleString(undefined, {
+                    {Number(converted.deposit || 0).toLocaleString(undefined, {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
                     })}
@@ -908,7 +905,7 @@ export default function DepositPage() {
                   <div className="mt-4 flex items-center gap-3">
                     <ArrowLeftRight className="h-5 w-5 text-theme-green-shaded" />
                     <p className="text-2xl font-bold text-white">
-                      {paymentCurrency} {selectedRate?.rate?.toFixed?.(2) ?? "—"}
+                      {paymentCurrency} {rateValue ? rateValue.toFixed(2) : "—"}
                     </p>
                   </div>
                 </div>
