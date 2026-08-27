@@ -36,12 +36,22 @@ export default function FooterUser() {
         </div>
 
         <div className="mt-6 flex items-center justify-center gap-4">
-          {[Facebook, Send, Youtube].map((Icon, i) => (
+          {[
+            { Icon: Facebook, href: "https://facebook.com/SNXcompany", label: "Facebook" },
+            { Icon: Send, href: "https://whatsapp.com/channel/0029Va4BZjl47Xe8lo429m2K", label: "WhatsApp" },
+            {
+              Icon: Youtube,
+              href: "https://youtube.com/@itrustld_official?si=35nXu8mTQM__7ZF",
+              label: "YouTube",
+            },
+          ].map(({ Icon, href, label }) => (
             <a
-              key={i}
-              href="#"
+              key={label}
+              href={href}
+              target="_blank"
+              rel="noreferrer"
               className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 text-white/50 transition hover:border-white/25 hover:text-white"
-              aria-label="Social link"
+              aria-label={label}
             >
               <Icon className="h-4 w-4" />
             </a>
