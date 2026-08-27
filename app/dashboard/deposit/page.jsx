@@ -1059,6 +1059,13 @@ export default function DepositPage() {
                     setTransactionId("");
                     setProofContext(null);
                     setMethodDetails(null);
+                    setMethodId(null);
+                    setPaymentOptionId(null);
+                    setAmount("");
+                    setPaymentAmount("");
+                    setCurrencySwitch("USD");
+                    setErrors({});
+                    setPageError("");
                     clearSlip();
                     setAcceptedTerms(false);
                     setTopupAccountId("");

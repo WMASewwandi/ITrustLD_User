@@ -1156,6 +1156,13 @@ export default function WithdrawalPage() {
                     setTransactionId("");
                     setProofContext(null);
                     setMethodDetails(null);
+                    setMethodId(null);
+                    setPaymentOptionId(null);
+                    setAmount("");
+                    setReceivingAmount("");
+                    setCurrencySwitch("USD");
+                    setErrors({});
+                    setPageError("");
                     clearSlip();
                     setAcceptedTerms(false);
                     setCashoutAccountId("");

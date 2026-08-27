@@ -767,7 +767,13 @@ export default function MyEarningsPage() {
                           USD {earningsUsd}
                         </p>
                         <p className="mt-1 text-sm text-white/45">
-                          {formatPartnerPoints(periodPoints)} level points · {formatTierProgressReward({ name: currentTier })}
+                          {formatPartnerPoints(periodPoints)} level points · {formatTierProgressReward(
+                            partnerProgress?.tiers?.find(
+                              (tier) =>
+                                String(tier.name || "").toLowerCase() ===
+                                String(currentTier).toLowerCase(),
+                            ) || { name: currentTier },
+                          )}
                         </p>
                         {rateLabel ? <p className="mt-1 text-xs text-white/35">{rateLabel}</p> : null}
                       </div>

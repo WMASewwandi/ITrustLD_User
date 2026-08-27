@@ -15,7 +15,7 @@ import {
 export default function UserSessionGuard({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(() => pathname.includes("/print") && hasUserSession());
 
   useEffect(() => {
     let cancelled = false;
@@ -23,6 +23,12 @@ export default function UserSessionGuard({ children }) {
     async function verify() {
       if (!hasUserSession()) {
         router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+        return;
+      }
+
+      // Print preview must not wait on /me — that path only needs a local token.
+      if (pathname.includes("/print")) {
+        setReady(true);
         return;
       }
 
