@@ -4,7 +4,7 @@ import { BrandLogoImage } from "@/components/brand-logo";
 const socials = [
   { href: "https://facebook.com/SNXcompany", label: "Facebook", icon: "/assets/img/icons/facebook.svg" },
   { href: "https://whatsapp.com/channel/0029Va4BZjl47Xe8lo429m2K", label: "WhatsApp", icon: "/assets/img/icons/whatsapp.svg" },
-  { href: "https://youtube.com/@itrustld", label: "YouTube", icon: "/assets/img/icons/youtube.svg" }
+  { href: "https://youtube.com/@itrustld_official?si=35nXu8mTQM__7ZF", label: "YouTube", icon: "/assets/img/icons/youtube.svg" }
 ];
 
 const quickLinksTop = [
@@ -182,12 +182,15 @@ export default function FooterGuest() {
             ))}
           </div>
 
-          <p className="inline-flex items-center gap-2 text-sm text-white/55 lg:max-w-sm lg:text-right">
-            Licensed and Regulated By the Financial Intelligence Unit of Sri Lanka
-            <svg viewBox="0 0 24 24" className="h-4 w-4 shrink-0 text-theme-green-action" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="6" y="10.5" width="12" height="9" rx="2" />
-              <path d="M9 10.5V8.5C9 6.8 10.3 5.5 12 5.5C13.7 5.5 15 6.8 15 8.5V10.5" />
-            </svg>
+          <p className="text-sm text-white/55 lg:max-w-md lg:text-right">
+            ITrustLD provides one-time merchant services only. Please read our{" "}
+            <Link
+              href="/terms-and-conditions"
+              className="font-medium text-theme-green-action underline-offset-4 hover:underline"
+            >
+              T&amp;C
+            </Link>{" "}
+            before using our services.
           </p>
         </div>
       </div>
