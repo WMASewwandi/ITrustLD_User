@@ -12,6 +12,18 @@ import {
   fetchWithdrawalTransactionsForPrint,
 } from "@/lib/withdrawals";
 import { hasUserSession } from "@/lib/auth";
+import {
+  clearTransactionPrintPayload,
+  readTransactionPrintPayload,
+} from "@/lib/print-transaction-receipt";
+
+function cachedSingleFor(transactionId, isWithdrawal) {
+  const cached = readTransactionPrintPayload();
+  if (!cached?.single || !transactionId) return null;
+  if (Boolean(cached.isWithdrawal) !== isWithdrawal) return null;
+  if (String(cached.transactionId) !== String(transactionId)) return null;
+  return cached.single;
+}
 
 function TransactionsPrintContent() {
   const router = useRouter();
@@ -26,10 +38,11 @@ function TransactionsPrintContent() {
   const search = searchParams.get("search") || "";
   const type = searchParams.get("type") || "deposit";
   const isWithdrawal = type === "withdrawal";
+  const initialSingle = cachedSingleFor(transactionId, isWithdrawal);
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialSingle);
   const [error, setError] = useState("");
-  const [single, setSingle] = useState(null);
+  const [single, setSingle] = useState(initialSingle);
   const [list, setList] = useState([]);
 
   const title = useMemo(() => {
@@ -43,6 +56,11 @@ function TransactionsPrintContent() {
     if (!hasUserSession()) {
       setError("Please log in to print transactions.");
       setLoading(false);
+      return;
+    }
+
+    if (initialSingle) {
+      clearTransactionPrintPayload();
       return;
     }
 
@@ -96,6 +114,7 @@ function TransactionsPrintContent() {
     status,
     search,
     isWithdrawal,
+    initialSingle,
   ]);
 
   useEffect(() => {

@@ -13,6 +13,7 @@ import {
   fetchWithdrawalTransactions,
 } from "@/lib/withdrawals";
 import { hasUserSession } from "@/lib/auth";
+import { stashTransactionPrintPayload } from "@/lib/print-transaction-receipt";
 import { ChevronDown, Download, Loader2, Printer, Search } from "lucide-react";
 
 const CRITERIA = ["All", "Daily", "Weekly", "Monthly", "Custom"];
@@ -242,6 +243,10 @@ export default function TransactionsPage() {
     };
   }, [depositFilters.search, withdrawalFilters.search, loadDeposits, loadWithdrawals]);
 
+  useEffect(() => {
+    router.prefetch("/dashboard/transactions/print");
+  }, [router]);
+
   function handleTabChange(item) {
     setTab(item);
     setMsg("");
@@ -268,24 +273,34 @@ export default function TransactionsPage() {
     }
   }
 
-  function handlePrint(id) {
+  function handlePrint(tx) {
+    const isWithdrawal = tab === "Cash-out";
+    stashTransactionPrintPayload({
+      transactionId: tx.id,
+      isWithdrawal,
+      single: tx,
+    });
     router.push(
       buildPrintUrl({
-        transactionId: id,
-        type: tab === "Cash-out" ? "withdrawal" : "deposit",
+        transactionId: tx.id,
+        type: isWithdrawal ? "withdrawal" : "deposit",
       }),
     );
   }
 
   function handlePrintFiltered() {
-    const exportParams =
-      tab === "Cash-out"
-        ? buildFilterParams(filters, "cashout_method_id")
-        : buildFilterParams(filters, "topup_method_id");
+    const isWithdrawal = tab === "Cash-out";
+    const exportParams = isWithdrawal
+      ? buildFilterParams(filters, "cashout_method_id")
+      : buildFilterParams(filters, "topup_method_id");
+    stashTransactionPrintPayload({
+      isWithdrawal,
+      filters: exportParams,
+    });
     router.push(
       buildPrintUrl({
         ...exportParams,
-        type: tab === "Cash-out" ? "withdrawal" : "deposit",
+        type: isWithdrawal ? "withdrawal" : "deposit",
       }),
     );
     setExportOpen(false);
@@ -544,7 +559,7 @@ export default function TransactionsPage() {
                     <p className="mt-1 text-sm text-white/65">Transaction Method - {tx.method}</p>
                     <button
                       type="button"
-                      onClick={() => handlePrint(tx.id)}
+                      onClick={() => handlePrint(tx)}
                       className="mt-3 inline-flex items-center gap-2 rounded-lg border border-white/15 bg-[#0B1020]/80 px-3 py-1.5 text-xs font-medium text-white/80 transition hover:border-theme-green-action/40 hover:text-theme-green-action"
                     >
                       <Printer className="h-3.5 w-3.5" />

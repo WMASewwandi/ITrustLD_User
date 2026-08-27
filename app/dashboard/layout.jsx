@@ -1,10 +1,5 @@
-import UserAppLayout from "@/components/layouts/user-app-layout";
-import UserSessionGuard from "@/components/layouts/user-session-guard";
+import DashboardFrame from "@/components/layouts/dashboard-frame";
 
 export default function DashboardLayout({ children }) {
-  return (
-    <UserAppLayout>
-      <UserSessionGuard>{children}</UserSessionGuard>
-    </UserAppLayout>
-  );
+  return <DashboardFrame>{children}</DashboardFrame>;
 }
