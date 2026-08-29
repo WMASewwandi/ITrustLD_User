@@ -1,7 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { getMembershipProgress, resolveCurrentLoyaltyTier } from "@/lib/membership-tiers";
+import {
+  getMembershipProgress,
+  getYearlyTrustPoints,
+  resolveCurrentLoyaltyTier,
+} from "@/lib/membership-tiers";
 import {
   AlertCircle,
   CheckCircle2,
@@ -35,9 +39,8 @@ function formatPendingLabel(deposits, withdrawals) {
 }
 
 export default function AccountOverview({ user, documents = [], verificationComplete = false }) {
-  const points = Number(user?.trust_points) || 0;
-  const yearlyPoints = Number(user?.earned_for_year);
-  const progressPoints = Number.isFinite(yearlyPoints) ? yearlyPoints : points;
+  const points = getYearlyTrustPoints(user);
+  const progressPoints = points;
   const officialTier = resolveCurrentLoyaltyTier(user, progressPoints);
   const { current, next, remaining, progressPct } = getMembershipProgress(
     progressPoints,
@@ -141,7 +144,7 @@ export default function AccountOverview({ user, documents = [], verificationComp
               </span>
             </div>
             <p className="shrink-0 text-right">
-              <span className="block text-xs text-white/40">Points</span>
+              <span className="block text-xs text-white/40">Last 12 months</span>
               <span className="text-base font-semibold text-white sm:text-lg">
                 {points.toLocaleString()}
               </span>
