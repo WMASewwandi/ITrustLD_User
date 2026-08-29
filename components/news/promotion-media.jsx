@@ -1,9 +1,70 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLenis } from "lenis/react";
-import { Megaphone } from "lucide-react";
+import { Image as ImageIcon, Megaphone } from "lucide-react";
 import { isPromotionVideoUrl } from "@/lib/promotion-utils";
+
+function isBlogItem(item) {
+  return item?.kind !== "promotion";
+}
+
+function ImagePlaceholder({ className = "h-12 w-12" }) {
+  return (
+    <div className="flex h-full w-full items-center justify-center">
+      <ImageIcon className={`${className} text-theme-gray/40`} aria-hidden />
+    </div>
+  );
+}
+
+function BlogPortraitFrame({ src, className = "", children }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  const showPlaceholder = !src || failed;
+
+  return (
+    <div className={`relative aspect-[4/5] w-full shrink-0 overflow-hidden bg-[#EEF2F7] ${className}`}>
+      {showPlaceholder ? (
+        <ImagePlaceholder />
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          className="h-full w-full object-cover object-center"
+          onError={() => setFailed(true)}
+        />
+      )}
+      {children}
+    </div>
+  );
+}
+
+function SafeCoverImage({ src }) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  if (!src || failed) {
+    return <ImagePlaceholder />;
+  }
+
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={src}
+      alt=""
+      className="h-full w-full object-cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 function ParallaxImage({ src, speed = 0.2, featured = false }) {
   const containerRef = useRef(null);
@@ -73,11 +134,18 @@ function ColorPromotionHeader({ item, featured = false, variant = "card" }) {
 }
 
 export function UpdateCardMedia({ item, featured = false, speed = 0.2 }) {
-  const color = item.color || "#0D9F1B";
   const mediaUrl = item.mediaUrl || (item.kind === "promotion" ? null : item.image);
   const isVideo = isPromotionVideoUrl(mediaUrl);
   const featuredClass = featured ? "min-h-[280px] sm:min-h-[340px]" : "";
   const baseClass = `relative min-h-[170px] flex-1 overflow-hidden ${featuredClass}`;
+
+  if (isBlogItem(item)) {
+    return (
+      <BlogPortraitFrame src={mediaUrl}>
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
+      </BlogPortraitFrame>
+    );
+  }
 
   if (item.kind === "promotion" && !mediaUrl) {
     return <ColorPromotionHeader item={item} featured={featured} variant="card" />;
@@ -109,6 +177,16 @@ export function UpdateModalMedia({ item }) {
   const mediaUrl = item.mediaUrl || (item.kind === "promotion" ? null : item.image);
   const isVideo = isPromotionVideoUrl(mediaUrl);
 
+  if (isBlogItem(item)) {
+    return (
+      <div className="bg-[#EEF2F7]">
+        <BlogPortraitFrame src={mediaUrl} className="mx-auto max-w-md">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
+        </BlogPortraitFrame>
+      </div>
+    );
+  }
+
   if (item.kind === "promotion" && !mediaUrl) {
     return <ColorPromotionHeader item={item} variant="modal" />;
   }
@@ -125,8 +203,7 @@ export function UpdateModalMedia({ item }) {
   if (mediaUrl) {
     return (
       <div className="relative aspect-[16/10] overflow-hidden bg-[#EEF2F7]">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={mediaUrl} alt="" className="h-full w-full object-cover" />
+        <SafeCoverImage src={mediaUrl} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
       </div>
     );

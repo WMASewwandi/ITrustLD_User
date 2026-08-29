@@ -69,7 +69,7 @@ export default function NewsPage() {
             ) : (
               <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {items.map((item) => (
-                  <div key={item.id} className="min-h-[360px]">
+                  <div key={item.id} className="h-full">
                     <UpdateCard item={item} onOpen={setActiveItem} />
                   </div>
                 ))}

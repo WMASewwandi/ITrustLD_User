@@ -24,7 +24,7 @@ export default function UpdateDetailModal({ item, onClose }) {
       aria-label={item.title}
     >
       <div
-        className="max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom,0px)))] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-[#E6EBF2] bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
+        className="max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom,0px)))] w-full max-w-md overflow-y-auto rounded-t-2xl border border-[#E6EBF2] bg-white shadow-2xl sm:max-h-[92vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="relative">
