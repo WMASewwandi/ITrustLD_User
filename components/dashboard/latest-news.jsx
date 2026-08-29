@@ -26,7 +26,7 @@ function NewsBanner({ item, className = "", iconSize = "h-10 w-10", children }) 
         <img
           src={mediaUrl}
           alt=""
-          className="h-full w-full object-cover"
+          className="h-full w-full object-cover object-center"
           onError={() => setFailed(true)}
         />
       )}
@@ -47,10 +47,10 @@ function NewsDetailModal({ post, onClose }) {
       aria-label={post.title}
     >
       <div
-        className="max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom,0px)))] w-full max-w-2xl overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0B1020] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
+        className="max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-bottom,0px)))] w-full max-w-md overflow-y-auto rounded-t-2xl border border-white/10 bg-[#0B1020] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <NewsBanner item={post} className="aspect-[16/10]" iconSize="h-12 w-12">
+        <NewsBanner item={post} className="aspect-[4/5] w-full" iconSize="h-12 w-12">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0B1020] via-[#0B1020]/40 to-transparent" />
           <button
             type="button"
@@ -153,7 +153,7 @@ export default function LatestNews({ user: _user, posts: initialPosts }) {
                 >
                   <NewsBanner
                     item={item}
-                    className="aspect-[16/10] shrink-0 transition duration-500 group-hover:scale-[1.02]"
+                    className="aspect-[4/5] shrink-0 transition duration-500 group-hover:scale-[1.02]"
                     iconSize="h-9 w-9"
                   >
                     <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0E1424]/80 to-transparent" />

@@ -84,27 +84,27 @@ export default function LatestUpdatesSlider() {
             <>
               <div className="mt-12 grid gap-5 sm:gap-6 lg:grid-cols-[1fr_1.4fr_1fr] lg:grid-rows-2 xl:gap-8">
                 {slots["left-top"] ? (
-                  <div className="h-full min-h-[320px] lg:col-start-1 lg:row-start-1 lg:min-h-0">
+                  <div className="h-full lg:col-start-1 lg:row-start-1">
                     <UpdateCard item={slots["left-top"]} onOpen={setActiveItem} />
                   </div>
                 ) : null}
                 {slots.center ? (
-                  <div className="h-full min-h-[480px] lg:col-start-2 lg:row-span-2 lg:min-h-[720px] xl:min-h-[780px]">
+                  <div className="h-full lg:col-start-2 lg:row-span-2">
                     <UpdateCard item={slots.center} onOpen={setActiveItem} featuredLayout />
                   </div>
                 ) : null}
                 {slots["right-top"] ? (
-                  <div className="h-full min-h-[320px] lg:col-start-3 lg:row-start-1 lg:min-h-0">
+                  <div className="h-full lg:col-start-3 lg:row-start-1">
                     <UpdateCard item={slots["right-top"]} onOpen={setActiveItem} />
                   </div>
                 ) : null}
                 {slots["left-bottom"] ? (
-                  <div className="h-full min-h-[320px] lg:col-start-1 lg:row-start-2 lg:min-h-0">
+                  <div className="h-full lg:col-start-1 lg:row-start-2">
                     <UpdateCard item={slots["left-bottom"]} onOpen={setActiveItem} />
                   </div>
                 ) : null}
                 {slots["right-bottom"] ? (
-                  <div className="h-full min-h-[320px] lg:col-start-3 lg:row-start-2 lg:min-h-0">
+                  <div className="h-full lg:col-start-3 lg:row-start-2">
                     <UpdateCard item={slots["right-bottom"]} onOpen={setActiveItem} />
                   </div>
                 ) : null}
