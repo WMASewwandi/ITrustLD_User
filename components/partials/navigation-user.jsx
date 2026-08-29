@@ -12,12 +12,22 @@ import {
   fetchLoyaltySummary,
   getActionableClaimsCount,
 } from "@/lib/loyalty-api";
-import { getUserAffiliateCode, getUserSession, isPartnerUser, logoutUser } from "@/lib/auth";
+import {
+  AUTH_SESSION_CHANGED_EVENT,
+  getUserAffiliateCode,
+  getUserSession,
+  isPartnerUser,
+  logoutUser,
+} from "@/lib/auth";
 import {
   DASHBOARD_UPDATED_EVENT,
   deriveNotificationsFromUser,
 } from "@/lib/dashboard";
-import { canShowAffiliateLink, resolveCurrentLoyaltyTier } from "@/lib/membership-tiers";
+import {
+  canShowAffiliateLink,
+  getYearlyTrustPoints,
+  resolveCurrentLoyaltyTier,
+} from "@/lib/membership-tiers";
 import { useMembershipTiers } from "@/hooks/use-membership-tiers";
 import {
   ArrowDownToLine,
@@ -167,12 +177,14 @@ export default function NavigationUser() {
       else if (parsed?.account_holder?.account_number) {
         setAccountId(String(parsed.account_holder.account_number));
       }
-      const points = Number(parsed?.trust_points) || 0;
-      setLoyaltyPoints(points);
+      const hasYearly =
+        parsed?.earned_for_year != null && parsed?.earned_for_year !== "";
+      const points = getYearlyTrustPoints(parsed);
+      if (hasYearly) setLoyaltyPoints(points);
       setNotifications(deriveNotificationsFromUser(parsed));
       const partner = isPartnerUser(parsed);
       setIsPartner(partner);
-      const tierName = resolveCurrentLoyaltyTier(parsed, points);
+      const tierName = resolveCurrentLoyaltyTier(parsed, hasYearly ? points : null);
       setLoyaltyTier(tierName);
       const code = getUserAffiliateCode(parsed) || "";
       setAffiliateCode(canShowAffiliateLink(partner, tierName) ? code : "");
@@ -192,6 +204,26 @@ export default function NavigationUser() {
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
+    const hrefs = [
+      ...NAV_LINKS.map((item) => item.href),
+      ...MOBILE_MORE_LINKS.map((item) => item.href),
+      "/dashboard/profile/accounts",
+    ];
+    const unique = [...new Set(hrefs)];
+    function prefetchRoutes() {
+      unique.forEach((href) => {
+        router.prefetch(href);
+      });
+    }
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(prefetchRoutes, { timeout: 1800 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = window.setTimeout(prefetchRoutes, 350);
+    return () => window.clearTimeout(timer);
+  }, [router]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function refreshClaimsCount() {
@@ -199,7 +231,11 @@ export default function NavigationUser() {
         const summary = await fetchLoyaltySummary();
         if (!cancelled) {
           setClaimsCount(getActionableClaimsCount(summary));
-          const tierName = resolveCurrentLoyaltyTier(summary);
+          setLoyaltyPoints(getYearlyTrustPoints(summary));
+          const tierName = resolveCurrentLoyaltyTier(
+            summary,
+            getYearlyTrustPoints(summary),
+          );
           if (tierName) setLoyaltyTier(tierName);
           setAffiliateCode(
             summary.has_affiliate_link ? summary.affiliate_code || "" : "",
@@ -218,7 +254,7 @@ export default function NavigationUser() {
       window.removeEventListener(CLAIMS_UPDATED_EVENT, refreshClaimsCount);
       window.removeEventListener("focus", refreshClaimsCount);
     };
-  }, [pathname]);
+  }, []);
 
   const moreActive = visibleMobileMoreLinks.some((item) =>
     item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href)
@@ -236,15 +272,18 @@ export default function NavigationUser() {
       }
       if (detail?.user) {
         if (detail.user.name) setUserName(detail.user.name);
-        setLoyaltyPoints(Number(detail.user.trust_points) || 0);
-        setLoyaltyTier(resolveCurrentLoyaltyTier(detail.user, Number(detail.user.trust_points) || 0));
+        const points = getYearlyTrustPoints(detail.user);
+        setLoyaltyPoints(points);
+        setLoyaltyTier(resolveCurrentLoyaltyTier(detail.user, points));
         if (detail.user.accountId) setAccountId(String(detail.user.accountId));
       }
     }
     window.addEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
+    window.addEventListener(AUTH_SESSION_CHANGED_EVENT, onSessionUpdated);
     window.addEventListener("storage", onSessionUpdated);
     return () => {
       window.removeEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
+      window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, onSessionUpdated);
       window.removeEventListener("storage", onSessionUpdated);
     };
   }, []);
@@ -255,6 +294,22 @@ export default function NavigationUser() {
     setMoreOpen(false);
     setPanel(null);
   }, [pathname]);
+
+  useEffect(() => {
+    if (panel !== "loyalty") return undefined;
+    let cancelled = false;
+    fetchLoyaltySummary()
+      .then((summary) => {
+        if (cancelled) return;
+        setLoyaltyPoints(getYearlyTrustPoints(summary));
+        const tierName = resolveCurrentLoyaltyTier(summary, getYearlyTrustPoints(summary));
+        if (tierName) setLoyaltyTier(tierName);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [panel]);
 
   useEffect(() => {
     if (!panel && !moreOpen) return undefined;
@@ -479,7 +534,8 @@ export default function NavigationUser() {
               </span>
             </div>
             <p className="mt-3 text-2xl font-bold tracking-tight text-white">{loyaltyPointsLabel}</p>
-            <p className="mt-1 text-sm text-white/45">
+            <p className="mt-1 text-sm text-white/45">Last 12 months</p>
+            <p className="mt-0.5 text-sm text-white/45">
               {accountId ? `Account #${accountId}` : "Account"}
             </p>
           </div>

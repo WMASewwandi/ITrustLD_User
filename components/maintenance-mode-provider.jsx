@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
 import MaintenanceOverlay from "@/components/maintenance-overlay";
 import { fetchMaintenanceMode, markMaintenanceModeLoaded } from "@/lib/maintenance-mode";
 import {
@@ -14,7 +13,6 @@ const MaintenanceModeContext = createContext(getMaintenanceModeState());
 const POLL_INTERVAL_MS = 3_000;
 
 export function MaintenanceModeProvider({ children }) {
-  const pathname = usePathname();
   const [state, setState] = useState(getMaintenanceModeState());
 
   useEffect(() => subscribeMaintenanceMode(setState), []);
@@ -51,12 +49,6 @@ export function MaintenanceModeProvider({ children }) {
       window.removeEventListener("focus", handleFocus);
     };
   }, []);
-
-  useEffect(() => {
-    fetchMaintenanceMode().then(() => {
-      markMaintenanceModeLoaded();
-    });
-  }, [pathname]);
 
   const value = useMemo(
     () => ({

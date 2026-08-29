@@ -184,7 +184,7 @@ export default function DocumentsPage() {
       setIdentityFile(null);
       setAddressFile(null);
 
-      await Promise.all([loadDocuments(), fetchDashboard().catch(() => null)]);
+      await Promise.all([loadDocuments(), fetchDashboard({ force: true }).catch(() => null)]);
 
       if (result.step === "pending" || result.step === "complete") {
         setSuccess("Documents submitted successfully. Our team will review them shortly.");
