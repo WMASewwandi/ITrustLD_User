@@ -104,14 +104,14 @@ export default function PromotionalSlider({ banner: propBanner, slides, audience
           background: `linear-gradient(120deg, ${color}22 0%, #12182C 55%, #0B1020 100%)`,
         }}
       >
-        <div className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-stretch">
+        <div className="flex flex-col gap-4 p-5 sm:p-6 lg:flex-row lg:items-start">
           {hasMedia ? (
-            <div className="relative overflow-hidden rounded-xl border border-white/10 lg:w-[min(42%,320px)] lg:shrink-0">
+            <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/20 lg:w-[min(42%,320px)] lg:shrink-0">
               {isVideo ? (
                 <video
                   key={mediaUrl}
                   src={mediaUrl}
-                  className="h-44 w-full object-cover transition-opacity duration-700 lg:h-full lg:min-h-[140px]"
+                  className="h-auto w-full object-contain object-top transition-opacity duration-700"
                   muted
                   playsInline
                   controls
@@ -122,7 +122,7 @@ export default function PromotionalSlider({ banner: propBanner, slides, audience
                   key={mediaUrl}
                   src={mediaUrl}
                   alt=""
-                  className="h-44 w-full object-cover transition-opacity duration-700 lg:h-full lg:min-h-[140px]"
+                  className="h-auto w-full object-contain object-top transition-opacity duration-700"
                 />
               )}
             </div>
@@ -138,7 +138,7 @@ export default function PromotionalSlider({ banner: propBanner, slides, audience
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2 self-end lg:self-center">
+          <div className="flex items-center gap-2 self-start">
             {hasMultiple ? (
               <>
                 <button
