@@ -650,9 +650,7 @@ function RegisterForm() {
 
               {turnstileRequired ? (
                 <TurnstileWidget
-                  onToken={(token) => {
-                    setTurnstileToken(token);
-                  }}
+                  onToken={setTurnstileToken}
                   onExpire={() => setTurnstileToken("")}
                 />
               ) : null}

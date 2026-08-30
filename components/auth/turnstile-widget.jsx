@@ -12,36 +12,47 @@ export default function TurnstileWidget({
 }) {
   const containerRef = useRef(null);
   const widgetIdRef = useRef(null);
+  const onTokenRef = useRef(onToken);
+  const onExpireRef = useRef(onExpire);
   const [scriptReady, setScriptReady] = useState(false);
+
+  onTokenRef.current = onToken;
+  onExpireRef.current = onExpire;
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.turnstile) {
+      setScriptReady(true);
+    }
+  }, []);
 
   useEffect(() => {
     if (!scriptReady || !containerRef.current || !window.turnstile || !TURNSTILE_SITE_KEY) {
       return undefined;
     }
 
-    if (widgetIdRef.current !== null) {
-      window.turnstile.remove(widgetIdRef.current);
-      widgetIdRef.current = null;
-    }
-
-    widgetIdRef.current = window.turnstile.render(containerRef.current, {
+    const widgetId = window.turnstile.render(containerRef.current, {
       sitekey: TURNSTILE_SITE_KEY,
       theme,
-      callback: (token) => onToken?.(token),
+      callback: (token) => onTokenRef.current?.(token),
       "expired-callback": () => {
-        onToken?.("");
-        onExpire?.();
+        onTokenRef.current?.("");
+        onExpireRef.current?.();
       },
-      "error-callback": () => onToken?.(""),
+      "error-callback": () => onTokenRef.current?.(""),
     });
+    widgetIdRef.current = widgetId;
 
     return () => {
       if (widgetIdRef.current !== null && window.turnstile) {
-        window.turnstile.remove(widgetIdRef.current);
+        try {
+          window.turnstile.remove(widgetIdRef.current);
+        } catch {
+          // Widget may already be gone if the container unmounted first.
+        }
         widgetIdRef.current = null;
       }
     };
-  }, [scriptReady, onToken, onExpire, theme, resetKey]);
+  }, [scriptReady, theme, resetKey]);
 
   if (!TURNSTILE_SITE_KEY) return null;
 
@@ -52,7 +63,7 @@ export default function TurnstileWidget({
         strategy="afterInteractive"
         onLoad={() => setScriptReady(true)}
       />
-      <div ref={containerRef} className="mt-2" />
+      <div ref={containerRef} className="mt-2 min-h-[65px]" />
     </>
   );
 }
