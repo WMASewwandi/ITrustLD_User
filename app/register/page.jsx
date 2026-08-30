@@ -16,6 +16,7 @@ import {
   isOldEnough,
   isValidCalendarDate,
   isValidEmail,
+  isStrongPassword,
   isValidPhoneForCountry,
   lettersOnly,
   normalizeNationalPhoneDigits,
@@ -30,7 +31,49 @@ const fieldErrorClass =
 const errorBoxClass =
   "rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200 lg:rounded-lg lg:border-red-200 lg:bg-red-50 lg:text-red-700";
 
-const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+function fieldCls(hasError) {
+  return `${fieldClass} ${hasError ? fieldErrorClass : ""}`;
+}
+
+function getFieldError(name, value, ctx = {}) {
+  switch (name) {
+    case "firstName":
+      return lettersOnly(value) ? "" : "First name: only letters are allowed.";
+    case "lastName":
+      return lettersOnly(value) ? "" : "Last name: only letters are allowed.";
+    case "email":
+      return isValidEmail(String(value || "").trim()) ? "" : "Enter a valid email with @ and a domain.";
+    case "phone": {
+      if (isValidPhoneForCountry(value, ctx.countryIso)) return "";
+      const { min, max } = getNationalPhoneRules(ctx.countryIso);
+      return min === max
+        ? `Enter ${min} digits for ${ctx.countryName} (e.g. ${getNationalPhoneExample(ctx.countryIso)}).`
+        : `Enter ${min}–${max} digits for ${ctx.countryName}.`;
+    }
+    case "dob":
+      if (!isValidCalendarDate(value)) return "Date must be valid.";
+      if (!isOldEnough(value, 10)) return "Users below 10 years are not allowed.";
+      return "";
+    case "password":
+      return isStrongPassword(value)
+        ? ""
+        : "Password must be 8+ chars with upper, lower, number, and symbol.";
+    case "passwordConfirmation":
+      return value === ctx.password ? "" : "Passwords do not match.";
+    case "addressNumber":
+      return String(value || "").trim() ? "" : "Address is required.";
+    case "street":
+      return String(value || "").trim() ? "" : "Street is required.";
+    case "city":
+      return String(value || "").trim() ? "" : "City/Town is required.";
+    case "zipCode":
+      return String(value || "").trim() ? "" : "Zip code is required.";
+    case "terms":
+      return value ? "" : "You must accept the Terms and Conditions.";
+    default:
+      return "";
+  }
+}
 
 export default function RegisterPage() {
   return (
@@ -49,6 +92,20 @@ function RegisterForm() {
   const [countryOpen, setCountryOpen] = useState(false);
   const [country, setCountry] = useState(COUNTRIES[0]);
   const [phone, setPhone] = useState("");
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    dob: "",
+    language: "English",
+    addressNumber: "",
+    street: "",
+    city: "",
+    zipCode: "",
+    password: "",
+    passwordConfirmation: "",
+    terms: false,
+  });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -105,47 +162,84 @@ function RegisterForm() {
     };
   }, [countryOpen]);
 
+  function patchError(name, message, current) {
+    const next = { ...current };
+    if (message) next[name] = message;
+    else delete next[name];
+    return next;
+  }
+
+  function liveValidate(name, value, extras = {}) {
+    const countryIso = extras.countryIso ?? country.iso;
+    const countryName = extras.countryName ?? country.name;
+    const password = extras.password ?? form.password;
+    const confirmation = extras.passwordConfirmation ?? form.passwordConfirmation;
+    const empty = name === "terms" ? !value : String(value || "").trim() === "";
+
+    setErrors((prev) => {
+      if (empty) {
+        let next = patchError(name, "", prev);
+        if (name === "password" && String(confirmation || "").trim() === "") {
+          next = patchError("passwordConfirmation", "", next);
+        }
+        return next;
+      }
+
+      let next = patchError(
+        name,
+        getFieldError(name, value, { countryIso, countryName, password }),
+        prev,
+      );
+      if (name === "password" && String(confirmation || "").trim()) {
+        next = patchError(
+          "passwordConfirmation",
+          getFieldError("passwordConfirmation", confirmation, { password: value }),
+          next,
+        );
+      }
+      return next;
+    });
+  }
+
+  function updateField(name, value) {
+    setForm((prev) => ({ ...prev, [name]: value }));
+    liveValidate(name, value, name === "password" ? { password: value } : {});
+  }
+
   async function handleSignUp(e) {
     e.preventDefault();
-    const form = e.currentTarget;
-    const first = form.firstName.value.trim();
-    const last = form.lastName.value.trim();
-    const email = form.email.value.trim();
-    const dob = form.dob.value;
-    const password = form.password.value;
-    const passwordConfirmation = form.passwordConfirmation.value;
-    const language = form.language.value;
-    const addressNumber = form.addressNumber.value.trim();
-    const street = form.street.value.trim();
-    const city = form.city.value.trim();
-    const zipCode = form.zipCode.value.trim();
+    const first = form.firstName.trim();
+    const last = form.lastName.trim();
+    const email = form.email.trim();
+    const dob = form.dob;
+    const password = form.password;
+    const passwordConfirmation = form.passwordConfirmation;
+    const language = form.language;
+    const addressNumber = form.addressNumber.trim();
+    const street = form.street.trim();
+    const city = form.city.trim();
+    const zipCode = form.zipCode.trim();
+    const ctx = { countryIso: country.iso, countryName: country.name, password };
     const next = {};
 
-    if (!lettersOnly(first)) next.firstName = "First name: only letters are allowed.";
-    if (!lettersOnly(last)) next.lastName = "Last name: only letters are allowed.";
-    if (!isValidEmail(email)) next.email = "Enter a valid email with @ and a domain.";
-    if (!isValidPhoneForCountry(phone, country.iso)) {
-      const { min, max } = getNationalPhoneRules(country.iso);
-      next.phone =
-        min === max
-          ? `Enter ${min} digits for ${country.name} (e.g. ${getNationalPhoneExample(country.iso)}).`
-          : `Enter ${min}–${max} digits for ${country.name}.`;
-    }
-    if (!isValidCalendarDate(dob)) {
-      next.dob = "Date must be valid.";
-    } else if (!isOldEnough(dob, 10)) {
-      next.dob = "Users below 10 years are not allowed.";
-    }
+    const assign = (name, value) => {
+      const message = getFieldError(name, value, ctx);
+      if (message) next[name] = message;
+    };
+
+    assign("firstName", first);
+    assign("lastName", last);
+    assign("email", email);
+    assign("phone", phone);
+    assign("dob", dob);
+    assign("password", password);
+    assign("passwordConfirmation", passwordConfirmation);
+    assign("addressNumber", addressNumber);
+    assign("street", street);
+    assign("city", city);
+    assign("zipCode", zipCode);
+    assign("terms", form.terms);
     if (!country) next.country = "Select a country from the list.";
-    if (!PASSWORD_PATTERN.test(password)) {
-      next.password = "Password must be 8+ chars with upper, lower, number, and symbol.";
-    }
-    if (password !== passwordConfirmation) {
-      next.passwordConfirmation = "Passwords do not match.";
-    }
-    if (!form.terms.checked) {
-      next.terms = "You must accept the Terms and Conditions.";
-    }
     if (turnstileRequired && !turnstileToken) {
       next.turnstile = "Please complete the security check.";
     }
@@ -258,19 +352,44 @@ function RegisterForm() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>First Name *</label>
-                  <input name="firstName" className={fieldClass} placeholder="Enter first name" required />
+                  <input
+                    name="firstName"
+                    className={fieldCls(errors.firstName)}
+                    placeholder="Enter first name"
+                    value={form.firstName}
+                    onChange={(e) => updateField("firstName", e.target.value)}
+                    aria-invalid={Boolean(errors.firstName)}
+                    required
+                  />
                   {errors.firstName ? <p className="mt-1 text-xs text-theme-red-action">{errors.firstName}</p> : null}
                 </div>
                 <div>
                   <label className={labelClass}>Last Name *</label>
-                  <input name="lastName" className={fieldClass} placeholder="Enter last name" required />
+                  <input
+                    name="lastName"
+                    className={fieldCls(errors.lastName)}
+                    placeholder="Enter last name"
+                    value={form.lastName}
+                    onChange={(e) => updateField("lastName", e.target.value)}
+                    aria-invalid={Boolean(errors.lastName)}
+                    required
+                  />
                   {errors.lastName ? <p className="mt-1 text-xs text-theme-red-action">{errors.lastName}</p> : null}
                 </div>
               </div>
 
               <div>
                 <label className={labelClass}>Email *</label>
-                <input name="email" type="email" className={fieldClass} placeholder="Enter your email" required />
+                <input
+                  name="email"
+                  type="email"
+                  className={fieldCls(errors.email)}
+                  placeholder="Enter your email"
+                  value={form.email}
+                  onChange={(e) => updateField("email", e.target.value)}
+                  aria-invalid={Boolean(errors.email)}
+                  required
+                />
                 {errors.email ? <p className="mt-1 text-xs text-theme-red-action">{errors.email}</p> : null}
               </div>
 
@@ -329,7 +448,14 @@ function RegisterForm() {
                           setCountry(c);
                           setCountryOpen(false);
                           setCountryQuery("");
-                          setPhone((prev) => normalizeNationalPhoneDigits(prev, c.iso));
+                          const nextPhone = normalizeNationalPhoneDigits(phone, c.iso);
+                          setPhone(nextPhone);
+                          if (phone) {
+                            liveValidate("phone", nextPhone, {
+                              countryIso: c.iso,
+                              countryName: c.name,
+                            });
+                          }
                         }}
                       >
                         <span>{c.name}</span>
@@ -351,14 +477,17 @@ function RegisterForm() {
                     {country.code}
                   </span>
                   <input
-                    className={fieldClass}
+                    className={fieldCls(errors.phone)}
                     inputMode="numeric"
                     autoComplete="tel-national"
                     placeholder={getNationalPhoneExample(country.iso)}
                     value={formatNationalPhone(phone, country.iso)}
-                    onChange={(e) =>
-                      setPhone(normalizeNationalPhoneDigits(e.target.value, country.iso))
-                    }
+                    onChange={(e) => {
+                      const nextPhone = normalizeNationalPhoneDigits(e.target.value, country.iso);
+                      setPhone(nextPhone);
+                      liveValidate("phone", nextPhone);
+                    }}
+                    aria-invalid={Boolean(errors.phone)}
                     required
                   />
                 </div>
@@ -377,7 +506,9 @@ function RegisterForm() {
                   <input
                     name="dob"
                     type="date"
-                    className={`${fieldClass} ${errors.dob ? fieldErrorClass : ""}`}
+                    className={fieldCls(errors.dob)}
+                    value={form.dob}
+                    onChange={(e) => updateField("dob", e.target.value)}
                     aria-invalid={Boolean(errors.dob)}
                     required
                   />
@@ -385,7 +516,12 @@ function RegisterForm() {
                 </div>
                 <div>
                   <label className={labelClass}>Language *</label>
-                  <select name="language" className={fieldClass} defaultValue="English">
+                  <select
+                    name="language"
+                    className={fieldClass}
+                    value={form.language}
+                    onChange={(e) => updateField("language", e.target.value)}
+                  >
                     <option>English</option>
                     <option>Sinhala</option>
                     <option>Tamil</option>
@@ -396,22 +532,60 @@ function RegisterForm() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>Address *</label>
-                  <input name="addressNumber" className={fieldClass} placeholder="Enter address" required />
+                  <input
+                    name="addressNumber"
+                    className={fieldCls(errors.addressNumber)}
+                    placeholder="Enter address"
+                    value={form.addressNumber}
+                    onChange={(e) => updateField("addressNumber", e.target.value)}
+                    aria-invalid={Boolean(errors.addressNumber)}
+                    required
+                  />
+                  {errors.addressNumber ? (
+                    <p className="mt-1 text-xs text-theme-red-action">{errors.addressNumber}</p>
+                  ) : null}
                 </div>
                 <div>
                   <label className={labelClass}>Street *</label>
-                  <input name="street" className={fieldClass} placeholder="Enter street" required />
+                  <input
+                    name="street"
+                    className={fieldCls(errors.street)}
+                    placeholder="Enter street"
+                    value={form.street}
+                    onChange={(e) => updateField("street", e.target.value)}
+                    aria-invalid={Boolean(errors.street)}
+                    required
+                  />
+                  {errors.street ? <p className="mt-1 text-xs text-theme-red-action">{errors.street}</p> : null}
                 </div>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelClass}>City/Town *</label>
-                  <input name="city" className={fieldClass} placeholder="Enter city" required />
+                  <input
+                    name="city"
+                    className={fieldCls(errors.city)}
+                    placeholder="Enter city"
+                    value={form.city}
+                    onChange={(e) => updateField("city", e.target.value)}
+                    aria-invalid={Boolean(errors.city)}
+                    required
+                  />
+                  {errors.city ? <p className="mt-1 text-xs text-theme-red-action">{errors.city}</p> : null}
                 </div>
                 <div>
                   <label className={labelClass}>Zip Code *</label>
-                  <input name="zipCode" className={fieldClass} placeholder="Enter zip code" required />
+                  <input
+                    name="zipCode"
+                    className={fieldCls(errors.zipCode)}
+                    placeholder="Enter zip code"
+                    value={form.zipCode}
+                    onChange={(e) => updateField("zipCode", e.target.value)}
+                    aria-invalid={Boolean(errors.zipCode)}
+                    required
+                  />
+                  {errors.zipCode ? <p className="mt-1 text-xs text-theme-red-action">{errors.zipCode}</p> : null}
                 </div>
               </div>
 
@@ -422,8 +596,10 @@ function RegisterForm() {
                     name="password"
                     placeholder="Enter password"
                     autoComplete="new-password"
-                    className={fieldClass}
+                    className={fieldCls(errors.password)}
                     toggleClassName="text-white/40 hover:text-white/70 lg:text-theme-gray lg:hover:text-theme-blue-dark"
+                    value={form.password}
+                    onChange={(e) => updateField("password", e.target.value)}
                     required
                   />
                   {errors.password ? <p className="mt-1 text-xs text-theme-red-action">{errors.password}</p> : null}
@@ -434,8 +610,10 @@ function RegisterForm() {
                     name="passwordConfirmation"
                     placeholder="Re-enter password"
                     autoComplete="new-password"
-                    className={fieldClass}
+                    className={fieldCls(errors.passwordConfirmation)}
                     toggleClassName="text-white/40 hover:text-white/70 lg:text-theme-gray lg:hover:text-theme-blue-dark"
+                    value={form.passwordConfirmation}
+                    onChange={(e) => updateField("passwordConfirmation", e.target.value)}
                     required
                   />
                   {errors.passwordConfirmation ? (
@@ -449,6 +627,8 @@ function RegisterForm() {
                   name="terms"
                   type="checkbox"
                   className="h-4 w-4 rounded border-white/30 bg-transparent text-theme-green-action lg:border-theme-gray-border"
+                  checked={form.terms}
+                  onChange={(e) => updateField("terms", e.target.checked)}
                   required
                 />
                 I accept{" "}

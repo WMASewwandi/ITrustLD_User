@@ -5,6 +5,16 @@ function formatStatus(status) {
   return status || "Pending";
 }
 
+function statusClass(status) {
+  const value = String(status || "Pending");
+  if (value === "Completed") return "text-theme-green-action";
+  if (value === "Rejected") return "text-theme-red-action";
+  if (value === "Pending" || value === "Pending Authorization" || value === "In-Progress") {
+    return "text-theme-orange";
+  }
+  return "text-white/55";
+}
+
 export default function RecentTransactions({ transactions = [] }) {
   const items = Array.isArray(transactions) ? transactions : [];
 
@@ -45,11 +55,7 @@ export default function RecentTransactions({ transactions = [] }) {
                   <p className="mt-1 text-sm text-white/60">
                     {tx.type === "withdrawal" ? "Cash-out" : "Top-up"} · {tx.method}
                   </p>
-                  <p
-                    className={`mt-1 text-xs ${
-                      tx.status === "Completed" ? "text-white/50" : "text-theme-orange"
-                    }`}
-                  >
+                  <p className={`mt-1 text-xs font-medium ${statusClass(tx.status)}`}>
                     {formatStatus(tx.status)}
                   </p>
                 </div>

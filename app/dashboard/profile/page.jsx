@@ -26,8 +26,43 @@ import { ArrowRight, Building2, Loader2 } from "lucide-react";
 
 const fieldClass =
   "w-full rounded-xl border border-white/12 bg-white/[0.04] px-3.5 py-2.5 text-sm text-white outline-none transition placeholder:text-white/30 focus:border-theme-green-action/50";
+const fieldErrorClass =
+  "border-theme-red-action/70 ring-1 ring-theme-red-action/25 focus:border-theme-red-action";
 const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45";
 const LANGUAGE_OPTIONS = ["English", "Sinhala", "Tamil"];
+
+function fieldCls(hasError) {
+  return `${fieldClass} ${hasError ? fieldErrorClass : ""}`;
+}
+
+function getFieldError(name, value, ctx = {}) {
+  switch (name) {
+    case "firstName":
+      return lettersOnly(value) ? "" : "First name: only letters are allowed.";
+    case "lastName":
+      return lettersOnly(value) ? "" : "Last name: only letters are allowed.";
+    case "email":
+      return isValidEmail(String(value || "").trim()) ? "" : "Please enter a valid email address.";
+    case "phone":
+      return isValidInternationalPhone(ctx.phoneCountry, value) ? "" : "Please enter a valid mobile number.";
+    case "dateOfBirth":
+      if (!value) return "Birthday is required.";
+      if (!isOldEnough(value, 10)) return "Users below 10 years are not allowed.";
+      return "";
+    case "language":
+      return value ? "" : "Preferred language is required.";
+    case "residentialAddress":
+      return String(value || "").trim() ? "" : "Residential address is required.";
+    case "city":
+      return String(value || "").trim() ? "" : "City / town is required.";
+    case "zipCode":
+      return String(value || "").trim() ? "" : "Zip code is required.";
+    case "country":
+      return ctx.countryName ? "" : "Select a country from the list.";
+    default:
+      return "";
+  }
+}
 
 function formatResidentialAddress(holder) {
   if (!holder) return "";
@@ -123,23 +158,47 @@ export default function ProfilePage() {
     };
   }, [router]);
 
+  function patchError(name, message, current) {
+    const next = { ...current };
+    if (message) next[name] = message;
+    else delete next[name];
+    return next;
+  }
+
+  function liveValidate(name, value, extras = {}) {
+    const empty = String(value || "").trim() === "";
+    setErrors((prev) => {
+      if (empty) return patchError(name, "", prev);
+      return patchError(
+        name,
+        getFieldError(name, value, {
+          phoneCountry: extras.phoneCountry ?? phoneCountry,
+          countryName: extras.countryName ?? addressCountry?.name,
+        }),
+        prev,
+      );
+    });
+  }
+
   async function handleSaveProfile(e) {
     e.preventDefault();
+    const ctx = { phoneCountry, countryName: addressCountry?.name };
     const nextErrors = {};
+    const assign = (name, value) => {
+      const message = getFieldError(name, value, ctx);
+      if (message) nextErrors[name] = message;
+    };
 
-    if (!lettersOnly(firstName)) nextErrors.firstName = "First name: only letters are allowed.";
-    if (!lettersOnly(lastName)) nextErrors.lastName = "Last name: only letters are allowed.";
-    if (!isValidEmail(email)) nextErrors.email = "Please enter a valid email address.";
-    if (!isValidInternationalPhone(phoneCountry, phone)) {
-      nextErrors.phone = "Please enter a valid mobile number.";
-    }
-    if (!dateOfBirth) nextErrors.dateOfBirth = "Birthday is required.";
-    else if (!isOldEnough(dateOfBirth, 10)) nextErrors.dateOfBirth = "Users below 10 years are not allowed.";
-    if (!language) nextErrors.language = "Preferred language is required.";
-    if (!residentialAddress.trim()) nextErrors.residentialAddress = "Residential address is required.";
-    if (!city.trim()) nextErrors.city = "City / town is required.";
-    if (!zipCode.trim()) nextErrors.zipCode = "Zip code is required.";
-    if (!addressCountry?.name) nextErrors.country = "Select a country from the list.";
+    assign("firstName", firstName);
+    assign("lastName", lastName);
+    assign("email", email);
+    assign("phone", phone);
+    assign("dateOfBirth", dateOfBirth);
+    assign("language", language);
+    assign("residentialAddress", residentialAddress);
+    assign("city", city);
+    assign("zipCode", zipCode);
+    assign("country", addressCountry?.name);
 
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
@@ -236,18 +295,26 @@ export default function ProfilePage() {
             <div>
               <label className={labelClass}>First Name *</label>
               <input
-                className={fieldClass}
+                className={fieldCls(errors.firstName)}
                 value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
+                onChange={(e) => {
+                  setFirstName(e.target.value);
+                  liveValidate("firstName", e.target.value);
+                }}
+                aria-invalid={Boolean(errors.firstName)}
               />
               {errors.firstName ? <p className="mt-1 text-xs text-theme-red-action">{errors.firstName}</p> : null}
             </div>
             <div>
               <label className={labelClass}>Last Name *</label>
               <input
-                className={fieldClass}
+                className={fieldCls(errors.lastName)}
                 value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
+                onChange={(e) => {
+                  setLastName(e.target.value);
+                  liveValidate("lastName", e.target.value);
+                }}
+                aria-invalid={Boolean(errors.lastName)}
               />
               {errors.lastName ? <p className="mt-1 text-xs text-theme-red-action">{errors.lastName}</p> : null}
             </div>
@@ -255,10 +322,14 @@ export default function ProfilePage() {
               <label className={labelClass}>Email *</label>
               <input
                 type="email"
-                className={fieldClass}
+                className={fieldCls(errors.email)}
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  liveValidate("email", e.target.value);
+                }}
                 autoComplete="email"
+                aria-invalid={Boolean(errors.email)}
               />
               {errors.email ? <p className="mt-1 text-xs text-theme-red-action">{errors.email}</p> : null}
             </div>
@@ -270,7 +341,10 @@ export default function ProfilePage() {
                   value={phoneCountry?.iso || ""}
                   onChange={(e) => {
                     const next = ALL_COUNTRIES.find((item) => item.iso === e.target.value);
-                    if (next) setPhoneCountry(next);
+                    if (next) {
+                      setPhoneCountry(next);
+                      if (phone) liveValidate("phone", phone, { phoneCountry: next });
+                    }
                   }}
                   aria-label="Phone country code"
                 >
@@ -281,14 +355,16 @@ export default function ProfilePage() {
                   ))}
                 </select>
                 <input
-                  className={fieldClass}
+                  className={fieldCls(errors.phone)}
                   value={phone}
                   onChange={(e) => {
                     let value = e.target.value.replace(/\D/g, "");
                     if (value.startsWith("0")) value = value.slice(1);
                     setPhone(value);
+                    liveValidate("phone", value);
                   }}
                   inputMode="numeric"
+                  aria-invalid={Boolean(errors.phone)}
                 />
               </div>
               {errors.phone ? <p className="mt-1 text-xs text-theme-red-action">{errors.phone}</p> : null}
@@ -297,9 +373,13 @@ export default function ProfilePage() {
               <label className={labelClass}>Birthday *</label>
               <input
                 type="date"
-                className={fieldClass}
+                className={fieldCls(errors.dateOfBirth)}
                 value={dateOfBirth}
-                onChange={(e) => setDateOfBirth(e.target.value)}
+                onChange={(e) => {
+                  setDateOfBirth(e.target.value);
+                  liveValidate("dateOfBirth", e.target.value);
+                }}
+                aria-invalid={Boolean(errors.dateOfBirth)}
               />
               {errors.dateOfBirth ? (
                 <p className="mt-1 text-xs text-theme-red-action">{errors.dateOfBirth}</p>
@@ -308,9 +388,13 @@ export default function ProfilePage() {
             <div>
               <label className={labelClass}>Preferred Language *</label>
               <select
-                className={fieldClass}
+                className={fieldCls(errors.language)}
                 value={language}
-                onChange={(e) => setLanguage(e.target.value)}
+                onChange={(e) => {
+                  setLanguage(e.target.value);
+                  liveValidate("language", e.target.value);
+                }}
+                aria-invalid={Boolean(errors.language)}
               >
                 {LANGUAGE_OPTIONS.map((option) => (
                   <option key={option} value={option} className="bg-[#141A2E]">
@@ -323,9 +407,13 @@ export default function ProfilePage() {
             <div className="sm:col-span-2">
               <label className={labelClass}>Residential Address *</label>
               <input
-                className={fieldClass}
+                className={fieldCls(errors.residentialAddress)}
                 value={residentialAddress}
-                onChange={(e) => setResidentialAddress(e.target.value)}
+                onChange={(e) => {
+                  setResidentialAddress(e.target.value);
+                  liveValidate("residentialAddress", e.target.value);
+                }}
+                aria-invalid={Boolean(errors.residentialAddress)}
               />
               {errors.residentialAddress ? (
                 <p className="mt-1 text-xs text-theme-red-action">{errors.residentialAddress}</p>
@@ -333,23 +421,43 @@ export default function ProfilePage() {
             </div>
             <div>
               <label className={labelClass}>City / Town *</label>
-              <input className={fieldClass} value={city} onChange={(e) => setCity(e.target.value)} />
+              <input
+                className={fieldCls(errors.city)}
+                value={city}
+                onChange={(e) => {
+                  setCity(e.target.value);
+                  liveValidate("city", e.target.value);
+                }}
+                aria-invalid={Boolean(errors.city)}
+              />
               {errors.city ? <p className="mt-1 text-xs text-theme-red-action">{errors.city}</p> : null}
             </div>
             <div>
               <label className={labelClass}>Zip Code *</label>
-              <input className={fieldClass} value={zipCode} onChange={(e) => setZipCode(e.target.value)} />
+              <input
+                className={fieldCls(errors.zipCode)}
+                value={zipCode}
+                onChange={(e) => {
+                  setZipCode(e.target.value);
+                  liveValidate("zipCode", e.target.value);
+                }}
+                aria-invalid={Boolean(errors.zipCode)}
+              />
               {errors.zipCode ? <p className="mt-1 text-xs text-theme-red-action">{errors.zipCode}</p> : null}
             </div>
             <div className="sm:col-span-2">
               <label className={labelClass}>Country *</label>
               <select
-                className={fieldClass}
+                className={fieldCls(errors.country)}
                 value={addressCountry?.name || ""}
                 onChange={(e) => {
                   const next = ALL_COUNTRIES.find((item) => item.name === e.target.value);
-                  if (next) setAddressCountry(next);
+                  if (next) {
+                    setAddressCountry(next);
+                    liveValidate("country", next.name, { countryName: next.name });
+                  }
                 }}
+                aria-invalid={Boolean(errors.country)}
               >
                 {ALL_COUNTRIES.map((item) => (
                   <option key={item.iso} value={item.name} className="bg-[#141A2E]">

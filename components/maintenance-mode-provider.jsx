@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import LaunchCountdownOverlay from "@/components/launch-countdown-overlay";
 import MaintenanceOverlay from "@/components/maintenance-overlay";
 import { fetchMaintenanceMode, markMaintenanceModeLoaded } from "@/lib/maintenance-mode";
 import {
@@ -9,8 +10,6 @@ import {
 } from "@/lib/maintenance-mode-store";
 
 const MaintenanceModeContext = createContext(getMaintenanceModeState());
-
-const POLL_INTERVAL_MS = 3_000;
 
 export function MaintenanceModeProvider({ children }) {
   const [state, setState] = useState(getMaintenanceModeState());
@@ -27,7 +26,6 @@ export function MaintenanceModeProvider({ children }) {
     }
 
     load();
-    const intervalId = window.setInterval(load, POLL_INTERVAL_MS);
 
     function handleVisibilityChange() {
       if (document.visibilityState === "visible") {
@@ -35,18 +33,11 @@ export function MaintenanceModeProvider({ children }) {
       }
     }
 
-    function handleFocus() {
-      load();
-    }
-
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
 
     return () => {
       active = false;
-      window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
     };
   }, []);
 
@@ -55,16 +46,32 @@ export function MaintenanceModeProvider({ children }) {
       enabled: state.enabled,
       message: state.message,
       loading: state.loading,
+      countdownActive: state.countdownActive,
     }),
     [state],
   );
 
+  const showCountdown =
+    !state.loading && !state.enabled && state.countdownActive && Boolean(state.countdownReleasesAt);
+  const blocking = state.enabled || showCountdown;
+
   return (
     <MaintenanceModeContext.Provider value={value}>
-      <div className={state.enabled ? "pointer-events-none select-none" : undefined} aria-hidden={state.enabled}>
+      <div className={blocking ? "pointer-events-none select-none" : undefined} aria-hidden={blocking}>
         {children}
       </div>
       {!state.loading && state.enabled ? <MaintenanceOverlay message={state.message} /> : null}
+      {showCountdown ? (
+        <LaunchCountdownOverlay
+          releasesAt={state.countdownReleasesAt}
+          serverNow={state.serverNow}
+          eyebrow={state.countdownEyebrow}
+          title={state.countdownTitle}
+          message={state.countdownMessage}
+          footer={state.countdownFooter}
+          backgroundUrl={state.countdownBackgroundUrl}
+        />
+      ) : null}
     </MaintenanceModeContext.Provider>
   );
 }
