@@ -92,6 +92,7 @@ export default function DashboardPage() {
         user={dashboard?.user}
         documents={dashboard?.documents}
         verificationComplete={dashboard?.verification_complete}
+        todayRates={dashboard?.today_rates}
       />
       <RecentTransactions transactions={dashboard?.recent_transactions} />
       <LatestNews user={dashboard?.user} posts={dashboard?.blog_posts} />

@@ -11,6 +11,7 @@ export default function PasswordInput({
   className = "",
   toggleClassName = "text-slate-400 hover:text-slate-600",
   required,
+  value,
   onChange,
 }) {
   const [visible, setVisible] = useState(false);
@@ -25,6 +26,7 @@ export default function PasswordInput({
         autoComplete={autoComplete}
         required={required}
         onChange={onChange}
+        {...(value !== undefined ? { value } : {})}
         className={`${className} pr-10`}
       />
       <button

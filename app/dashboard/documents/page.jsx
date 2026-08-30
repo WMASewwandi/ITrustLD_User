@@ -7,7 +7,7 @@ import ListFilters from "@/components/dashboard/list-filters";
 import PageHeader from "@/components/dashboard/page-header";
 import UploadSlot from "@/components/verify/upload-slot";
 import { uploadVerificationDocuments, hasUserSession } from "@/lib/auth";
-import { fetchDashboard } from "@/lib/dashboard";
+import { fetchDashboard, notifyUserNotificationsRefresh } from "@/lib/dashboard";
 import { fetchVerificationDocuments, mapDocumentRows } from "@/lib/documents-api";
 import { inDateRange, rowMatchesSearch } from "@/lib/filter-utils";
 import {
@@ -185,6 +185,7 @@ export default function DocumentsPage() {
       setAddressFile(null);
 
       await Promise.all([loadDocuments(), fetchDashboard({ force: true }).catch(() => null)]);
+      notifyUserNotificationsRefresh();
 
       if (result.step === "pending" || result.step === "complete") {
         setSuccess("Documents submitted successfully. Our team will review them shortly.");

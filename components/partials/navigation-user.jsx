@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import AffiliateLinkCard from "@/components/dashboard/affiliate-link-card";
 import { BrandLogoImage } from "@/components/brand-logo";
@@ -21,7 +21,12 @@ import {
 } from "@/lib/auth";
 import {
   DASHBOARD_UPDATED_EVENT,
+  USER_NOTIFICATIONS_POLL_MS,
+  USER_NOTIFICATIONS_REFRESH_EVENT,
   deriveNotificationsFromUser,
+  fetchDashboard,
+  fetchUserNotifications,
+  notifyUserNotificationsRefresh,
 } from "@/lib/dashboard";
 import {
   canShowAffiliateLink,
@@ -163,6 +168,8 @@ export default function NavigationUser() {
   const [loyaltyPoints, setLoyaltyPoints] = useState(0);
   const [loyaltyTier, setLoyaltyTier] = useState("Normal");
   const [notifications, setNotifications] = useState([]);
+  const dashboardNotificationsRef = useRef(false);
+  const notificationsKeyRef = useRef("");
   const [isPartner, setIsPartner] = useState(null);
   const [affiliateCode, setAffiliateCode] = useState("");
   const { tiers: membershipTiers } = useMembershipTiers(
@@ -181,7 +188,9 @@ export default function NavigationUser() {
         parsed?.earned_for_year != null && parsed?.earned_for_year !== "";
       const points = getYearlyTrustPoints(parsed);
       if (hasYearly) setLoyaltyPoints(points);
-      setNotifications(deriveNotificationsFromUser(parsed));
+      if (!dashboardNotificationsRef.current) {
+        setNotifications(deriveNotificationsFromUser(parsed));
+      }
       const partner = isPartnerUser(parsed);
       setIsPartner(partner);
       const tierName = resolveCurrentLoyaltyTier(parsed, hasYearly ? points : null);
@@ -262,14 +271,35 @@ export default function NavigationUser() {
 
   useEffect(() => {
     syncFromSession();
+    let cancelled = false;
+    let requestId = 0;
+
+    function applyDashboardNotifications(list) {
+      if (!Array.isArray(list)) return;
+      const key = JSON.stringify(list);
+      if (key === notificationsKeyRef.current) return;
+      notificationsKeyRef.current = key;
+      dashboardNotificationsRef.current = true;
+      setNotifications(list);
+    }
+
+    async function loadNotifications() {
+      if (cancelled) return;
+      const id = ++requestId;
+      try {
+        const data = await fetchUserNotifications();
+        if (cancelled || id !== requestId) return;
+        applyDashboardNotifications(data?.notifications);
+      } catch {
+        // Keep the current list if a refresh fails.
+      }
+    }
+
     function onSessionUpdated() {
       syncFromSession();
     }
     function onDashboardUpdated(event) {
       const detail = event?.detail;
-      if (detail?.notifications) {
-        setNotifications(detail.notifications);
-      }
       if (detail?.user) {
         if (detail.user.name) setUserName(detail.user.name);
         const points = getYearlyTrustPoints(detail.user);
@@ -278,17 +308,36 @@ export default function NavigationUser() {
         if (detail.user.accountId) setAccountId(String(detail.user.accountId));
       }
     }
+    function onVisible() {
+      if (document.visibilityState === "visible") loadNotifications();
+    }
+
+    fetchDashboard().catch(() => {});
+    loadNotifications();
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState === "visible") loadNotifications();
+    }, USER_NOTIFICATIONS_POLL_MS);
+
     window.addEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
     window.addEventListener(AUTH_SESSION_CHANGED_EVENT, onSessionUpdated);
+    window.addEventListener(USER_NOTIFICATIONS_REFRESH_EVENT, loadNotifications);
+    window.addEventListener("focus", loadNotifications);
     window.addEventListener("storage", onSessionUpdated);
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
       window.removeEventListener(DASHBOARD_UPDATED_EVENT, onDashboardUpdated);
       window.removeEventListener(AUTH_SESSION_CHANGED_EVENT, onSessionUpdated);
+      window.removeEventListener(USER_NOTIFICATIONS_REFRESH_EVENT, loadNotifications);
+      window.removeEventListener("focus", loadNotifications);
       window.removeEventListener("storage", onSessionUpdated);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 
   const loyaltyPointsLabel = loyaltyPoints.toLocaleString();
+  const notificationCount = notifications.length;
 
   useEffect(() => {
     setMoreOpen(false);
@@ -333,6 +382,9 @@ export default function NavigationUser() {
   function openPanel(name) {
     setMoreOpen(false);
     setPanel(name);
+    if (name === "notifications") {
+      notifyUserNotificationsRefresh();
+    }
   }
 
   return (
@@ -364,10 +416,19 @@ export default function NavigationUser() {
             <button
               type="button"
               onClick={() => openPanel("notifications")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/5"
-              aria-label="Notifications"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/5"
+              aria-label={
+                notificationCount > 0
+                  ? `Notifications, ${notificationCount}`
+                  : "Notifications"
+              }
             >
               <Bell className="h-5 w-5" strokeWidth={1.75} />
+              {notificationCount > 0 ? (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-theme-red-action px-1 text-[10px] font-bold leading-none text-white ring-2 ring-[#060C1F]">
+                  {notificationCount > 99 ? "99+" : notificationCount}
+                </span>
+              ) : null}
             </button>
             <button
               type="button"

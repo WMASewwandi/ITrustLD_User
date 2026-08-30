@@ -20,6 +20,9 @@ import {
   fetchWithdrawalMethodDetails,
   fetchWithdrawalPaymentProofContext,
   findWithdrawalRate,
+  getMethodPendingCount,
+  isPendingMethodLimitError,
+  MAX_PENDING_PER_METHOD,
   multiplyAndRound,
   parseMoneyInput,
   toPositiveRate,
@@ -28,6 +31,7 @@ import {
 } from "@/lib/withdrawals";
 import { rewritePublicAssetUrl } from "@/lib/api";
 import { getUserSession, hasUserSession } from "@/lib/auth";
+import { notifyUserNotificationsRefresh } from "@/lib/dashboard";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   ArrowLeftRight,
@@ -267,6 +271,7 @@ export default function WithdrawalPage() {
   const [errors, setErrors] = useState({});
   const [copied, setCopied] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [limitAlert, setLimitAlert] = useState("");
 
   const topRef = useRef(null);
   const lenis = useLenis();
@@ -504,6 +509,18 @@ export default function WithdrawalPage() {
   async function proceedWithMethod(nextMethodId) {
     if (busy) return;
     if (!validateStep1(nextMethodId)) return;
+
+    const method = bootstrap?.cashout_methods?.find((item) => Number(item.id) === Number(nextMethodId));
+    const pendingCount = getMethodPendingCount(bootstrap?.cashout_methods, nextMethodId);
+    if (pendingCount >= MAX_PENDING_PER_METHOD) {
+      setLimitAlert(
+        `You already have ${MAX_PENDING_PER_METHOD} pending cash-out requests${
+          method?.name ? ` for ${method.name}` : " for this method"
+        }. Please wait until one is completed or rejected before submitting another.`,
+      );
+      return;
+    }
+
     setMethodId(nextMethodId);
     setPageError("");
     setBusy(true);
@@ -512,7 +529,11 @@ export default function WithdrawalPage() {
       setStep(2);
       setErrors({});
     } catch (err) {
-      setPageError(err.message || "Failed to load cash-out details.");
+      if (isPendingMethodLimitError(err)) {
+        setLimitAlert(err.message || "You already have 5 pending cash-out requests for this method.");
+      } else {
+        setPageError(err.message || "Failed to load cash-out details.");
+      }
     } finally {
       setBusy(false);
     }
@@ -548,7 +569,11 @@ export default function WithdrawalPage() {
         setStep(3);
         setErrors({});
       } catch (err) {
-        setPageError(err.message || "Failed to create cash-out.");
+        if (isPendingMethodLimitError(err)) {
+          setLimitAlert(err.message || "You already have 5 pending cash-out requests for this method.");
+        } else {
+          setPageError(err.message || "Failed to create cash-out.");
+        }
       } finally {
         setBusy(false);
       }
@@ -573,8 +598,24 @@ export default function WithdrawalPage() {
           return;
         }
         setSubmitted(true);
+        notifyUserNotificationsRefresh();
+        setBootstrap((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            cashout_methods: (prev.cashout_methods || []).map((item) =>
+              Number(item.id) === Number(methodId)
+                ? { ...item, pendingCount: (Number(item.pendingCount) || 0) + 1 }
+                : item,
+            ),
+          };
+        });
       } catch (err) {
-        setPageError(err.message || "Failed to upload payment proof.");
+        if (isPendingMethodLimitError(err)) {
+          setLimitAlert(err.message || "You already have 5 pending cash-out requests for this method.");
+        } else {
+          setPageError(err.message || "Failed to upload payment proof.");
+        }
       } finally {
         setBusy(false);
       }
@@ -628,6 +669,18 @@ export default function WithdrawalPage() {
       className="mx-auto w-full max-w-[1100px] px-4 py-10 sm:px-6 lg:px-8"
     >
       <StepIndicator step={step} />
+
+      {limitAlert ? (
+        <BottomMessage
+          title="Cannot continue"
+          variant="warning"
+          onClose={() => setLimitAlert("")}
+          primaryAction={{ label: "OK", onClick: () => setLimitAlert("") }}
+          secondaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
+        >
+          {limitAlert}
+        </BottomMessage>
+      ) : null}
 
       {pageError ? (
         <div className="mb-6 rounded-xl border border-theme-red-action/30 bg-theme-red-action/10 px-4 py-3 text-sm text-theme-red-action">
