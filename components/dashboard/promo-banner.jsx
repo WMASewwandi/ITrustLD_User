@@ -37,16 +37,16 @@ export default function PromoBanner({ banner }) {
         />
         <div className="relative flex flex-col gap-4 lg:flex-row lg:items-stretch lg:justify-between">
           {hasMedia ? (
-            <div className="overflow-hidden rounded-xl border border-white/10 lg:order-2 lg:w-[min(42%,320px)] lg:shrink-0">
+            <div className="overflow-hidden rounded-xl border border-white/10 bg-black/20 lg:order-2 lg:w-[min(42%,320px)] lg:shrink-0">
               {isVideo ? (
-                <video src={mediaUrl} className="h-44 w-full object-cover lg:h-full lg:min-h-[140px]" muted playsInline controls />
+                <video src={mediaUrl} className="h-auto w-full object-contain object-top" muted playsInline controls />
               ) : (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={mediaUrl} alt="" className="h-44 w-full object-cover lg:h-full lg:min-h-[140px]" />
+                <img src={mediaUrl} alt="" className="h-auto w-full object-contain object-top" />
               )}
             </div>
           ) : null}
-          <div className={`flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-center lg:justify-between ${hasMedia ? "" : ""}`}>
+          <div className="flex min-w-0 flex-1 flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             {!hasMedia ? (
               <span

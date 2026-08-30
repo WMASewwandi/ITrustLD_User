@@ -169,9 +169,9 @@ export default function AccountOverview({
                 <span className="text-right">Sell</span>
               </div>
               <ul className="max-h-[13.5rem] space-y-1.5 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                {rateMethods.map((item) => (
+                {rateMethods.map((item, index) => (
                   <li
-                    key={item.name}
+                    key={`${item.name}-${index}`}
                     className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-2 rounded-xl border border-white/8 bg-black/20 px-3 py-2"
                   >
                     <span className="min-w-0 truncate text-sm text-white/85">{item.name}</span>

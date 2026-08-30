@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BrandLogoImage } from "@/components/brand-logo";
-import { clearLaunchCountdown } from "@/lib/maintenance-mode-store";
+import { fetchMaintenanceMode } from "@/lib/maintenance-mode";
 
 function pad(value) {
   return String(value).padStart(2, "0");
@@ -16,6 +16,20 @@ function remainingParts(ms) {
     minutes: Math.floor((total % 3600) / 60),
     seconds: total % 60,
   };
+}
+
+function parseReleaseMs(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return 0;
+  const iso = /[zZ]|[+-]\d{2}:\d{2}$/.test(raw)
+    ? raw
+    : raw.includes("T")
+      ? raw
+      : raw.replace(" ", "T");
+  const parsed = Date.parse(iso);
+  if (!Number.isNaN(parsed)) return parsed;
+  const withOffset = Date.parse(`${iso}+05:30`);
+  return Number.isNaN(withOffset) ? 0 : withOffset;
 }
 
 function cssUrl(url) {
@@ -40,16 +54,15 @@ export default function LaunchCountdownOverlay({
   footer,
   backgroundUrl,
 }) {
+  const endedRef = useRef(false);
+
   const offsetMs = useMemo(() => {
     const server = Date.parse(serverNow || "");
     if (Number.isNaN(server)) return 0;
     return server - Date.now();
   }, [serverNow]);
 
-  const targetMs = useMemo(() => {
-    const at = Date.parse(releasesAt || "");
-    return Number.isNaN(at) ? 0 : at;
-  }, [releasesAt]);
+  const targetMs = useMemo(() => parseReleaseMs(releasesAt), [releasesAt]);
 
   const [remainingMs, setRemainingMs] = useState(() => Math.max(0, targetMs - (Date.now() + offsetMs)));
 
@@ -66,11 +79,14 @@ export default function LaunchCountdownOverlay({
   }, []);
 
   useEffect(() => {
+    endedRef.current = false;
+
     function tick() {
       const next = Math.max(0, targetMs - (Date.now() + offsetMs));
       setRemainingMs(next);
-      if (next <= 0) {
-        clearLaunchCountdown();
+      if (next <= 0 && !endedRef.current) {
+        endedRef.current = true;
+        fetchMaintenanceMode();
       }
     }
 
