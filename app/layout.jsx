@@ -5,6 +5,7 @@ import AlpineInit from "@/components/alpine-init";
 import SmoothScroll from "@/components/smooth-scroll";
 import AppProviders from "@/components/app-providers";
 import MobileViewportFix from "@/components/layouts/mobile-viewport-fix";
+import WebViewAuthBridge from "@/components/layouts/webview-auth-bridge";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({ children }) {
       <body className="font-poppins bg-[#070B16] text-white antialiased">
         <AppProviders>
           <AlpineInit />
+          <WebViewAuthBridge />
           <MobileViewportFix />
           <SmoothScroll>{children}</SmoothScroll>
         </AppProviders>
