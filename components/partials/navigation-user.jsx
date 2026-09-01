@@ -85,6 +85,18 @@ const LOYALTY_OPTIONS = [
   { href: "/support", label: "Loyalty Help", icon: Headphones },
 ];
 
+function ClaimsCountBadge({ count, className = "" }) {
+  const badge = Number(count) || 0;
+  if (badge <= 0) return null;
+  return (
+    <span
+      className={`flex h-4 min-w-4 items-center justify-center rounded-full bg-theme-red-action px-1 text-[10px] font-bold leading-none text-white ${className}`}
+    >
+      {badge > 99 ? "99+" : badge}
+    </span>
+  );
+}
+
 function NavIconLink({ href, label, icon: Icon, active, onNavigate, badgeCount = 0 }) {
   const badge = Number(badgeCount) || 0;
   return (
@@ -379,6 +391,14 @@ export default function NavigationUser() {
     return pathname.startsWith(href);
   }
 
+  function earningClaimsBadge(href, label = "") {
+    if (!claimsCount) return 0;
+    if (href === "/dashboard/earnings") return claimsCount;
+    if (href !== "/dashboard/loyalty") return 0;
+    if (label && label !== "Loyalty" && label !== "Loyalty Overview") return 0;
+    return claimsCount;
+  }
+
   function openPanel(name) {
     setMoreOpen(false);
     setPanel(name);
@@ -408,10 +428,18 @@ export default function NavigationUser() {
             <button
               type="button"
               onClick={() => openPanel("loyalty")}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/5"
-              aria-label="Loyalty"
+              className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-white transition hover:bg-white/5"
+              aria-label={
+                claimsCount > 0
+                  ? `Loyalty, ${claimsCount} earnings to collect`
+                  : "Loyalty"
+              }
             >
               <Trophy className="h-5 w-5" strokeWidth={1.75} />
+              <ClaimsCountBadge
+                count={claimsCount}
+                className="absolute -right-0.5 -top-0.5 ring-2 ring-[#060C1F]"
+              />
             </button>
             <button
               type="button"
@@ -463,7 +491,7 @@ export default function NavigationUser() {
               label={item.label}
               icon={item.icon}
               active={isActive(item.href)}
-              badgeCount={item.href === "/dashboard/earnings" ? claimsCount : 0}
+              badgeCount={earningClaimsBadge(item.href, item.label)}
             />
           ))}
         </nav>
@@ -551,7 +579,7 @@ export default function NavigationUser() {
                     <div className="grid grid-cols-2 gap-2">
                       {visibleMobileMoreLinks.map(({ href, label, icon: Icon }) => {
                         const active = isActive(href);
-                        const badge = href === "/dashboard/earnings" ? claimsCount : 0;
+                        const badge = earningClaimsBadge(href, label);
                         return (
                           <Link
                             key={href}
@@ -621,17 +649,26 @@ export default function NavigationUser() {
 
           <h3 className="mb-3 mt-7 text-base font-semibold text-white">Loyalty Options</h3>
           <div className="space-y-2.5">
-            {LOYALTY_OPTIONS.map(({ href, label, icon: Icon }) => (
-              <Link
-                key={label}
-                href={href}
-                onClick={() => setPanel(null)}
-                className="flex items-center gap-3 rounded-xl border border-white/20 px-4 py-3.5 text-sm font-medium text-white transition hover:bg-white/5"
-              >
-                <Icon className="h-4 w-4 shrink-0 text-white/80" />
-                {label}
-              </Link>
-            ))}
+            {LOYALTY_OPTIONS.map(({ href, label, icon: Icon }) => {
+              const badge = earningClaimsBadge(href, label);
+              return (
+                <Link
+                  key={label}
+                  href={href}
+                  onClick={() => setPanel(null)}
+                  className="relative flex items-center gap-3 rounded-xl border border-white/20 px-4 py-3.5 text-sm font-medium text-white transition hover:bg-white/5"
+                >
+                  <span className="relative shrink-0">
+                    <Icon className="h-4 w-4 text-white/80" />
+                    <ClaimsCountBadge
+                      count={badge}
+                      className="absolute -right-2 -top-2"
+                    />
+                  </span>
+                  {label}
+                </Link>
+              );
+            })}
           </div>
         </PanelShell>
       ) : null}
