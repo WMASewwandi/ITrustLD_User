@@ -82,7 +82,14 @@ export default function ClaimMyBonus({
   const [success, setSuccess] = useState("");
 
   const available = Boolean(bonusSummary?.available);
+  const alreadyClaimed = Boolean(bonusSummary?.already_claimed);
+  const hasOffer =
+    !alreadyClaimed &&
+    (available ||
+      Boolean(bonusSummary?.has_offer) ||
+      Number(bonusSummary?.amount || 0) > 0);
   const amount = bonusSummary?.amount_display || Number(bonusSummary?.amount || 0).toFixed(2);
+  const claimBlockedReason = !available && !alreadyClaimed ? bonusSummary?.reason || "" : "";
   const claimDeadline = useClaimBonusDeadline(available);
   const validUntilLabel = claimDeadline
     ? new Date(claimDeadline).toLocaleDateString("en-US", {
@@ -124,6 +131,10 @@ export default function ClaimMyBonus({
     setError("");
     setSuccess("");
 
+    if (!available) {
+      setError(claimBlockedReason || "You cannot claim this bonus right now.");
+      return;
+    }
     if (!account) {
       setError("Please select an XM account to receive your bonus.");
       return;
@@ -155,13 +166,13 @@ export default function ClaimMyBonus({
     }
   }
 
-  if (!available && !claimHistory.length && compact) {
+  if (!available && !hasOffer && !claimHistory.length && compact) {
     return null;
   }
 
   return (
     <div className={className}>
-      {available ? (
+      {hasOffer ? (
         <section className="rounded-2xl border border-theme-green-action/25 bg-gradient-to-br from-theme-green-action/10 via-[#0B1020] to-[#141A2E] p-5 shadow-[0_16px_40px_rgba(0,0,0,0.35)] sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 items-start gap-4">
@@ -171,12 +182,15 @@ export default function ClaimMyBonus({
               <div className="min-w-0">
                 <h2 className="text-base font-semibold text-white">Claim My Bonus</h2>
                 <p className="mt-1 text-sm text-white/55">
-                  You are eligible for a welcome loyalty bonus of{" "}
+                  {available ? "You are eligible for a welcome loyalty bonus of" : "Your loyalty bonus is"}{" "}
                   <span className="font-semibold text-theme-green-action">USD {amount}</span>.
                 </p>
                 <p className="mt-1 text-xs text-white/40">
-                  Requires more than 201 Trust Points. Payout goes to your saved account after admin approval.
+                  Requires more than 201 Trust Points available balance. Payout goes to your saved account after admin approval.
                 </p>
+                {claimBlockedReason ? (
+                  <p className="mt-2 text-sm font-medium text-rose-300">{claimBlockedReason}</p>
+                ) : null}
                 {validUntilLabel ? (
                   <p className="mt-1 text-[11px] text-white/35">Valid until {validUntilLabel}</p>
                 ) : null}
@@ -192,14 +206,16 @@ export default function ClaimMyBonus({
               ) : null}
               <button
                 type="button"
+                disabled={!available}
                 onClick={() => {
+                  if (!available) return;
                   setOpen(true);
                   setError("");
                   setSuccess("");
                 }}
-                className="rounded-xl bg-theme-green-action px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110"
+                className="rounded-xl bg-theme-green-action px-5 py-3 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Claim My Bonus
+                {available ? "Claim My Bonus" : "Cannot claim"}
               </button>
             </div>
           </div>
