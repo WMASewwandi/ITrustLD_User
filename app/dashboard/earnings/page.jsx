@@ -587,6 +587,11 @@ export default function MyEarningsPage() {
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
     },
+    {
+      key: "rejectReason",
+      label: "Reject Reason",
+      render: (row) => (row.status === "Rejected" ? row.rejectReason || "—" : "—"),
+    },
   ];
 
   const voucherListColumns = [
@@ -620,6 +625,11 @@ export default function MyEarningsPage() {
       key: "status",
       label: "Status",
       render: (row) => <StatusBadge status={row.status} />,
+    },
+    {
+      key: "rejectReason",
+      label: "Reject Reason",
+      render: (row) => (row.status === "Rejected" ? row.rejectReason || "—" : "—"),
     },
     {
       key: "action",

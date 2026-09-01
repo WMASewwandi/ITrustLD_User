@@ -102,7 +102,7 @@ export default function ClaimMyBonus({
       try {
         const data = await fetchPaymentAccounts();
         if (!cancelled) {
-          setAccounts(flattenAccountGroups(data.account_groups || []));
+          setAccounts(flattenAccountGroups(data.account_groups || [], ["XM"]));
         }
       } catch (err) {
         if (!cancelled) {
@@ -125,11 +125,15 @@ export default function ClaimMyBonus({
     setSuccess("");
 
     if (!account) {
-      setError("Please select an account to receive your bonus.");
+      setError("Please select an XM account to receive your bonus.");
       return;
     }
 
     const { accountId, accountType } = decodeReceivingAccountOption(account);
+    if (accountType !== "XM") {
+      setError("Bonus claims can only be paid to an XM account.");
+      return;
+    }
     setSubmitting(true);
     try {
       const result = await createBonusClaim({
@@ -171,7 +175,7 @@ export default function ClaimMyBonus({
                   <span className="font-semibold text-theme-green-action">USD {amount}</span>.
                 </p>
                 <p className="mt-1 text-xs text-white/40">
-                  Requires more than {bonusSummary?.min_points_required ?? 201} Trust Points. Payout goes to your saved account after admin approval.
+                  Requires more than 201 Trust Points. Payout goes to your saved account after admin approval.
                 </p>
                 {validUntilLabel ? (
                   <p className="mt-1 text-[11px] text-white/35">Valid until {validUntilLabel}</p>
@@ -223,6 +227,9 @@ export default function ClaimMyBonus({
                   <p className="mt-1 text-xs text-white/45">
                     {row.date} · {row.method} · {row.received}
                   </p>
+                  {row.status === "Rejected" && row.rejectReason ? (
+                    <p className="mt-1 text-xs text-rose-300">Reason: {row.rejectReason}</p>
+                  ) : null}
                 </div>
                 <StatusPill status={row.status} />
               </article>
@@ -268,7 +275,7 @@ export default function ClaimMyBonus({
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label className="mb-2 block text-sm font-medium text-white/70">Payment account</label>
+                <label className="mb-2 block text-sm font-medium text-white/70">XM account</label>
                 <select
                   value={account}
                   onChange={(e) => {
@@ -279,7 +286,11 @@ export default function ClaimMyBonus({
                   disabled={loadingAccounts || submitting}
                 >
                   <option value="" className="bg-[#141A2E]">
-                    {loadingAccounts ? "Loading accounts…" : "Select your account"}
+                    {loadingAccounts
+                      ? "Loading XM accounts…"
+                      : accounts.length
+                        ? "Select your XM account"
+                        : "No XM accounts saved"}
                   </option>
                   {accounts.map((item) => (
                     <option key={item.value} value={item.value} className="bg-[#141A2E]">
@@ -291,7 +302,7 @@ export default function ClaimMyBonus({
                   href="/dashboard/profile/accounts"
                   className="mt-2 inline-block text-xs text-theme-green-action hover:underline"
                 >
-                  Manage saved accounts
+                  {accounts.length ? "Manage XM accounts" : "Add an XM account"}
                 </Link>
               </div>
 
