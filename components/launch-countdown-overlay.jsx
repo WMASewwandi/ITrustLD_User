@@ -21,13 +21,11 @@ function remainingParts(ms) {
 function parseReleaseMs(value) {
   const raw = String(value || "").trim();
   if (!raw) return 0;
-  const iso = /[zZ]|[+-]\d{2}:\d{2}$/.test(raw)
-    ? raw
-    : raw.includes("T")
-      ? raw
-      : raw.replace(" ", "T");
-  const parsed = Date.parse(iso);
-  if (!Number.isNaN(parsed)) return parsed;
+  if (/[zZ]$/.test(raw) || /[+-]\d{2}:\d{2}$/.test(raw)) {
+    const parsed = Date.parse(raw);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  }
+  const iso = raw.includes("T") ? raw : raw.replace(" ", "T");
   const withOffset = Date.parse(`${iso}+05:30`);
   return Number.isNaN(withOffset) ? 0 : withOffset;
 }
