@@ -17,7 +17,7 @@ import {
   getMethodPendingCount,
   GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE,
   GIFT_VOUCHER_COOLDOWN_CODE,
-  GIFT_VOUCHER_COOLDOWN_MESSAGE,
+  giftVoucherCooldownMessage as formatGiftVoucherCooldownMessage,
   isGiftVoucherPaymentOption,
   isGiftVoucherPlatformReuseError,
   isGiftVoucherCooldownError,
@@ -307,7 +307,8 @@ export default function DepositPage() {
   const isGiftVoucher = isGiftVoucherPaymentOption(selectedPaymentOption?.name);
   const giftVoucherCooldownMessage =
     isGiftVoucher && methodDetails?.gift_voucher_cooldown?.blocked
-      ? methodDetails.gift_voucher_cooldown.message || GIFT_VOUCHER_COOLDOWN_MESSAGE
+      ? methodDetails.gift_voucher_cooldown.message ||
+        formatGiftVoucherCooldownMessage(methodDetails.gift_voucher_cooldown.remaining_days)
       : "";
 
   const converted = useMemo(() => {
@@ -665,7 +666,9 @@ export default function DepositPage() {
         if (isPendingMethodLimitError(err)) {
           setLimitAlert(err.message || "You already have 5 pending top-up requests for this method.");
         } else if (isGiftVoucherCooldownError(err)) {
-          const message = err.message || GIFT_VOUCHER_COOLDOWN_MESSAGE;
+          const message =
+            err.message ||
+            formatGiftVoucherCooldownMessage(methodDetails?.gift_voucher_cooldown?.remaining_days);
           setErrors((prev) => ({ ...prev, paymentOption: message }));
         } else if (isGiftVoucherPlatformReuseError(err)) {
           const message = err.message || GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE;
