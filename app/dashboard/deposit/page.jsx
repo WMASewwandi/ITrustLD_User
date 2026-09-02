@@ -16,8 +16,11 @@ import {
   findDepositRate,
   getMethodPendingCount,
   GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE,
+  GIFT_VOUCHER_COOLDOWN_CODE,
+  GIFT_VOUCHER_COOLDOWN_MESSAGE,
   isGiftVoucherPaymentOption,
   isGiftVoucherPlatformReuseError,
+  isGiftVoucherCooldownError,
   isPendingMethodLimitError,
   MAX_PENDING_PER_METHOD,
   multiplyAndRound,
@@ -302,6 +305,10 @@ export default function DepositPage() {
   const rateValue = toPositiveRate(selectedRate?.rate);
   const isCardPayment = String(selectedPaymentOption?.name || "").toLowerCase() === "card payment";
   const isGiftVoucher = isGiftVoucherPaymentOption(selectedPaymentOption?.name);
+  const giftVoucherCooldownMessage =
+    isGiftVoucher && methodDetails?.gift_voucher_cooldown?.blocked
+      ? methodDetails.gift_voucher_cooldown.message || GIFT_VOUCHER_COOLDOWN_MESSAGE
+      : "";
 
   const converted = useMemo(() => {
     if (!rateValue) return { deposit: 0, payment: 0, note: "" };
@@ -419,6 +426,10 @@ export default function DepositPage() {
       setGiftVoucherReuseError("");
       return undefined;
     }
+    if (giftVoucherCooldownMessage) {
+      setGiftVoucherReuseError("");
+      return undefined;
+    }
     const accountId = String(topupAccountId || "").trim();
     if (!accountId || liveTopupAccountError || !paymentOptionId) {
       setGiftVoucherReuseError("");
@@ -433,6 +444,10 @@ export default function DepositPage() {
           topupAccountId: accountId,
         });
         if (cancelled) return;
+        if (result?.code === GIFT_VOUCHER_COOLDOWN_CODE) {
+          setGiftVoucherReuseError("");
+          return;
+        }
         setGiftVoucherReuseError(result?.allowed === false ? result.message || GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE : "");
       } catch {
         if (!cancelled) setGiftVoucherReuseError("");
@@ -443,7 +458,7 @@ export default function DepositPage() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [isGiftVoucher, liveTopupAccountError, paymentOptionId, topupAccountId]);
+  }, [isGiftVoucher, giftVoucherCooldownMessage, liveTopupAccountError, paymentOptionId, topupAccountId]);
 
   function handleCurrencySwitch(nextCurrency) {
     const next = String(nextCurrency || "");
@@ -537,10 +552,11 @@ export default function DepositPage() {
     if (accountError) next.topupAccountId = accountError;
     else if (giftVoucherReuseError) next.topupAccountId = giftVoucherReuseError;
     if (!paymentOptionId) next.paymentOption = "Select a payment option.";
+    else if (giftVoucherCooldownMessage) next.paymentOption = giftVoucherCooldownMessage;
 
     const depositValue = converted.deposit;
     if (!rateValue) {
-      next.paymentOption = "No rate is available for the selected payment option.";
+      if (!next.paymentOption) next.paymentOption = "No rate is available for the selected payment option.";
     } else if (depositValue <= 0) {
       next.amount = "Please enter a valid deposit amount.";
     } else if (topupMethod) {
@@ -553,7 +569,9 @@ export default function DepositPage() {
       next.paymentAmount = "Please enter a valid payment amount.";
     }
 
-    if (!selectedRate) next.paymentOption = "No rate is available for the selected payment option.";
+    if (!selectedRate && !next.paymentOption) {
+      next.paymentOption = "No rate is available for the selected payment option.";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   }
@@ -646,6 +664,9 @@ export default function DepositPage() {
       } catch (err) {
         if (isPendingMethodLimitError(err)) {
           setLimitAlert(err.message || "You already have 5 pending top-up requests for this method.");
+        } else if (isGiftVoucherCooldownError(err)) {
+          const message = err.message || GIFT_VOUCHER_COOLDOWN_MESSAGE;
+          setErrors((prev) => ({ ...prev, paymentOption: message }));
         } else if (isGiftVoucherPlatformReuseError(err)) {
           const message = err.message || GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE;
           setGiftVoucherReuseError(message);
@@ -928,7 +949,7 @@ export default function DepositPage() {
                   <select
                     value={paymentOptionId ?? ""}
                     onChange={(e) => handlePaymentOptionChange(e.target.value)}
-                    className={fieldClass}
+                    className={`${fieldClass} ${giftVoucherCooldownMessage || errors.paymentOption ? "border-theme-red-action/50" : ""}`}
                   >
                     {(methodDetails.payment_options || []).map((opt) => (
                       <option key={opt.id} value={opt.id} className="bg-[#141A2E]">
@@ -936,10 +957,12 @@ export default function DepositPage() {
                       </option>
                     ))}
                   </select>
-                  {converted.note ? (
+                  {giftVoucherCooldownMessage ? (
+                    <p className="mt-2 text-xs text-theme-red-action">{giftVoucherCooldownMessage}</p>
+                  ) : converted.note ? (
                     <p className="mt-2 text-xs text-theme-red-action">{converted.note}</p>
                   ) : null}
-                  {errors.paymentOption ? (
+                  {!giftVoucherCooldownMessage && errors.paymentOption ? (
                     <p className="mt-2 text-xs text-theme-red-action">{errors.paymentOption}</p>
                   ) : null}
                 </div>
