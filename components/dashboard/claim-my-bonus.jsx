@@ -89,6 +89,7 @@ export default function ClaimMyBonus({
       Boolean(bonusSummary?.has_offer) ||
       Number(bonusSummary?.amount || 0) > 0);
   const amount = bonusSummary?.amount_display || Number(bonusSummary?.amount || 0).toFixed(2);
+  const minPointsRequired = Number(bonusSummary?.min_points_required) || 5000;
   const claimBlockedReason = !available && !alreadyClaimed ? bonusSummary?.reason || "" : "";
   const claimDeadline = useClaimBonusDeadline(available);
   const validUntilLabel = claimDeadline
@@ -186,7 +187,7 @@ export default function ClaimMyBonus({
                   <span className="font-semibold text-theme-green-action">USD {amount}</span>.
                 </p>
                 <p className="mt-1 text-xs text-white/40">
-                  Requires more than 201 Trust Points available balance. Payout goes to your saved account after admin approval.
+                  Requires more than {minPointsRequired.toLocaleString()} Trust Points available balance. Payout goes to your saved account after admin approval.
                 </p>
                 {claimBlockedReason ? (
                   <p className="mt-2 text-sm font-medium text-rose-300">{claimBlockedReason}</p>

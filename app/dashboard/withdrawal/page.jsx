@@ -13,6 +13,7 @@ import {
 } from "@/lib/payment-accounts";
 import {
   cashoutAccountPlaceholder,
+  cashoutAccountFormatHint,
   cashoutMethodIconKey,
   createWithdrawal,
   divideAndRound,
@@ -326,6 +327,37 @@ export default function WithdrawalPage() {
   }, [amount, editingCashoutAmount, rateValue, receivingAmount]);
 
   const rateDate = formatRateDate();
+
+  const liveCashoutAccountError = useMemo(() => {
+    if (!String(cashoutAccountId || "").trim()) return null;
+    return validateCashoutAccountId(cashoutMethod?.name, cashoutAccountId);
+  }, [cashoutAccountId, cashoutMethod?.name]);
+
+  const liveAmountError = useMemo(() => {
+    const raw = editingCashoutAmount ? amount : receivingAmount;
+    if (!String(raw || "").trim()) return null;
+    if (!rateValue) return null;
+    const cashoutValue = converted.cashout;
+    if (cashoutValue <= 0) return "Please enter a valid cash-out amount.";
+    if (cashoutMethod) {
+      const min = Number(cashoutMethod.minLimit);
+      const max = Number(cashoutMethod.maxLimit);
+      if (Number.isFinite(min) && Number.isFinite(max) && (cashoutValue < min || cashoutValue > max)) {
+        return `Cash-out amount must be between USD ${min} and USD ${max}.`;
+      }
+    }
+    return null;
+  }, [amount, cashoutMethod, converted.cashout, editingCashoutAmount, rateValue, receivingAmount]);
+
+  const cashoutAccountHint = cashoutAccountFormatHint(cashoutMethod?.name);
+  const amountHint =
+    cashoutMethod && Number.isFinite(Number(cashoutMethod.minLimit)) && Number.isFinite(Number(cashoutMethod.maxLimit))
+      ? `Cash-out amount must be between USD ${cashoutMethod.minLimit} and USD ${cashoutMethod.maxLimit}.`
+      : "Enter a valid cash-out amount.";
+  const shownCashoutAccountMessage = errors.cashoutAccountId || liveCashoutAccountError || cashoutAccountHint;
+  const cashoutAccountInvalid = Boolean(errors.cashoutAccountId || liveCashoutAccountError);
+  const shownAmountMessage = errors.amount || errors.receivingAmount || liveAmountError || amountHint;
+  const amountInvalid = Boolean(errors.amount || errors.receivingAmount || liveAmountError);
 
   useEffect(() => {
     if (!hasUserSession()) {
@@ -897,10 +929,9 @@ export default function WithdrawalPage() {
                         value={amount}
                         onChange={(e) => {
                           setAmount(e.target.value.replace(/[^\d.]/g, ""));
-                          setErrors((prev) => ({ ...prev, amount: undefined }));
                         }}
                         placeholder="Cash-out Amount"
-                        className={`${fieldClass} ${errors.amount ? "border-theme-red-action/50" : ""}`}
+                        className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
                       />
                     ) : (
                       <input
@@ -909,16 +940,15 @@ export default function WithdrawalPage() {
                         value={receivingAmount}
                         onChange={(e) => {
                           setReceivingAmount(e.target.value.replace(/[^\d.]/g, ""));
-                          setErrors((prev) => ({ ...prev, receivingAmount: undefined }));
                         }}
                         placeholder="Receiving Amount"
-                        className={`${fieldClass} ${errors.receivingAmount ? "border-theme-red-action/50" : ""}`}
+                        className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
                       />
                     )}
                   </div>
-                  {errors.amount || errors.receivingAmount ? (
-                    <p className="mt-2 text-xs text-theme-red-action">
-                      {errors.amount || errors.receivingAmount}
+                  {shownAmountMessage ? (
+                    <p className={`mt-2 text-xs ${amountInvalid ? "text-theme-red-action" : "text-white/40"}`}>
+                      {shownAmountMessage}
                     </p>
                   ) : null}
                 </div>
@@ -932,13 +962,14 @@ export default function WithdrawalPage() {
                     value={cashoutAccountId}
                     onChange={(e) => {
                       setCashoutAccountId(e.target.value);
-                      setErrors((prev) => ({ ...prev, cashoutAccountId: undefined }));
                     }}
                     placeholder={cashoutAccountPlaceholder(cashoutMethod?.name)}
-                    className={`${fieldClass} ${errors.cashoutAccountId ? "border-theme-red-action/50" : ""}`}
+                    className={`${fieldClass} ${cashoutAccountInvalid ? "border-theme-red-action/50" : ""}`}
                   />
-                  {errors.cashoutAccountId ? (
-                    <p className="mt-2 text-xs text-theme-red-action">{errors.cashoutAccountId}</p>
+                  {shownCashoutAccountMessage ? (
+                    <p className={`mt-2 text-xs ${cashoutAccountInvalid ? "text-theme-red-action" : "text-white/40"}`}>
+                      {shownCashoutAccountMessage}
+                    </p>
                   ) : null}
                 </div>
 

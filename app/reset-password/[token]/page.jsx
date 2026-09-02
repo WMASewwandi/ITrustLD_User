@@ -16,7 +16,13 @@ function ResetPasswordWithTokenContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const rawToken = params?.token;
-  const token = typeof rawToken === "string" ? decodeURIComponent(rawToken) : "";
+  const encoded = Array.isArray(rawToken) ? rawToken[0] : rawToken;
+  let token = typeof encoded === "string" ? encoded : "";
+  try {
+    token = decodeURIComponent(token);
+  } catch {
+    // useParams already decoded most tokens
+  }
   const emailFromQuery = searchParams.get("email") || "";
 
   return <ResetPasswordForm token={token} initialEmail={emailFromQuery} />;

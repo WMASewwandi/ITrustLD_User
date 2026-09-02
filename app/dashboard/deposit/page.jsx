@@ -7,6 +7,7 @@ import BottomMessage from "@/components/dashboard/bottom-message";
 import FlowActions from "@/components/dashboard/flow-actions";
 import MethodTerms from "@/components/method-terms";
 import {
+  checkGiftVoucherPlatformReuse,
   createDeposit,
   divideAndRound,
   fetchDepositBootstrap,
@@ -14,12 +15,16 @@ import {
   fetchDepositPaymentProofContext,
   findDepositRate,
   getMethodPendingCount,
+  GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE,
+  isGiftVoucherPaymentOption,
+  isGiftVoucherPlatformReuseError,
   isPendingMethodLimitError,
   MAX_PENDING_PER_METHOD,
   multiplyAndRound,
   parseMoneyInput,
   toPositiveRate,
   topupAccountPlaceholder,
+  topupAccountFormatHint,
   topupMethodIconKey,
   uploadDepositProof,
   validateTopupAccountId,
@@ -255,6 +260,7 @@ export default function DepositPage() {
   const [copied, setCopied] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [limitAlert, setLimitAlert] = useState("");
+  const [giftVoucherReuseError, setGiftVoucherReuseError] = useState("");
 
   const topRef = useRef(null);
   const lenis = useLenis();
@@ -295,6 +301,7 @@ export default function DepositPage() {
   const editingDepositAmount = currencySwitch === depositCurrency;
   const rateValue = toPositiveRate(selectedRate?.rate);
   const isCardPayment = String(selectedPaymentOption?.name || "").toLowerCase() === "card payment";
+  const isGiftVoucher = isGiftVoucherPaymentOption(selectedPaymentOption?.name);
 
   const converted = useMemo(() => {
     if (!rateValue) return { deposit: 0, payment: 0, note: "" };
@@ -328,6 +335,42 @@ export default function DepositPage() {
   }, [amount, editingDepositAmount, isCardPayment, paymentAmount, rateValue]);
 
   const rateDate = formatRateDate();
+
+  const liveTopupAccountError = useMemo(() => {
+    if (!String(topupAccountId || "").trim()) return null;
+    return validateTopupAccountId(topupMethod?.name, topupAccountId);
+  }, [topupAccountId, topupMethod?.name]);
+
+  const liveAmountError = useMemo(() => {
+    const raw = editingDepositAmount ? amount : paymentAmount;
+    if (!String(raw || "").trim()) return null;
+    if (!rateValue) return null;
+    const depositValue = converted.deposit;
+    if (depositValue <= 0) return "Please enter a valid deposit amount.";
+    if (topupMethod) {
+      const min = Number(topupMethod.minLimit);
+      const max = Number(topupMethod.maxLimit);
+      if (Number.isFinite(min) && Number.isFinite(max) && (depositValue < min || depositValue > max)) {
+        return `Deposit amount must be between USD ${min} and USD ${max}.`;
+      }
+    }
+    return null;
+  }, [amount, converted.deposit, editingDepositAmount, paymentAmount, rateValue, topupMethod]);
+
+  const topupAccountHint = isGiftVoucher
+    ? "This platform ID cannot be used for another gift voucher deposit within 30 days."
+    : topupAccountFormatHint(topupMethod?.name);
+  const amountHint =
+    topupMethod && Number.isFinite(Number(topupMethod.minLimit)) && Number.isFinite(Number(topupMethod.maxLimit))
+      ? `Deposit amount must be between USD ${topupMethod.minLimit} and USD ${topupMethod.maxLimit}.`
+      : "Enter a valid deposit amount.";
+  const shownTopupAccountMessage =
+    errors.topupAccountId || liveTopupAccountError || giftVoucherReuseError || topupAccountHint;
+  const topupAccountInvalid = Boolean(
+    errors.topupAccountId || liveTopupAccountError || giftVoucherReuseError,
+  );
+  const shownAmountMessage = errors.amount || errors.paymentAmount || liveAmountError || amountHint;
+  const amountInvalid = Boolean(errors.amount || errors.paymentAmount || liveAmountError);
 
   useEffect(() => {
     if (!hasUserSession()) {
@@ -370,6 +413,37 @@ export default function DepositPage() {
       if (slipPreview) URL.revokeObjectURL(slipPreview);
     };
   }, [slipPreview]);
+
+  useEffect(() => {
+    if (!isGiftVoucher) {
+      setGiftVoucherReuseError("");
+      return undefined;
+    }
+    const accountId = String(topupAccountId || "").trim();
+    if (!accountId || liveTopupAccountError || !paymentOptionId) {
+      setGiftVoucherReuseError("");
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await checkGiftVoucherPlatformReuse({
+          paymentOptionId,
+          topupAccountId: accountId,
+        });
+        if (cancelled) return;
+        setGiftVoucherReuseError(result?.allowed === false ? result.message || GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE : "");
+      } catch {
+        if (!cancelled) setGiftVoucherReuseError("");
+      }
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isGiftVoucher, liveTopupAccountError, paymentOptionId, topupAccountId]);
 
   function handleCurrencySwitch(nextCurrency) {
     const next = String(nextCurrency || "");
@@ -461,6 +535,7 @@ export default function DepositPage() {
     const next = {};
     const accountError = validateTopupAccountId(topupMethod?.name, topupAccountId);
     if (accountError) next.topupAccountId = accountError;
+    else if (giftVoucherReuseError) next.topupAccountId = giftVoucherReuseError;
     if (!paymentOptionId) next.paymentOption = "Select a payment option.";
 
     const depositValue = converted.deposit;
@@ -571,6 +646,10 @@ export default function DepositPage() {
       } catch (err) {
         if (isPendingMethodLimitError(err)) {
           setLimitAlert(err.message || "You already have 5 pending top-up requests for this method.");
+        } else if (isGiftVoucherPlatformReuseError(err)) {
+          const message = err.message || GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE;
+          setGiftVoucherReuseError(message);
+          setErrors((prev) => ({ ...prev, topupAccountId: message }));
         } else {
           setPageError(err.message || "Failed to create deposit.");
         }
@@ -635,6 +714,8 @@ export default function DepositPage() {
     const rate = findDepositRate(methodDetails?.deposit_rates, methodId, Number(nextId));
     const nextRate = toPositiveRate(rate?.rate);
     setPaymentOptionId(Number(nextId));
+    setGiftVoucherReuseError("");
+    setErrors((prev) => ({ ...prev, topupAccountId: undefined, paymentOption: undefined }));
     if (option?.currency && option.currency !== "USD") {
       setCurrencySwitch(depositCurrency);
     }
@@ -889,9 +970,8 @@ export default function DepositPage() {
                         value={amount}
                         onChange={(e) => {
                           setAmount(e.target.value.replace(/[^\d.]/g, ""));
-                          setErrors((prev) => ({ ...prev, amount: undefined }));
                         }}
-                        className={`${fieldClass} ${errors.amount ? "border-theme-red-action/50" : ""}`}
+                        className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
                       />
                     ) : (
                       <input
@@ -900,15 +980,14 @@ export default function DepositPage() {
                         value={paymentAmount}
                         onChange={(e) => {
                           setPaymentAmount(e.target.value.replace(/[^\d.]/g, ""));
-                          setErrors((prev) => ({ ...prev, paymentAmount: undefined }));
                         }}
-                        className={`${fieldClass} ${errors.paymentAmount ? "border-theme-red-action/50" : ""}`}
+                        className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
                       />
                     )}
                   </div>
-                  {errors.amount || errors.paymentAmount ? (
-                    <p className="mt-2 text-xs text-theme-red-action">
-                      {errors.amount || errors.paymentAmount}
+                  {shownAmountMessage ? (
+                    <p className={`mt-2 text-xs ${amountInvalid ? "text-theme-red-action" : "text-white/40"}`}>
+                      {shownAmountMessage}
                     </p>
                   ) : null}
                 </div>
@@ -925,10 +1004,12 @@ export default function DepositPage() {
                       setErrors((prev) => ({ ...prev, topupAccountId: undefined }));
                     }}
                     placeholder={topupAccountPlaceholder(topupMethod?.name)}
-                    className={`${fieldClass} ${errors.topupAccountId ? "border-theme-red-action/50" : ""}`}
+                    className={`${fieldClass} ${topupAccountInvalid ? "border-theme-red-action/50" : ""}`}
                   />
-                  {errors.topupAccountId ? (
-                    <p className="mt-2 text-xs text-theme-red-action">{errors.topupAccountId}</p>
+                  {shownTopupAccountMessage ? (
+                    <p className={`mt-2 text-xs ${topupAccountInvalid ? "text-theme-red-action" : "text-white/40"}`}>
+                      {shownTopupAccountMessage}
+                    </p>
                   ) : null}
                 </div>
 
