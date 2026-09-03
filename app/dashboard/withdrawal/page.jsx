@@ -217,6 +217,16 @@ function PaymentAccountsPanel({ type, accounts, onCopy }) {
           {type === "card_payment" ? (
             <CopyRow label="Card Payment Link" value={account.cardPaymentLink} onCopy={onCopy} />
           ) : null}
+          {type === "custom"
+            ? (account.fields || []).map((field) => (
+                <CopyRow
+                  key={field.key || field.label}
+                  label={field.label}
+                  value={field.value}
+                  onCopy={onCopy}
+                />
+              ))
+            : null}
         </div>
       ))}
     </div>
