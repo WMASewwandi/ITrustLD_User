@@ -19,6 +19,7 @@ import {
   fetchLoyaltySummary,
   fetchLoyaltyWithdrawals,
   flattenAccountGroups,
+  getLoyaltyCashoutLimitError,
   mapBonusClaimRows,
   mapWithdrawalRows,
 } from "@/lib/loyalty-api";
@@ -38,6 +39,12 @@ const HISTORY_FILTER_DEFAULTS = {
 const fieldClass =
   "w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-theme-green-action/50";
 
+function formatLimitDisplay(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return n.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
 export default function LoyaltyPage() {
   const router = useRouter();
   const [section, setSection] = useState("overview"); // overview | withdraw
@@ -52,6 +59,8 @@ export default function LoyaltyPage() {
   const [totalEarned, setTotalEarned] = useState(0);
   const [usdValue, setUsdValue] = useState("0.00");
   const [rateLabel, setRateLabel] = useState("($) 10,000 Trust Points = 10 USD");
+  const [pointDivider, setPointDivider] = useState(10000);
+  const [usdPerBlock, setUsdPerBlock] = useState(10);
   const [minPoints, setMinPoints] = useState(10000);
   const [levelProgress, setLevelProgress] = useState(0);
   const [trustPointsForTier, setTrustPointsForTier] = useState(0);
@@ -133,6 +142,22 @@ export default function LoyaltyPage() {
     });
   }, [historyFilter, withdrawalHistory]);
 
+  const selectedAccount = useMemo(
+    () => accounts.find((item) => item.value === account) || null,
+    [accounts, account],
+  );
+
+  const accountLimitError = useMemo(
+    () =>
+      getLoyaltyCashoutLimitError({
+        points,
+        accountOption: selectedAccount,
+        pointDivider,
+        usdPerBlock,
+      }),
+    [account, accounts, pointDivider, points, selectedAccount, usdPerBlock],
+  );
+
   const loadLoyaltyData = useCallback(async (options = {}) => {
     if (!options.silent) setLoading(true);
     try {
@@ -148,6 +173,8 @@ export default function LoyaltyPage() {
       setTotalEarned(Number(pointSummary.earned) || 0);
       setUsdValue(Number(summaryData.usd_value_of_earned || 0).toFixed(2));
       setRateLabel(summaryData.rate_label || "($) 10,000 Trust Points = 10 USD");
+      setPointDivider(Number(summaryData.point_divider) || 10000);
+      setUsdPerBlock(Number(summaryData.usd_per_block) || 10);
       setMinPoints(Number(summaryData.minimum_points) || 10000);
       setLevelProgress(Number(pointSummary.percentage) || 0);
       setTierLabel(pointSummary.level_label || "Normal");
@@ -233,6 +260,18 @@ export default function LoyaltyPage() {
     }
     if (!account) {
       setError("Please select an account to cash out to.");
+      return;
+    }
+
+    const selected = accounts.find((item) => item.value === account) || null;
+    const limitError = getLoyaltyCashoutLimitError({
+      points,
+      accountOption: selected,
+      pointDivider,
+      usdPerBlock,
+    });
+    if (limitError) {
+      setError(limitError);
       return;
     }
 
@@ -555,6 +594,15 @@ export default function LoyaltyPage() {
                         </option>
                       ))}
                     </select>
+                    {selectedAccount &&
+                    selectedAccount.minLimit != null &&
+                    selectedAccount.maxLimit != null &&
+                    !(Number(selectedAccount.minLimit) === 0 && Number(selectedAccount.maxLimit) === 0) ? (
+                      <p className={`mt-2 text-xs ${accountLimitError ? "text-red-400" : "text-white/40"}`}>
+                        {accountLimitError ||
+                          `${selectedAccount.currency} ${formatLimitDisplay(selectedAccount.minLimit)} – ${formatLimitDisplay(selectedAccount.maxLimit)} for this account type.`}
+                      </p>
+                    ) : null}
                     <Link
                       href="/dashboard/profile"
                       className="mt-3 inline-block text-xs text-theme-green-action hover:underline"
@@ -589,7 +637,7 @@ export default function LoyaltyPage() {
 
                 <button
                   type="submit"
-                  disabled={submitting || loading}
+                  disabled={submitting || loading || Boolean(accountLimitError)}
                   className="rounded-xl bg-white/20 px-10 py-3 text-sm font-semibold text-white transition hover:bg-white/30 disabled:opacity-50"
                 >
                   {submitting ? "Submitting…" : "Cash-out"}
