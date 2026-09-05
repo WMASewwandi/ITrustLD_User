@@ -16,6 +16,7 @@ import {
   cashoutAccountFormatHint,
   cashoutMethodIconKey,
   createWithdrawal,
+  defaultAllowedPaymentOptionId,
   divideAndRound,
   fetchWithdrawalBootstrap,
   fetchWithdrawalMethodDetails,
@@ -539,12 +540,23 @@ export default function WithdrawalPage() {
       cashoutAmountCurrency: cashoutCurrency,
     });
     setMethodDetails(details);
-    const defaultOptionId =
-      details.priority_rate?.paymentOptionId || details.payment_options?.[0]?.id || null;
+    const defaultOptionId = defaultAllowedPaymentOptionId(
+      details.payment_options,
+      details.priority_rate?.paymentOptionId,
+    );
     setPaymentOptionId(defaultOptionId);
     setCurrencySwitch(cashoutCurrency);
-    if (details.initial_receiving_amount != null) {
-      setReceivingAmount(String(details.initial_receiving_amount));
+    const cashoutValue = parseMoneyInput(amount);
+    const selectedDefaultRate = findWithdrawalRate(
+      details.withdrawal_rates,
+      details.cashout_method?.id || targetMethodId,
+      defaultOptionId,
+    );
+    const nextRate = toPositiveRate(selectedDefaultRate?.rate);
+    if (nextRate && cashoutValue > 0) {
+      setReceivingAmount(String(multiplyAndRound(cashoutValue, nextRate)));
+    } else {
+      setReceivingAmount("");
     }
   }
 

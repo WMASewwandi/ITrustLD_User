@@ -9,6 +9,7 @@ import MethodTerms from "@/components/method-terms";
 import {
   checkGiftVoucherPlatformReuse,
   createDeposit,
+  defaultAllowedPaymentOptionId,
   divideAndRound,
   fetchDepositBootstrap,
   fetchDepositMethodDetails,
@@ -602,12 +603,23 @@ export default function DepositPage() {
       depositAmountCurrency: depositCurrency,
     });
     setMethodDetails(details);
-    const defaultOptionId =
-      details.priority_rate?.paymentOptionId || details.payment_options?.[0]?.id || null;
+    const defaultOptionId = defaultAllowedPaymentOptionId(
+      details.payment_options,
+      details.priority_rate?.paymentOptionId,
+    );
     setPaymentOptionId(defaultOptionId);
     setCurrencySwitch(depositCurrency);
-    if (details.initial_payment_amount != null) {
-      setPaymentAmount(String(details.initial_payment_amount));
+    const depositValue = parseMoneyInput(amount);
+    const selectedDefaultRate = findDepositRate(
+      details.deposit_rates,
+      details.topup_method?.id || targetMethodId,
+      defaultOptionId,
+    );
+    const nextRate = toPositiveRate(selectedDefaultRate?.rate);
+    if (nextRate && depositValue > 0) {
+      setPaymentAmount(String(multiplyAndRound(depositValue, nextRate)));
+    } else {
+      setPaymentAmount("");
     }
   }
 
