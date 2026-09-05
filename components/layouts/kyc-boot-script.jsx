@@ -1,0 +1,5 @@
+/** Runs in <head> before body paint so typed URLs never flash Home/Top-up first. */
+export default function KycBootScript() {
+  const code = `(function(){try{var p=location.pathname;var allow=["/verify","/banned","/login","/register","/forgot-password","/reset-password","/privacy-policy","/terms-and-conditions","/cookie-policy","/support","/help"];var i;for(i=0;i<allow.length;i++){if(p===allow[i]||p.indexOf(allow[i]+"/")===0)return;}var token=localStorage.getItem("itrustld_user_token");if(!token)return;var raw=localStorage.getItem("itrustld_user");var status="pending";if(raw){try{var u=JSON.parse(raw);var ah=u&&u.account_holder;if(ah&&ah.account_status==="BANNED")status="banned";else if(ah&&ah.email_verification==="VERIFIED"&&ah.mobile_number_verification==="VERIFIED"&&ah.identity_verification==="VERIFIED"&&ah.address_verification==="VERIFIED")status="ok";}catch(e){}}document.cookie="itrustld_kyc="+status+"; Path=/; Max-Age=2592000; SameSite=Lax";if(status==="banned"){location.replace("/banned");return;}if(status==="pending"){location.replace("/verify");}}catch(e){}})();`;
+  return <script dangerouslySetInnerHTML={{ __html: code }} />;
+}

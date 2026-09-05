@@ -12,8 +12,8 @@ export default function DashboardFrame({ children }) {
   }
 
   return (
-    <UserAppLayout>
-      <UserSessionGuard>{children}</UserSessionGuard>
-    </UserAppLayout>
+    <UserSessionGuard>
+      <UserAppLayout>{children}</UserAppLayout>
+    </UserSessionGuard>
   );
 }

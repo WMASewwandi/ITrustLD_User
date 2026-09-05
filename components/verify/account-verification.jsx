@@ -177,6 +177,35 @@ export default function AccountVerification() {
   const needIdentityUpload = needsIdentityDocumentUpload(accountHolder);
   const needAddressUpload = needsAddressDocumentUpload(accountHolder);
 
+  function applyCachedUser(user) {
+    const ah = user?.account_holder;
+    setAccountHolder(ah || null);
+    setEmail(ah?.email || user?.email || "");
+    setPhone(String(ah?.mobile_number || "").replace(/\s/g, ""));
+    setEmailVerified(ah?.email_verification === "VERIFIED");
+    setPhoneVerified(ah?.mobile_number_verification === "VERIFIED");
+    if (ah?.identity_document_type) {
+      setIdentityType(IDENTITY_TYPE_FROM_API[ah.identity_document_type] || "");
+    }
+    if (ah?.address_document_type) {
+      setAddressType(ADDRESS_TYPE_FROM_API[ah.address_document_type] || "");
+    }
+    if (ah?.email_verification !== "VERIFIED") setStep("email");
+    else if (ah?.mobile_number_verification !== "VERIFIED") setStep("phone");
+    else if (
+      ah?.identity_verification === "REJECTED" ||
+      ah?.address_verification === "REJECTED"
+    ) {
+      setStep("documents");
+    } else if (
+      ah?.identity_document_status === "RECEIVED" &&
+      ah?.address_document_status === "RECEIVED"
+    ) {
+      setStep("pending");
+    } else if (ah?.mobile_number_verification === "VERIFIED") setStep("documents");
+    else setStep("email");
+  }
+
   function applyVerificationStep(serverStep, user) {
     const ah = user?.account_holder;
     const emailValue = ah?.email || user?.email || "";
@@ -213,6 +242,15 @@ export default function AccountVerification() {
   useEffect(() => {
     let cancelled = false;
 
+    try {
+      const raw = localStorage.getItem("itrustld_user");
+      const cached = raw ? JSON.parse(raw) : null;
+      if (cached) applyCachedUser(cached);
+    } catch {
+      setStep("email");
+    }
+    setReady(true);
+
     async function load() {
       try {
         const res = await fetchVerificationStatus();
@@ -220,35 +258,7 @@ export default function AccountVerification() {
         if (res.user) updateUserSession(res.user);
         applyVerificationStep(res.step, res.user);
       } catch {
-        if (cancelled) return;
-        try {
-          const raw = localStorage.getItem("itrustld_user");
-          const user = raw ? JSON.parse(raw) : {};
-          const ah = user.account_holder;
-          setAccountHolder(ah || null);
-          setEmail(ah?.email || user.email || "");
-          setPhone(String(ah?.mobile_number || "").replace(/\s/g, ""));
-          setEmailVerified(ah?.email_verification === "VERIFIED");
-          setPhoneVerified(ah?.mobile_number_verification === "VERIFIED");
-          if (ah?.email_verification !== "VERIFIED") setStep("email");
-          else if (ah?.mobile_number_verification !== "VERIFIED") setStep("phone");
-          else if (
-            ah?.identity_verification === "REJECTED" ||
-            ah?.address_verification === "REJECTED"
-          ) {
-            setStep("documents");
-          } else if (
-            ah?.identity_document_status === "RECEIVED" &&
-            ah?.address_document_status === "RECEIVED"
-          ) {
-            setStep("pending");
-          } else if (ah?.mobile_number_verification === "VERIFIED") setStep("documents");
-          else setStep("email");
-        } catch {
-          setStep("email");
-        }
-      } finally {
-        if (!cancelled) setReady(true);
+        // Cached form is already visible if the API is unreachable.
       }
     }
 
@@ -455,7 +465,11 @@ export default function AccountVerification() {
   }
 
   if (!ready) {
-    return <div className="min-h-screen bg-white" />;
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white text-sm text-theme-black/60">
+        Loading verification…
+      </div>
+    );
   }
 
   const showDocsForm = step === "documents";
