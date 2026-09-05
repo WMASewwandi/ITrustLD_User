@@ -7,75 +7,111 @@ import {
   fetchUserMe,
   getUserSession,
   hasUserSession,
+  isUnverifiedAllowedPath,
   isUserBanned,
   updateUserSession,
   userNeedsVerification,
 } from "@/lib/auth";
+import { hardRedirect, syncKycCookie } from "@/lib/kyc-access";
 
-function redirectForSession(user, pathname, router) {
+function isPrintPath(pathname) {
+  return String(pathname || "").includes("/print");
+}
+
+function loginRedirect(pathname) {
+  return `/login?redirect=${encodeURIComponent(pathname || "/dashboard")}`;
+}
+
+function redirectForSession(user, pathname, { fromLiveSession = false } = {}) {
   if (!user) return false;
+  syncKycCookie(user);
   if (isUserBanned(user)) {
-    router.replace("/banned");
+    if (!pathname.startsWith("/banned")) {
+      hardRedirect("/banned");
+      return true;
+    }
+    return false;
+  }
+  if (userNeedsVerification(user) && !isUnverifiedAllowedPath(pathname)) {
+    hardRedirect("/verify");
     return true;
   }
-  if (userNeedsVerification(user) && !pathname.startsWith("/verify")) {
-    router.replace("/verify");
-    return true;
-  }
-  if (!userNeedsVerification(user) && pathname.startsWith("/verify")) {
-    router.replace("/dashboard");
+  if (fromLiveSession && !userNeedsVerification(user) && pathname.startsWith("/verify")) {
+    hardRedirect("/dashboard");
     return true;
   }
   return false;
 }
 
+function canPaintCachedSession(user, pathname) {
+  if (!user) return false;
+  if (isUserBanned(user)) return pathname.startsWith("/banned");
+  if (isPrintPath(pathname)) return !userNeedsVerification(user);
+  if (pathname.startsWith("/verify")) return true;
+  if (userNeedsVerification(user)) return isUnverifiedAllowedPath(pathname);
+  return true;
+}
+
 export default function UserSessionGuard({ children }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [ready, setReady] = useState(() => pathname.includes("/print") && hasUserSession());
+  const [ready, setReady] = useState(false);
 
   useLayoutEffect(() => {
-    if (pathname.includes("/print")) {
-      if (hasUserSession()) setReady(true);
+    if (!hasUserSession()) {
+      hardRedirect(loginRedirect(pathname));
       return;
     }
-    if (hasUserSession() && getUserSession()) setReady(true);
-  }, [pathname]);
+    const cached = getUserSession();
+    if (cached && redirectForSession(cached, pathname)) return;
+    if (canPaintCachedSession(cached, pathname)) {
+      setReady(true);
+    }
+  }, [pathname, router]);
 
   useEffect(() => {
     let cancelled = false;
 
     async function verifySession() {
       if (!hasUserSession()) {
-        router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
-        return;
-      }
-
-      if (pathname.includes("/print")) {
-        setReady(true);
+        hardRedirect(loginRedirect(pathname));
         return;
       }
 
       const cached = getUserSession();
-      if (cached) {
-        if (redirectForSession(cached, pathname, router)) return;
+
+      if (isPrintPath(pathname)) {
+        if (cached && redirectForSession(cached, pathname)) return;
+        setReady(true);
+        return;
+      }
+
+      if (cached && redirectForSession(cached, pathname)) {
+        return;
+      }
+      if (canPaintCachedSession(cached, pathname)) {
         setReady(true);
       }
 
       try {
         const { user } = await fetchUserMe();
+        if (user) updateUserSession(user);
         if (cancelled) return;
-        updateUserSession(user);
-        if (redirectForSession(user, window.location.pathname, router)) return;
+        const currentPath = window.location.pathname;
+        if (redirectForSession(user, currentPath, { fromLiveSession: true })) return;
         setReady(true);
       } catch (error) {
         if (cancelled) return;
         const status = Number(error?.status) || 0;
-        if (status === 401 || status === 403 || !getUserSession()) {
-          router.replace(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+        const fallback = getUserSession();
+        if (status === 401 || status === 403 || !fallback) {
+          hardRedirect(loginRedirect(window.location.pathname));
           return;
         }
-        setReady(true);
+        if (redirectForSession(fallback, window.location.pathname)) return;
+        if (canPaintCachedSession(fallback, window.location.pathname)) {
+          setReady(true);
+        }
       }
     }
 
@@ -88,21 +124,16 @@ export default function UserSessionGuard({ children }) {
   }, [router]);
 
   useEffect(() => {
-    if (pathname.includes("/print")) return;
     if (!hasUserSession()) {
-      router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+      hardRedirect(loginRedirect(pathname));
       return;
     }
     const cached = getUserSession();
-    if (cached) redirectForSession(cached, pathname, router);
+    if (cached) redirectForSession(cached, pathname);
   }, [pathname, router]);
 
   if (!ready) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center text-sm text-white/50">
-        Checking your session…
-      </div>
-    );
+    return null;
   }
 
   return (

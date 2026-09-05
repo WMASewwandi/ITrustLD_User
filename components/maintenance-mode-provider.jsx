@@ -67,17 +67,13 @@ export function MaintenanceModeProvider({ children }) {
 
   const showCountdown =
     !state.enabled && state.countdownActive && Boolean(state.countdownReleasesAt);
-  const waitingForStatus = state.loading && !state.enabled && !showCountdown;
-  const blocking = state.enabled || showCountdown || waitingForStatus;
+  const blocking = state.enabled || showCountdown;
 
   return (
     <MaintenanceModeContext.Provider value={value}>
       <div className={blocking ? "pointer-events-none select-none" : undefined} aria-hidden={blocking}>
         {children}
       </div>
-      {waitingForStatus ? (
-        <div className="fixed inset-0 z-[99999] h-[100dvh] w-screen bg-black" aria-hidden="true" />
-      ) : null}
       {!state.loading && state.enabled ? <MaintenanceOverlay message={state.message} /> : null}
       {showCountdown ? (
         <LaunchCountdownOverlay

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { BrandLogoImage } from "@/components/brand-logo";
 import UserAuthLayout from "@/components/layouts/user-auth-layout";
 import PasswordInput from "@/components/ui/password-input";
-import { loginUser, setUserSession } from "@/lib/auth";
+import { loginUser, resolveLoggedInPath, setUserSession } from "@/lib/auth";
 import { isValidEmail } from "@/lib/validation";
 
 const labelClass = "mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45";
@@ -56,8 +56,8 @@ function LoginForm() {
     try {
       const result = await loginUser(email, password);
       setUserSession({ token: result.token, user: result.user });
-      const redirectTo = searchParams.get("redirect") || result.redirect_to || "/dashboard";
-      router.push(redirectTo);
+      const requested = searchParams.get("redirect") || result.redirect_to || "/dashboard";
+      router.push(resolveLoggedInPath(result.user, requested));
     } catch (err) {
       setError(err.message || "Sign in failed. Please try again.");
     } finally {
