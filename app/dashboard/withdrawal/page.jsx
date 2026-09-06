@@ -206,7 +206,9 @@ function PaymentAccountsPanel({ type, accounts, onCopy }) {
           {type === "binance" ? (
             <>
               <CopyRow label="TRC20 Wallet" value={account.trc20WalletAddress} onCopy={onCopy} />
-              <CopyRow label="Binance Email" value={account.binanceEmail} onCopy={onCopy} />
+              {String(account.binanceEmail || "").trim() ? (
+                <CopyRow label="Binance Email" value={account.binanceEmail} onCopy={onCopy} />
+              ) : null}
             </>
           ) : null}
           {type === "xm" || type === "perfect_money" ? (
@@ -227,7 +229,16 @@ function PaymentAccountsPanel({ type, accounts, onCopy }) {
                   onCopy={onCopy}
                 />
               ))
-            : null}
+            : (account.extraFields || [])
+                .filter((field) => String(field.value || "").trim())
+                .map((field) => (
+                  <CopyRow
+                    key={field.key || field.label}
+                    label={field.label}
+                    value={field.value}
+                    onCopy={onCopy}
+                  />
+                ))}
         </div>
       ))}
     </div>
