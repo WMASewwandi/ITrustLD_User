@@ -1157,8 +1157,8 @@ export default function DepositPage() {
                 })}
               </p>
 
-              <div className="mt-5">
-                <p className="mb-2 text-sm font-medium text-white/70">Payment Account Details</p>
+              <div className="mt-5 text-left">
+                <p className="mb-2 text-left text-sm font-medium text-white/70">Payment Account Details</p>
                 <PaymentAccountsPanel
                   type={proofContext.payment_account_type}
                   accounts={proofContext.payment_accounts}

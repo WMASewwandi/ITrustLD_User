@@ -7,11 +7,11 @@ import PageHeader from "@/components/dashboard/page-header";
 import BottomMessage from "@/components/dashboard/bottom-message";
 import AddPaymentAccountForm from "@/components/dashboard/add-payment-account-form";
 import {
-  ACCOUNT_TYPE_LABELS,
   accountTypeNeedsBankFields,
   buildUpdatePayload,
   deletePaymentAccount,
   fetchPaymentAccounts,
+  optionDisplayName,
   updatePaymentAccount,
 } from "@/lib/payment-accounts";
 import { hasUserSession } from "@/lib/auth";
@@ -34,7 +34,7 @@ function AccountCard({ account, onDelete, onEdit }) {
           </span>
           <div>
             <p className="font-medium text-white">
-              {ACCOUNT_TYPE_LABELS[account.accountType] || account.accountType}
+              {optionDisplayName(account.accountTypeLabel || account.accountType)}
             </p>
             {isBank ? (
               <>
@@ -73,10 +73,11 @@ function AccountCard({ account, onDelete, onEdit }) {
 }
 
 function EditAccountForm({ account, onCancel, onSaved }) {
-  const [draft, setDraft] = useState({ ...account });
+  const [draft, setDraft] = useState({ ...account, ...(account.values || {}) });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const isBank = accountTypeNeedsBankFields(account.accountType);
+  const fields = account.fields || [];
+  const isBank = !fields.length && accountTypeNeedsBankFields(account.accountType);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -98,7 +99,31 @@ function EditAccountForm({ account, onCancel, onSaved }) {
 
   return (
     <form onSubmit={handleSubmit} className="mt-3 space-y-3 rounded-xl border border-theme-green-action/25 bg-theme-green-action/5 p-4">
-      {isBank ? (
+      {fields.length ? (
+        <div className={`grid gap-3 ${fields.length > 1 ? "sm:grid-cols-2" : ""}`}>
+          {fields.map((field) => (
+            <div key={field.key}>
+              <label className={labelClass}>{field.label}</label>
+              <input
+                className={fieldClass}
+                type={field.type === "email" ? "email" : "text"}
+                inputMode={field.inputMode}
+                value={draft[field.key] ?? draft.values?.[field.key] ?? ""}
+                onChange={(e) => {
+                  const next =
+                    field.inputMode === "numeric" ? e.target.value.replace(/\D/g, "") : e.target.value;
+                  setDraft((d) => ({
+                    ...d,
+                    [field.key]: next,
+                    values: { ...(d.values || {}), [field.key]: next },
+                  }));
+                }}
+                required={field.required !== false}
+              />
+            </div>
+          ))}
+        </div>
+      ) : isBank ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className={labelClass}>Bank</label>
@@ -233,8 +258,7 @@ export default function PaymentAccountsPage() {
     try {
       const data = await fetchPaymentAccounts();
       setAccountGroups(data.account_groups || []);
-      const options = (data.system_payment_options || []).map((opt) => opt.name);
-      setSystemOptions(options);
+      setSystemOptions(data.system_payment_options || []);
     } catch (err) {
       if (err.status === 403) {
         setPageError("You do not have permission to manage payment accounts.");
@@ -258,7 +282,7 @@ export default function PaymentAccountsPage() {
 
   async function handleDelete(account) {
     if (
-      !(await confirm(`Delete this ${ACCOUNT_TYPE_LABELS[account.accountType] || "account"}?`, {
+      !(await confirm(`Delete this ${optionDisplayName(account.accountTypeLabel || account.accountType, "account")}?`, {
         title: "Delete account",
         confirmLabel: "Delete",
       }))
@@ -354,17 +378,26 @@ export default function PaymentAccountsPage() {
               accountGroups.map((group) => (
                 <div key={group.payment_option}>
                   <h3 className="mb-3 text-sm font-semibold uppercase tracking-wide text-white/55">
-                    {ACCOUNT_TYPE_LABELS[group.payment_option] || group.payment_option}
+                    {group.display_name || optionDisplayName(group.payment_option)}
                   </h3>
                   <div className="grid gap-3 md:grid-cols-2">
                     {group.accounts.map((account) => (
                       <div key={`${account.accountType}-${account.id}`}>
                         <AccountCard
-                          account={account}
+                          account={{
+                            ...account,
+                            accountTypeLabel: group.display_name || account.accountType,
+                          }}
                           onDelete={handleDelete}
-                          onEdit={(acc) => setEditingId(editingId === acc.id ? null : acc.id)}
+                          onEdit={(acc) =>
+                            setEditingId(
+                              editingId === `${acc.accountType}-${acc.id}`
+                                ? null
+                                : `${acc.accountType}-${acc.id}`,
+                            )
+                          }
                         />
-                        {editingId === account.id ? (
+                        {editingId === `${account.accountType}-${account.id}` ? (
                           <EditAccountForm
                             account={account}
                             onCancel={() => setEditingId(null)}

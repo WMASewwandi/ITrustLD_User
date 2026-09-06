@@ -212,6 +212,9 @@ export default function MyEarningsPage() {
   const [partnerProgress, setPartnerProgress] = useState(null);
   const [pointSummary, setPointSummary] = useState(null);
   const [usdValue, setUsdValue] = useState("0.00");
+  const [periodUsdValue, setPeriodUsdValue] = useState("0.00");
+  const [pointDivider, setPointDivider] = useState(0);
+  const [usdPerBlock, setUsdPerBlock] = useState(0);
   const [rateLabel, setRateLabel] = useState("");
   const [myClients, setMyClients] = useState([]);
   const [subClients, setSubClients] = useState([]);
@@ -248,6 +251,13 @@ export default function MyEarningsPage() {
     setPartnerProgress(summaryData.partner_progress || null);
     setPointSummary(summary);
     setUsdValue(Number(summaryData.usd_value_of_earned || 0).toFixed(2));
+    setPointDivider(Number(summaryData.point_divider) || 0);
+    setUsdPerBlock(Number(summaryData.usd_per_block) || 0);
+    setPeriodUsdValue(
+      summaryData.usd_value_of_year != null
+        ? Number(summaryData.usd_value_of_year || 0).toFixed(2)
+        : "0.00",
+    );
     setRateLabel(summaryData.rate_label || "");
     setBonusSummary(summaryData.bonus_summary || null);
     setClientBonusSummary(summaryData.client_bonus_summary || null);
@@ -483,13 +493,15 @@ export default function MyEarningsPage() {
   }
 
   const periodPoints = Number(partnerProgress?.period_points ?? pointSummary?.earned_for_year ?? 0);
-  const pointsPerLot = Number(partnerProgress?.points_per_lot ?? 20);
   const tierTarget = Number(partnerProgress?.tier_target ?? 0);
   const pointsToNext = Number(partnerProgress?.points_to_next ?? 0);
   const progressPct = Math.round(Number(partnerProgress?.progress_percentage ?? pointSummary?.percentage ?? 0));
   const currentTier = partnerProgress?.current_tier || partnerTier || pointSummary?.level_label || "Normal";
   const nextTier = partnerProgress?.next_tier || null;
-  const earningsUsd = ((periodPoints * pointsPerLot) / 100).toFixed(2);
+  const earningsUsd =
+    pointDivider > 0
+      ? ((periodPoints / pointDivider) * usdPerBlock).toFixed(2)
+      : periodUsdValue;
   const referralPoints =
     partnerProgress?.points_breakdown?.find((row) => row.label === "Referral Points")?.points ?? 0;
 
