@@ -879,8 +879,7 @@ export default function WithdrawalPage() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-            <div className="w-fit min-w-[220px] max-w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141A2E]">
+            <div className="mt-4 w-fit min-w-[220px] max-w-full overflow-hidden rounded-2xl border border-white/10 bg-[#141A2E]">
               <div className="flex items-center gap-3 px-4 py-3">
                 <MethodIcon
                   type={cashoutMethodIconKey(cashoutMethod?.name)}
@@ -906,21 +905,6 @@ export default function WithdrawalPage() {
                   {cashoutMethod.navigateButtonLabel || cashoutMethod.navigate_button_label}
                 </a>
               ) : null}
-            </div>
-
-          {methodDetails.linked_pay_accounts?.length ? (
-            <div className="min-w-[220px] max-w-full text-right sm:ml-auto">
-              <p className="mb-2 text-sm font-medium text-white/70">Payment Account Details</p>
-              <div className="inline-block w-full max-w-sm text-left">
-                <PaymentAccountsPanel
-                  type={methodDetails.linked_pay_account_type}
-                  accounts={methodDetails.linked_pay_accounts}
-                  onCopy={handleCopy}
-                />
-              </div>
-              {copied ? <p className="mt-2 text-xs text-theme-green-action">Copied: {copied}</p> : null}
-            </div>
-          ) : null}
             </div>
           </div>
 
@@ -1107,8 +1091,8 @@ export default function WithdrawalPage() {
                 })}
               </p>
 
-              <div className="mt-5">
-                <p className="mb-2 text-sm font-medium text-white/70">Payment Account Details</p>
+              <div className="mt-5 text-left">
+                <p className="mb-2 text-left text-sm font-medium text-white/70">Payment Account Details</p>
                 <PaymentAccountsPanel
                   type={proofContext.payment_account_type}
                   accounts={proofContext.payment_accounts}
