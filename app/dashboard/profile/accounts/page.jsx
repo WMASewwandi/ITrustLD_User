@@ -357,7 +357,7 @@ export default function PaymentAccountsPage() {
             {showAdd ? (
               <div className="rounded-xl border border-theme-green-action/25 bg-black/20 p-4 sm:p-5">
                 <AddPaymentAccountForm
-                  accountTypes={systemOptions}
+                  accountTypes={systemOptions.filter((item) => item.isActive !== false)}
                   onCancel={() => setShowAdd(false)}
                   onSuccess={async (result) => {
                     setShowAdd(false);
