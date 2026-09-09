@@ -477,8 +477,17 @@ export default function AccountVerification() {
 
   return (
     <div className="min-h-screen bg-white text-theme-black">
-      <div className="bg-theme-orange px-4 py-2.5 text-center text-sm font-semibold text-white sm:text-base">
-        Your Account is not verified yet! Verify Now.
+      <div className="flex flex-col items-center justify-center gap-2 bg-theme-orange px-4 py-2.5 text-center sm:flex-row sm:gap-4">
+        <p className="text-sm font-semibold text-white sm:text-base">
+          Your Account is not verified yet! Verify Now.
+        </p>
+        <button
+          type="button"
+          onClick={() => router.push("/dashboard")}
+          className="rounded-lg border border-white/80 bg-white px-4 py-1.5 text-sm font-semibold text-theme-black transition hover:bg-white/90"
+        >
+          Go to Dashboard
+        </button>
       </div>
 
       <div className="mx-auto w-full max-w-6xl px-4 py-8 sm:px-6 lg:px-10 lg:py-12">
