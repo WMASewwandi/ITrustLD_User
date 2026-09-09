@@ -28,12 +28,14 @@ import {
   multiplyAndRound,
   parseMoneyInput,
   toPositiveRate,
+  updatePendingWithdrawalPaymentChoice,
   uploadWithdrawalProof,
   validateCashoutAccountId,
 } from "@/lib/withdrawals";
 import { rewritePublicAssetUrl } from "@/lib/api";
 import { getUserSession, hasUserSession } from "@/lib/auth";
 import { notifyUserNotificationsRefresh } from "@/lib/dashboard";
+import { buildPartnerReturnUrl, claimPaymentGateway } from "@/lib/payment-gateway";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   ArrowLeftRight,
@@ -295,8 +297,12 @@ export default function WithdrawalPage() {
   const [copied, setCopied] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [limitAlert, setLimitAlert] = useState("");
+  const [gatewayLocked, setGatewayLocked] = useState(false);
+  const [gatewayReturnUrl, setGatewayReturnUrl] = useState("");
+  const [partnerCurrencyFilter, setPartnerCurrencyFilter] = useState("");
 
   const topRef = useRef(null);
+  const slipInputRef = useRef(null);
   const lenis = useLenis();
 
   const cashoutMethod = useMemo(() => {
@@ -305,9 +311,18 @@ export default function WithdrawalPage() {
   }, [bootstrap, methodDetails, methodId]);
 
   const selectedPaymentOption = useMemo(
-    () => methodDetails?.payment_options?.find((opt) => opt.id === paymentOptionId) || null,
+    () => methodDetails?.payment_options?.find((opt) => Number(opt.id) === Number(paymentOptionId)) || null,
     [methodDetails, paymentOptionId],
   );
+
+  const partnerPaymentOptions = useMemo(() => {
+    const options = methodDetails?.payment_options || [];
+    if (!gatewayLocked) return options;
+    const currency = String(partnerCurrencyFilter || "").trim().toUpperCase();
+    if (!currency || currency === "USD") return options;
+    const filtered = options.filter((opt) => String(opt.currency || "").toUpperCase() === currency);
+    return filtered.length ? filtered : options;
+  }, [gatewayLocked, methodDetails, partnerCurrencyFilter]);
 
   const selectedRate = useMemo(() => {
     if (!methodDetails || !paymentOptionId || !methodId) return null;
@@ -399,6 +414,73 @@ export default function WithdrawalPage() {
           return;
         }
         setBootstrap(data);
+        const gatewayToken = new URLSearchParams(window.location.search).get("gateway");
+        if (gatewayToken) {
+          const claimed = await claimPaymentGateway(gatewayToken);
+          if (cancelled) return;
+          if (claimed.type !== "withdrawal") {
+            throw new Error("This checkout link is for a deposit, not a cash-out.");
+          }
+          const fields = claimed.fields || {};
+          const nextMethodId = Number(fields.cashout_method_id);
+          const cashoutAmount = fields.cashout_amount ?? fields.amount;
+          setMethodId(nextMethodId);
+          setCashoutAccountId(String(fields.cashout_account_id || ""));
+          setAmount(String(cashoutAmount ?? ""));
+          setPartnerCurrencyFilter(String(fields.currency || "USD"));
+          setGatewayReturnUrl(claimed.return_url || "");
+          const details = await fetchWithdrawalMethodDetails({
+            cashoutMethodId: nextMethodId,
+            cashoutAmount,
+            cashoutAmountCurrency: "USD",
+          });
+          if (cancelled) return;
+          setMethodDetails(details);
+          const currency = String(fields.currency || "USD").trim().toUpperCase();
+          let options = details.payment_options || [];
+          if (currency && currency !== "USD") {
+            const filtered = options.filter((opt) => String(opt.currency || "").toUpperCase() === currency);
+            if (filtered.length) options = filtered;
+          }
+          const defaultOptionId = defaultAllowedPaymentOptionId(
+            options,
+            details.priority_rate?.paymentOptionId,
+          );
+          setPaymentOptionId(defaultOptionId);
+          const selectedDefaultRate = findWithdrawalRate(
+            details.withdrawal_rates,
+            nextMethodId,
+            defaultOptionId,
+          );
+          const nextRate = toPositiveRate(selectedDefaultRate?.rate);
+          const cashoutValue = parseMoneyInput(cashoutAmount);
+          if (nextRate && cashoutValue > 0) {
+            setReceivingAmount(String(multiplyAndRound(cashoutValue, nextRate)));
+          }
+          if (nextRate && cashoutValue > 0 && defaultOptionId && selectedDefaultRate) {
+            const option = options.find((opt) => Number(opt.id) === Number(defaultOptionId));
+            const created = await createWithdrawal({
+              receiving_payment_option_id: defaultOptionId,
+              cashout_amount_currency: "USD",
+              cashout_amount: cashoutValue,
+              receiving_amount_currency: option?.currency || details.initial_receiving_currency || "LKR",
+              receiving_amount: multiplyAndRound(cashoutValue, nextRate),
+              cashout_method_id: nextMethodId,
+              receiving_payment_option_rate: selectedDefaultRate.rate,
+              receiving_payment_option_rate_id: selectedDefaultRate.id,
+              cashout_account_id: String(fields.cashout_account_id || "").trim(),
+            });
+            if (cancelled) return;
+            setWithdrawalId(created.id);
+            setTransactionId(created.transaction_id);
+            const context = await fetchWithdrawalPaymentProofContext(created.id);
+            if (cancelled) return;
+            setProofContext(context);
+          }
+          setCurrencySwitch("USD");
+          setGatewayLocked(true);
+          setStep(3);
+        }
       } catch (err) {
         if (!cancelled) {
           if (err.status === 403) {
@@ -472,11 +554,16 @@ export default function WithdrawalPage() {
     if (!file) return;
 
     const name = file.name.toLowerCase();
+    const type = String(file.type || "").toLowerCase();
+    const allowedExt = /\.(jpe?g|png|gif|bmp|webp)$/i.test(name);
     if (
       name.endsWith(".heic") ||
       name.endsWith(".heif") ||
+      type.includes("heic") ||
+      type.includes("heif") ||
       name.endsWith(".pdf") ||
-      !file.type.startsWith("image/")
+      type === "application/pdf" ||
+      (!allowedExt && !type.startsWith("image/"))
     ) {
       setErrors((prev) => ({
         ...prev,
@@ -537,6 +624,10 @@ export default function WithdrawalPage() {
 
   function validateStep3() {
     const next = {};
+    if (gatewayLocked && !paymentOptionId) next.paymentOption = "Select a payment option.";
+    if (gatewayLocked && paymentOptionId && !selectedRate) {
+      next.paymentOption = "No rate is available for the selected payment option.";
+    }
     if (!slipFile) next.slip = "Please attach a payment slip or screenshot.";
     if (!receivingAccountSelection) next.receivingAccount = "Select a receiving account.";
     if (!acceptedTerms) next.terms = "You must accept the Terms and Conditions.";
@@ -650,7 +741,28 @@ export default function WithdrawalPage() {
       try {
         const { selectedAccountType, selectedAccountId } =
           parseReceivingAccountSelection(receivingAccountSelection);
-        const result = await uploadWithdrawalProof(withdrawalId, slipFile, {
+        let activeWithdrawalId = withdrawalId;
+        let activeTransactionId = transactionId;
+        if (gatewayLocked && !activeWithdrawalId) {
+          const created = await createWithdrawal({
+            receiving_payment_option_id: paymentOptionId,
+            cashout_amount_currency: cashoutCurrency,
+            cashout_amount: converted.cashout,
+            receiving_amount_currency: receivingCurrency,
+            receiving_amount: converted.receiving,
+            cashout_method_id: methodId,
+            receiving_payment_option_rate: selectedRate.rate,
+            receiving_payment_option_rate_id: selectedRate.id,
+            cashout_account_id: cashoutAccountId.trim(),
+          });
+          activeWithdrawalId = created.id;
+          activeTransactionId = created.transaction_id;
+          setWithdrawalId(created.id);
+          setTransactionId(created.transaction_id);
+          const context = await fetchWithdrawalPaymentProofContext(created.id);
+          setProofContext(context);
+        }
+        const result = await uploadWithdrawalProof(activeWithdrawalId, slipFile, {
           selectedAccountType,
           selectedAccountId,
         });
@@ -688,6 +800,10 @@ export default function WithdrawalPage() {
   }
 
   function goBack() {
+    if (gatewayLocked) {
+      router.push("/dashboard");
+      return;
+    }
     setSubmitted(false);
     setPageError("");
     setErrors({});
@@ -705,16 +821,40 @@ export default function WithdrawalPage() {
   }
 
   function handlePaymentOptionChange(nextId) {
+    if (!nextId) {
+      setPaymentOptionId(null);
+      setReceivingAmount("");
+      setReceivingAccountSelection("");
+      return;
+    }
     const option = methodDetails?.payment_options?.find((opt) => opt.id === Number(nextId));
     const rate = findWithdrawalRate(methodDetails?.withdrawal_rates, methodId, Number(nextId));
     const nextRate = toPositiveRate(rate?.rate);
     setPaymentOptionId(Number(nextId));
+    setReceivingAccountSelection("");
     if (option?.currency && option.currency !== "USD") {
       setCurrencySwitch(cashoutCurrency);
     }
     const cashoutValue = parseMoneyInput(amount) || converted.cashout;
     if (nextRate && cashoutValue > 0) {
       setReceivingAmount(String(multiplyAndRound(cashoutValue, nextRate)));
+    }
+    if (gatewayLocked && withdrawalId && rate && nextRate && cashoutValue > 0) {
+      (async () => {
+        try {
+          await updatePendingWithdrawalPaymentChoice(withdrawalId, {
+            receiving_payment_option_id: Number(nextId),
+            receiving_payment_option_rate: rate.rate,
+            receiving_payment_option_rate_id: rate.id,
+            receiving_amount: multiplyAndRound(cashoutValue, nextRate),
+            receiving_amount_currency: option?.currency || "LKR",
+          });
+          const context = await fetchWithdrawalPaymentProofContext(withdrawalId);
+          setProofContext(context);
+        } catch (err) {
+          setPageError(err.message || "Failed to update payment option.");
+        }
+      })();
     }
   }
 
@@ -1044,7 +1184,7 @@ export default function WithdrawalPage() {
         </>
       ) : null}
 
-      {step === 3 && proofContext ? (
+      {step === 3 && (proofContext || gatewayLocked) ? (
         <>
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -1058,44 +1198,79 @@ export default function WithdrawalPage() {
                     Account Name: <span className="font-semibold">{userName}</span>
                   </p>
                   <p className="text-sm text-white/50">Account ID: {accountNumber}</p>
-                  <p className="text-sm text-white/50">Transaction ID: {transactionId}</p>
+                  <p className="text-sm text-white/50">Transaction ID: {transactionId || "—"}</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-4 py-3">
               <MethodIcon
-                type={cashoutMethodIconKey(proofContext.withdrawal.cashout_method_name)}
+                type={cashoutMethodIconKey(proofContext?.withdrawal?.cashout_method_name || cashoutMethod?.name)}
                 logoUrl={
-                  proofContext.withdrawal.cashout_method_logo_url ||
+                  proofContext?.withdrawal?.cashout_method_logo_url ||
                   cashoutMethod?.logoUrl ||
                   cashoutMethod?.logo_url ||
                   null
                 }
-                name={proofContext.withdrawal.cashout_method_name}
+                name={proofContext?.withdrawal?.cashout_method_name || cashoutMethod?.name}
               />
               <div>
-                <p className="text-sm font-semibold text-white">{proofContext.withdrawal.cashout_method_name}</p>
-                <p className="text-xs text-white/45">{proofContext.withdrawal.payment_option_name}</p>
+                <p className="text-sm font-semibold text-white">
+                  {proofContext?.withdrawal?.cashout_method_name || cashoutMethod?.name}
+                </p>
+                <p className="text-xs text-white/45">
+                  {selectedPaymentOption?.name ||
+                    proofContext?.withdrawal?.payment_option_name ||
+                    "Select a payment option"}
+                </p>
               </div>
             </div>
           </div>
+
+          {gatewayLocked ? (
+            <div className="mb-6">
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45">
+                Receiving Payment Option
+              </label>
+              <div className="w-1/2 max-w-full">
+                <select
+                  value={paymentOptionId ?? ""}
+                  onChange={(e) => handlePaymentOptionChange(e.target.value)}
+                  className={`${fieldClass} ${errors.paymentOption ? "border-theme-red-action/50" : ""}`}
+                >
+                  {partnerPaymentOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-[#141A2E]">
+                      {opt.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.paymentOption ? (
+                <p className="mt-2 text-xs text-theme-red-action">{errors.paymentOption}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
             <section className="border-t border-white/20 py-6">
               <p className="text-sm text-white/50">Receiving Amount</p>
               <p className="mt-1 text-3xl font-bold text-theme-green-action">
-                {proofContext.withdrawal.receiving_amount_currency}{" "}
-                {Number(proofContext.withdrawal.receiving_amount).toLocaleString(undefined, {
-                  minimumFractionDigits: 2,
-                  maximumFractionDigits: 2,
-                })}
+                {proofContext?.withdrawal?.receiving_amount_currency || receivingCurrency}{" "}
+                {Number(proofContext?.withdrawal?.receiving_amount || converted.receiving || 0).toLocaleString(
+                  undefined,
+                  {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  },
+                )}
               </p>
 
               <div className="mt-5 text-left">
                 <p className="mb-2 text-left text-sm font-medium text-white/70">Payment Account Details</p>
                 <PaymentAccountsPanel
-                  type={proofContext.payment_account_type}
-                  accounts={proofContext.payment_accounts}
+                  type={proofContext?.payment_account_type || methodDetails?.linked_pay_account_type}
+                  accounts={
+                    proofContext?.payment_accounts || methodDetails?.linked_pay_accounts || []
+                  }
                   onCopy={handleCopy}
                 />
               </div>
@@ -1104,35 +1279,40 @@ export default function WithdrawalPage() {
 
             <section className="border-t border-white/20 py-6">
               <h2 className="text-lg font-bold text-white">
-                {proofContext.withdrawal.cashout_method_name} Conditions
+                {(proofContext?.withdrawal?.cashout_method_name || cashoutMethod?.name) + " Conditions"}
               </h2>
               <div
                 data-lenis-prevent
                 data-lenis-prevent-wheel
-                className="custom-scrollbar mt-4 max-h-[280px] space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm leading-relaxed text-white/85"
+                className="custom-scrollbar relative z-0 mt-4 max-h-[280px] space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm leading-relaxed text-white/85"
               >
                 <MethodTerms html={proofContext?.terms || cashoutMethod?.terms} />
               </div>
             </section>
           </div>
 
-          <section className="border-t border-white/20 py-6">
+          <section className="relative z-10 border-t border-white/20 py-6">
             <p className="text-sm text-white/55">
               Please attach a payment slip or a screenshot to prove your transaction.
             </p>
 
+            <input
+              ref={slipInputRef}
+              type="file"
+              className="sr-only"
+              accept="image/jpeg,image/png,image/gif,image/bmp,image/webp,.jpg,.jpeg,.png,.gif,.bmp,.webp"
+              onChange={handleSlipChange}
+            />
             {!slipPreview ? (
-              <label className="mt-4 flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.03] px-4 py-8 text-center transition hover:border-theme-green-action/40 hover:bg-theme-green-action/5">
-                <Plus className="h-8 w-8 text-white/40" />
-                <span className="mt-2 text-sm text-white/50">Add your image here</span>
-                <span className="mt-1 text-xs text-white/35">JPG, PNG, GIF, BMP or WEBP · Max 2MB</span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/jpeg,image/png,image/gif,image/bmp,image/webp,.jpg,.jpeg,.png,.gif,.bmp,.webp"
-                  onChange={handleSlipChange}
-                />
-              </label>
+              <button
+                type="button"
+                onClick={() => slipInputRef.current?.click()}
+                className="relative z-10 mt-4 flex min-h-[140px] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-theme-green-action/50 bg-theme-green-action/5 px-4 py-8 text-center transition hover:border-theme-green-action hover:bg-theme-green-action/10"
+              >
+                <Plus className="h-8 w-8 text-theme-green-action" />
+                <span className="mt-2 text-sm text-white">Add your image here</span>
+                <span className="mt-1 text-xs text-white/55">JPG, PNG, GIF, BMP or WEBP · Max 2MB</span>
+              </button>
             ) : (
               <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-theme-green-action/25 bg-theme-green-action/10 p-3">
                 <img
@@ -1178,7 +1358,8 @@ export default function WithdrawalPage() {
                 <option value="" className="bg-[#141A2E]">
                   Select receiving account
                 </option>
-                {(proofContext.receiving_accounts || []).map((account) => (
+                {(proofContext?.receiving_accounts || []).map(
+                  (account) => (
                   <option
                     key={`${account.accountType}:${account.id}`}
                     value={`${account.accountType}:${account.id}`}
@@ -1186,29 +1367,34 @@ export default function WithdrawalPage() {
                   >
                     {account.label}
                   </option>
-                ))}
+                  ),
+                )}
               </select>
               {showAddReceivingAccount ? (
                 <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
                   <AddPaymentAccountForm
                     compact
                     fixedAccountType={paymentOptionNameToAccountType(
-                      proofContext.withdrawal?.payment_option_name,
+                      selectedPaymentOption?.name || proofContext?.withdrawal?.payment_option_name,
                     )}
                     onCancel={() => setShowAddReceivingAccount(false)}
                     onSuccess={async (result) => {
                       const accountType = paymentOptionNameToAccountType(
-                        proofContext.withdrawal?.payment_option_name,
+                        selectedPaymentOption?.name || proofContext?.withdrawal?.payment_option_name,
                       );
                       const mapped = mapCreatedAccountToReceivingOption(
                         result.payment_option,
                         accountType,
                       );
                       if (mapped) {
-                        setProofContext((prev) => ({
-                          ...prev,
-                          receiving_accounts: [...(prev.receiving_accounts || []), mapped],
-                        }));
+                        setProofContext((prev) =>
+                          prev
+                            ? {
+                                ...prev,
+                                receiving_accounts: [...(prev.receiving_accounts || []), mapped],
+                              }
+                            : prev,
+                        );
                         setReceivingAccountSelection(`${mapped.accountType}:${mapped.id}`);
                       } else if (withdrawalId) {
                         const refreshed = await fetchWithdrawalPaymentProofContext(withdrawalId);
@@ -1224,7 +1410,7 @@ export default function WithdrawalPage() {
                   />
                 </div>
               ) : null}
-              {!proofContext.receiving_accounts?.length && !showAddReceivingAccount ? (
+              {!proofContext?.receiving_accounts?.length && !showAddReceivingAccount ? (
                 <p className="mt-2 text-xs text-white/45">
                   No receiving accounts found for this payment option. Add one above or from{" "}
                   <a href="/dashboard/profile/accounts" className="text-theme-green-action hover:underline">
@@ -1263,8 +1449,24 @@ export default function WithdrawalPage() {
                 variant="success"
                 dismissible={false}
                 onClose={() => setSubmitted(false)}
-                primaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
-                secondaryAction={{
+                primaryAction={
+                  gatewayReturnUrl
+                    ? {
+                        label: "Back to Partner",
+                        href: buildPartnerReturnUrl(gatewayReturnUrl, {
+                          type: "withdrawal",
+                          referenceId: transactionId,
+                          status: "Pending",
+                          amount: proofContext?.withdrawal?.cashout_amount,
+                          currency: proofContext?.withdrawal?.cashout_amount_currency,
+                        }),
+                      }
+                    : { label: "View Transactions", href: "/dashboard/transactions" }
+                }
+                secondaryAction={
+                  gatewayLocked
+                    ? undefined
+                    : {
                   label: "New Cash-out",
                   onClick: () => {
                     setSubmitted(false);
@@ -1285,7 +1487,8 @@ export default function WithdrawalPage() {
                     setCashoutAccountId("");
                     setReceivingAccountSelection("");
                   },
-                }}
+                }
+                }
               >
                 Your cash-out request has been submitted successfully. Transaction ID {transactionId} is now pending
                 review.
@@ -1293,7 +1496,7 @@ export default function WithdrawalPage() {
             ) : null}
           </section>
 
-          <FlowActions onBack={goBack} onNext={goNext} nextLabel="Submit" busy={busy} />
+          <FlowActions onBack={gatewayLocked ? undefined : goBack} onNext={goNext} nextLabel="Submit" busy={busy} />
         </>
       ) : null}
     </div>
