@@ -56,7 +56,15 @@ function LoginForm() {
     try {
       const result = await loginUser(email, password);
       setUserSession({ token: result.token, user: result.user });
-      const requested = searchParams.get("redirect") || result.redirect_to || "/dashboard";
+      let requested = searchParams.get("redirect") || result.redirect_to || "/dashboard";
+      const gateway = searchParams.get("gateway");
+      if (
+        gateway &&
+        (requested.startsWith("/dashboard/deposit") || requested.startsWith("/dashboard/withdrawal")) &&
+        !requested.includes("gateway=")
+      ) {
+        requested += `${requested.includes("?") ? "&" : "?"}gateway=${encodeURIComponent(gateway)}`;
+      }
       router.push(resolveLoggedInPath(result.user, requested));
     } catch (err) {
       setError(err.message || "Sign in failed. Please try again.");

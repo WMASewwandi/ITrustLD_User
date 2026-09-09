@@ -30,6 +30,7 @@ import {
   topupAccountPlaceholder,
   topupAccountFormatHint,
   topupMethodIconKey,
+  updatePendingDepositPaymentChoice,
   uploadDepositProof,
   validateTopupAccountId,
 } from "@/lib/deposits";
@@ -37,6 +38,7 @@ import { rewritePublicAssetUrl } from "@/lib/api";
 import { getUserSession, hasUserSession } from "@/lib/auth";
 import { notifyUserNotificationsRefresh } from "@/lib/dashboard";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { buildPartnerReturnUrl, claimPaymentGateway } from "@/lib/payment-gateway";
 import {
   ArrowLeftRight,
   Building2,
@@ -286,8 +288,12 @@ export default function DepositPage() {
   const [submitted, setSubmitted] = useState(false);
   const [limitAlert, setLimitAlert] = useState("");
   const [giftVoucherReuseError, setGiftVoucherReuseError] = useState("");
+  const [gatewayLocked, setGatewayLocked] = useState(false);
+  const [gatewayReturnUrl, setGatewayReturnUrl] = useState("");
+  const [partnerCurrencyFilter, setPartnerCurrencyFilter] = useState("");
 
   const topRef = useRef(null);
+  const slipInputRef = useRef(null);
   const lenis = useLenis();
 
   const topupMethod = useMemo(() => {
@@ -296,9 +302,18 @@ export default function DepositPage() {
   }, [bootstrap, methodDetails, methodId]);
 
   const selectedPaymentOption = useMemo(
-    () => methodDetails?.payment_options?.find((opt) => opt.id === paymentOptionId) || null,
+    () => methodDetails?.payment_options?.find((opt) => Number(opt.id) === Number(paymentOptionId)) || null,
     [methodDetails, paymentOptionId],
   );
+
+  const partnerPaymentOptions = useMemo(() => {
+    const options = methodDetails?.payment_options || [];
+    if (!gatewayLocked) return options;
+    const currency = String(partnerCurrencyFilter || "").trim().toUpperCase();
+    if (!currency || currency === "USD") return options;
+    const filtered = options.filter((opt) => String(opt.currency || "").toUpperCase() === currency);
+    return filtered.length ? filtered : options;
+  }, [gatewayLocked, methodDetails, partnerCurrencyFilter]);
 
   const selectedRate = useMemo(() => {
     if (!methodDetails || !paymentOptionId || !methodId) return null;
@@ -420,6 +435,78 @@ export default function DepositPage() {
           return;
         }
         setBootstrap(data);
+        const gatewayToken = new URLSearchParams(window.location.search).get("gateway");
+        if (gatewayToken) {
+          const claimed = await claimPaymentGateway(gatewayToken);
+          if (cancelled) return;
+          if (claimed.type !== "deposit") {
+            throw new Error("This checkout link is for a cash-out, not a deposit.");
+          }
+          const fields = claimed.fields || {};
+          const nextMethodId = Number(fields.topup_method_id);
+          const depositAmount = fields.deposit_amount ?? fields.amount;
+          setMethodId(nextMethodId);
+          setTopupAccountId(String(fields.topup_account_id || ""));
+          setAmount(String(depositAmount ?? ""));
+          setDepositCurrency("USD");
+          setPartnerCurrencyFilter(String(fields.currency || "USD"));
+          setGatewayReturnUrl(claimed.return_url || "");
+          const details = await fetchDepositMethodDetails({
+            topupMethodId: nextMethodId,
+            depositAmount,
+            depositAmountCurrency: "USD",
+          });
+          if (cancelled) return;
+          setMethodDetails(details);
+          const currency = String(fields.currency || "USD").trim().toUpperCase();
+          let options = details.payment_options || [];
+          if (currency && currency !== "USD") {
+            const filtered = options.filter((opt) => String(opt.currency || "").toUpperCase() === currency);
+            if (filtered.length) options = filtered;
+          }
+          const defaultOptionId = defaultAllowedPaymentOptionId(
+            options,
+            details.priority_rate?.paymentOptionId,
+          );
+          setPaymentOptionId(defaultOptionId);
+          const selectedDefaultRate = findDepositRate(
+            details.deposit_rates,
+            nextMethodId,
+            defaultOptionId,
+          );
+          const nextRate = toPositiveRate(selectedDefaultRate?.rate);
+          const depositValue = parseMoneyInput(depositAmount);
+          if (nextRate && depositValue > 0) {
+            setPaymentAmount(String(multiplyAndRound(depositValue, nextRate)));
+          }
+          if (nextRate && depositValue > 0 && defaultOptionId && selectedDefaultRate) {
+            const option = options.find((opt) => Number(opt.id) === Number(defaultOptionId));
+            let payment = multiplyAndRound(depositValue, nextRate);
+            if (String(option?.name || "").toLowerCase() === "card payment") {
+              payment = multiplyAndRound(payment, 1.03);
+            }
+            const created = await createDeposit({
+              payment_option_id: defaultOptionId,
+              deposit_amount_currency: "USD",
+              deposit_amount: depositValue,
+              payment_amount_currency: option?.currency || details.initial_payment_currency || "LKR",
+              payment_amount: payment,
+              topup_method_id: nextMethodId,
+              payment_option_rate: selectedDefaultRate.rate,
+              payment_option_rate_id: selectedDefaultRate.id,
+              topup_account_id: String(fields.topup_account_id || "").trim(),
+            });
+            if (cancelled) return;
+            setDepositId(created.id);
+            setTransactionId(created.transaction_id);
+            const context = await fetchDepositPaymentProofContext(created.id);
+            if (cancelled) return;
+            setProofContext(context);
+          }
+          setCurrencySwitch("USD");
+          setGatewayLocked(true);
+          setStep(3);
+        }
       } catch (err) {
         if (!cancelled) {
           if (err.status === 403) {
@@ -532,11 +619,16 @@ export default function DepositPage() {
     if (!file) return;
 
     const name = file.name.toLowerCase();
+    const type = String(file.type || "").toLowerCase();
+    const allowedExt = /\.(jpe?g|png|gif|bmp|webp)$/i.test(name);
     if (
       name.endsWith(".heic") ||
       name.endsWith(".heif") ||
+      type.includes("heic") ||
+      type.includes("heif") ||
       name.endsWith(".pdf") ||
-      !file.type.startsWith("image/")
+      type === "application/pdf" ||
+      (!allowedExt && !type.startsWith("image/"))
     ) {
       setErrors((prev) => ({
         ...prev,
@@ -601,6 +693,10 @@ export default function DepositPage() {
 
   function validateStep3() {
     const next = {};
+    if (gatewayLocked && !paymentOptionId) next.paymentOption = "Select a payment option.";
+    if (gatewayLocked && paymentOptionId && !selectedRate) {
+      next.paymentOption = "No rate is available for the selected payment option.";
+    }
     if (!slipFile) next.slip = "Please attach a payment slip or screenshot.";
     if (!acceptedTerms) next.terms = "You must accept the Terms and Conditions.";
     setErrors(next);
@@ -719,7 +815,28 @@ export default function DepositPage() {
     if (step === 3 && validateStep3()) {
       setBusy(true);
       try {
-        const result = await uploadDepositProof(depositId, slipFile);
+        let activeDepositId = depositId;
+        let activeTransactionId = transactionId;
+        if (gatewayLocked && !activeDepositId) {
+          const created = await createDeposit({
+            payment_option_id: paymentOptionId,
+            deposit_amount_currency: depositCurrency,
+            deposit_amount: converted.deposit,
+            payment_amount_currency: paymentCurrency,
+            payment_amount: converted.payment,
+            topup_method_id: methodId,
+            payment_option_rate: selectedRate.rate,
+            payment_option_rate_id: selectedRate.id,
+            topup_account_id: topupAccountId.trim(),
+          });
+          activeDepositId = created.id;
+          activeTransactionId = created.transaction_id;
+          setDepositId(created.id);
+          setTransactionId(created.transaction_id);
+          const context = await fetchDepositPaymentProofContext(created.id);
+          setProofContext(context);
+        }
+        const result = await uploadDepositProof(activeDepositId, slipFile);
         if (result?.error) {
           setErrors((prev) => ({ ...prev, slip: result.message }));
           return;
@@ -750,6 +867,10 @@ export default function DepositPage() {
   }
 
   function goBack() {
+    if (gatewayLocked) {
+      router.push("/dashboard");
+      return;
+    }
     setSubmitted(false);
     setPageError("");
     setErrors({});
@@ -767,6 +888,12 @@ export default function DepositPage() {
   }
 
   function handlePaymentOptionChange(nextId) {
+    if (!nextId) {
+      setPaymentOptionId(null);
+      setPaymentAmount("");
+      setGiftVoucherReuseError("");
+      return;
+    }
     const option = methodDetails?.payment_options?.find((opt) => opt.id === Number(nextId));
     const rate = findDepositRate(methodDetails?.deposit_rates, methodId, Number(nextId));
     const nextRate = toPositiveRate(rate?.rate);
@@ -779,6 +906,27 @@ export default function DepositPage() {
     const depositValue = parseMoneyInput(amount) || converted.deposit;
     if (nextRate && depositValue > 0) {
       setPaymentAmount(String(multiplyAndRound(depositValue, nextRate)));
+    }
+    if (gatewayLocked && depositId && rate && nextRate && depositValue > 0) {
+      let payment = multiplyAndRound(depositValue, nextRate);
+      if (String(option?.name || "").toLowerCase() === "card payment") {
+        payment = multiplyAndRound(payment, 1.03);
+      }
+      (async () => {
+        try {
+          await updatePendingDepositPaymentChoice(depositId, {
+            payment_option_id: Number(nextId),
+            payment_option_rate: rate.rate,
+            payment_option_rate_id: rate.id,
+            payment_amount: payment,
+            payment_amount_currency: option?.currency || "LKR",
+          });
+          const context = await fetchDepositPaymentProofContext(depositId);
+          setProofContext(context);
+        } catch (err) {
+          setPageError(err.message || "Failed to update payment option.");
+        }
+      })();
     }
   }
 
@@ -1110,7 +1258,7 @@ export default function DepositPage() {
         </>
       ) : null}
 
-      {step === 3 && proofContext ? (
+      {step === 3 && (proofContext || gatewayLocked) ? (
         <>
           <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -1124,34 +1272,64 @@ export default function DepositPage() {
                     Account Name: <span className="font-semibold">{userName}</span>
                   </p>
                   <p className="text-sm text-white/50">Account ID: {accountNumber}</p>
-                  <p className="text-sm text-white/50">Transaction ID: {transactionId}</p>
+                  <p className="text-sm text-white/50">Transaction ID: {transactionId || "—"}</p>
                 </div>
               </div>
             </div>
             <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#141A2E] px-4 py-3">
               <MethodIcon
-                type={topupMethodIconKey(proofContext.deposit.topup_method_name)}
+                type={topupMethodIconKey(proofContext?.deposit?.topup_method_name || topupMethod?.name)}
                 logoUrl={
-                  proofContext.deposit.topup_method_logo_url ||
+                  proofContext?.deposit?.topup_method_logo_url ||
                   topupMethod?.logoUrl ||
                   topupMethod?.logo_url ||
                   null
                 }
-                name={proofContext.deposit.topup_method_name}
+                name={proofContext?.deposit?.topup_method_name || topupMethod?.name}
               />
               <div>
-                <p className="text-sm font-semibold text-white">{proofContext.deposit.topup_method_name}</p>
-                <p className="text-xs text-white/45">{proofContext.deposit.payment_option_name}</p>
+                <p className="text-sm font-semibold text-white">
+                  {proofContext?.deposit?.topup_method_name || topupMethod?.name}
+                </p>
+                <p className="text-xs text-white/45">
+                  {selectedPaymentOption?.name || proofContext?.deposit?.payment_option_name || "Select a payment option"}
+                </p>
               </div>
             </div>
           </div>
+
+          {gatewayLocked ? (
+            <div className="mb-6">
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45">
+                Payment Option
+              </label>
+              <div className="w-1/2 max-w-full">
+                <select
+                  value={paymentOptionId ?? ""}
+                  onChange={(e) => handlePaymentOptionChange(e.target.value)}
+                  className={`${fieldClass} ${giftVoucherCooldownMessage || errors.paymentOption ? "border-theme-red-action/50" : ""}`}
+                >
+                  {partnerPaymentOptions.map((opt) => (
+                    <option key={opt.id} value={opt.id} className="bg-[#141A2E]">
+                      {opt.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {giftVoucherCooldownMessage ? (
+                <p className="mt-2 text-xs text-theme-red-action">{giftVoucherCooldownMessage}</p>
+              ) : errors.paymentOption ? (
+                <p className="mt-2 text-xs text-theme-red-action">{errors.paymentOption}</p>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
             <section className="border-t border-white/20 py-6">
               <p className="text-sm text-white/50">Payment Amount</p>
               <p className="mt-1 text-3xl font-bold text-theme-green-action">
-                {proofContext.deposit.payment_amount_currency}{" "}
-                {Number(proofContext.deposit.payment_amount).toLocaleString(undefined, {
+                {proofContext?.deposit?.payment_amount_currency || paymentCurrency}{" "}
+                {Number(proofContext?.deposit?.payment_amount || converted.payment || 0).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
                 })}
@@ -1160,8 +1338,8 @@ export default function DepositPage() {
               <div className="mt-5 text-left">
                 <p className="mb-2 text-left text-sm font-medium text-white/70">Payment Account Details</p>
                 <PaymentAccountsPanel
-                  type={proofContext.payment_account_type}
-                  accounts={proofContext.payment_accounts}
+                  type={proofContext?.payment_account_type}
+                  accounts={proofContext?.payment_accounts || []}
                   onCopy={handleCopy}
                 />
               </div>
@@ -1169,34 +1347,41 @@ export default function DepositPage() {
             </section>
 
             <section className="border-t border-white/20 py-6">
-              <h2 className="text-lg font-bold text-white">{proofContext.deposit.topup_method_name} Conditions</h2>
+              <h2 className="text-lg font-bold text-white">
+                {(proofContext?.deposit?.topup_method_name || topupMethod?.name) + " Conditions"}
+              </h2>
               <div
                 data-lenis-prevent
                 data-lenis-prevent-wheel
-                className="custom-scrollbar mt-4 max-h-[280px] space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm leading-relaxed text-white/85"
+                className="custom-scrollbar relative z-0 mt-4 max-h-[280px] space-y-3 overflow-y-auto overscroll-contain pr-1 text-sm leading-relaxed text-white/85"
               >
                 <MethodTerms html={proofContext?.terms || topupMethod?.terms} />
               </div>
             </section>
           </div>
 
-          <section className="border-t border-white/20 py-6">
+          <section className="relative z-10 border-t border-white/20 py-6">
             <p className="text-sm text-white/55">
               Please attach a payment slip or a screenshot to prove your transaction.
             </p>
 
+            <input
+              ref={slipInputRef}
+              type="file"
+              className="sr-only"
+              accept="image/jpeg,image/png,image/gif,image/bmp,image/webp,.jpg,.jpeg,.png,.gif,.bmp,.webp"
+              onChange={handleSlipChange}
+            />
             {!slipPreview ? (
-              <label className="mt-4 flex min-h-[140px] cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/[0.03] px-4 py-8 text-center transition hover:border-theme-green-action/40 hover:bg-theme-green-action/5">
-                <Plus className="h-8 w-8 text-white/40" />
-                <span className="mt-2 text-sm text-white/50">Add your image here</span>
-                <span className="mt-1 text-xs text-white/35">JPG, PNG, GIF, BMP or WEBP · Max 2MB</span>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="image/jpeg,image/png,image/gif,image/bmp,image/webp,.jpg,.jpeg,.png,.gif,.bmp,.webp"
-                  onChange={handleSlipChange}
-                />
-              </label>
+              <button
+                type="button"
+                onClick={() => slipInputRef.current?.click()}
+                className="relative z-10 mt-4 flex min-h-[140px] w-full cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-theme-green-action/50 bg-theme-green-action/5 px-4 py-8 text-center transition hover:border-theme-green-action hover:bg-theme-green-action/10"
+              >
+                <Plus className="h-8 w-8 text-theme-green-action" />
+                <span className="mt-2 text-sm text-white">Add your image here</span>
+                <span className="mt-1 text-xs text-white/55">JPG, PNG, GIF, BMP or WEBP · Max 2MB</span>
+              </button>
             ) : (
               <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-theme-green-action/25 bg-theme-green-action/10 p-3">
                 <img
@@ -1242,8 +1427,24 @@ export default function DepositPage() {
                 variant="success"
                 dismissible={false}
                 onClose={() => setSubmitted(false)}
-                primaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
-                secondaryAction={{
+                primaryAction={
+                  gatewayReturnUrl
+                    ? {
+                        label: "Back to Partner",
+                        href: buildPartnerReturnUrl(gatewayReturnUrl, {
+                          type: "deposit",
+                          referenceId: transactionId,
+                          status: "Pending",
+                          amount: proofContext?.deposit?.deposit_amount,
+                          currency: proofContext?.deposit?.deposit_amount_currency,
+                        }),
+                      }
+                    : { label: "View Transactions", href: "/dashboard/transactions" }
+                }
+                secondaryAction={
+                  gatewayLocked
+                    ? undefined
+                    : {
                   label: "New Deposit",
                   onClick: () => {
                     setSubmitted(false);
@@ -1263,7 +1464,8 @@ export default function DepositPage() {
                     setAcceptedTerms(false);
                     setTopupAccountId("");
                   },
-                }}
+                }
+                }
               >
                 Your deposit request has been submitted successfully. Transaction ID {transactionId} is now pending
                 review.
@@ -1271,7 +1473,7 @@ export default function DepositPage() {
             ) : null}
           </section>
 
-          <FlowActions onBack={goBack} onNext={goNext} nextLabel="Submit" busy={busy} />
+          <FlowActions onBack={gatewayLocked ? undefined : goBack} onNext={goNext} nextLabel="Submit" busy={busy} />
         </>
       ) : null}
     </div>
