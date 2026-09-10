@@ -34,6 +34,7 @@ import {
   resolveCurrentLoyaltyTier,
 } from "@/lib/membership-tiers";
 import { useMembershipTiers } from "@/hooks/use-membership-tiers";
+import { fetchPendingPartnerReturn } from "@/lib/payment-gateway";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -345,6 +346,38 @@ export default function NavigationUser() {
       window.removeEventListener("focus", loadNotifications);
       window.removeEventListener("storage", onSessionUpdated);
       document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!getUserSession()) return undefined;
+    let cancelled = false;
+    let inFlight = false;
+
+    async function checkPartnerReturn() {
+      if (cancelled || inFlight) return;
+      if (document.visibilityState === "hidden") return;
+      inFlight = true;
+      try {
+        const data = await fetchPendingPartnerReturn();
+        const url = data?.redirect_url;
+        if (!cancelled && url) {
+          window.location.href = url;
+        }
+      } catch {
+        // Ignore — direct users have no partner-return row.
+      } finally {
+        inFlight = false;
+      }
+    }
+
+    checkPartnerReturn();
+    const intervalId = window.setInterval(checkPartnerReturn, USER_NOTIFICATIONS_POLL_MS);
+    window.addEventListener("focus", checkPartnerReturn);
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", checkPartnerReturn);
     };
   }, []);
 
