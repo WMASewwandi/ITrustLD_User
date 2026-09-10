@@ -382,9 +382,10 @@ export default function DepositPage() {
   const rateDate = formatRateDate();
 
   const liveTopupAccountError = useMemo(() => {
+    if (gatewayLocked) return null;
     if (!String(topupAccountId || "").trim()) return null;
     return validateTopupAccountId(topupMethod?.name, topupAccountId);
-  }, [topupAccountId, topupMethod?.name]);
+  }, [gatewayLocked, topupAccountId, topupMethod?.name]);
 
   const liveAmountError = useMemo(() => {
     const raw = editingDepositAmount ? amount : paymentAmount;
@@ -485,23 +486,28 @@ export default function DepositPage() {
             if (String(option?.name || "").toLowerCase() === "card payment") {
               payment = multiplyAndRound(payment, 1.03);
             }
-            const created = await createDeposit({
-              payment_option_id: defaultOptionId,
-              deposit_amount_currency: "USD",
-              deposit_amount: depositValue,
-              payment_amount_currency: option?.currency || details.initial_payment_currency || "LKR",
-              payment_amount: payment,
-              topup_method_id: nextMethodId,
-              payment_option_rate: selectedDefaultRate.rate,
-              payment_option_rate_id: selectedDefaultRate.id,
-              topup_account_id: String(fields.topup_account_id || "").trim(),
-            });
-            if (cancelled) return;
-            setDepositId(created.id);
-            setTransactionId(created.transaction_id);
-            const context = await fetchDepositPaymentProofContext(created.id);
-            if (cancelled) return;
-            setProofContext(context);
+            try {
+              const created = await createDeposit({
+                payment_option_id: defaultOptionId,
+                deposit_amount_currency: "USD",
+                deposit_amount: depositValue,
+                payment_amount_currency: option?.currency || details.initial_payment_currency || "LKR",
+                payment_amount: payment,
+                topup_method_id: nextMethodId,
+                payment_option_rate: selectedDefaultRate.rate,
+                payment_option_rate_id: selectedDefaultRate.id,
+                topup_account_id: String(fields.topup_account_id || "").trim(),
+                gateway_token: gatewayToken,
+              });
+              if (cancelled) return;
+              setDepositId(created.id);
+              setTransactionId(created.transaction_id);
+              const context = await fetchDepositPaymentProofContext(created.id);
+              if (cancelled) return;
+              setProofContext(context);
+            } catch (createErr) {
+              if (!cancelled) setPageError(createErr.message || "Failed to create deposit.");
+            }
           }
           setCurrencySwitch("USD");
           setGatewayLocked(true);
@@ -828,6 +834,7 @@ export default function DepositPage() {
             payment_option_rate: selectedRate.rate,
             payment_option_rate_id: selectedRate.id,
             topup_account_id: topupAccountId.trim(),
+            gateway_token: new URLSearchParams(window.location.search).get("gateway") || "",
           });
           activeDepositId = created.id;
           activeTransactionId = created.transaction_id;
