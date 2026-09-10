@@ -366,9 +366,10 @@ export default function WithdrawalPage() {
   const rateDate = formatRateDate();
 
   const liveCashoutAccountError = useMemo(() => {
+    if (gatewayLocked) return null;
     if (!String(cashoutAccountId || "").trim()) return null;
     return validateCashoutAccountId(cashoutMethod?.name, cashoutAccountId);
-  }, [cashoutAccountId, cashoutMethod?.name]);
+  }, [gatewayLocked, cashoutAccountId, cashoutMethod?.name]);
 
   const liveAmountError = useMemo(() => {
     const raw = editingCashoutAmount ? amount : receivingAmount;
@@ -459,23 +460,28 @@ export default function WithdrawalPage() {
           }
           if (nextRate && cashoutValue > 0 && defaultOptionId && selectedDefaultRate) {
             const option = options.find((opt) => Number(opt.id) === Number(defaultOptionId));
-            const created = await createWithdrawal({
-              receiving_payment_option_id: defaultOptionId,
-              cashout_amount_currency: "USD",
-              cashout_amount: cashoutValue,
-              receiving_amount_currency: option?.currency || details.initial_receiving_currency || "LKR",
-              receiving_amount: multiplyAndRound(cashoutValue, nextRate),
-              cashout_method_id: nextMethodId,
-              receiving_payment_option_rate: selectedDefaultRate.rate,
-              receiving_payment_option_rate_id: selectedDefaultRate.id,
-              cashout_account_id: String(fields.cashout_account_id || "").trim(),
-            });
-            if (cancelled) return;
-            setWithdrawalId(created.id);
-            setTransactionId(created.transaction_id);
-            const context = await fetchWithdrawalPaymentProofContext(created.id);
-            if (cancelled) return;
-            setProofContext(context);
+            try {
+              const created = await createWithdrawal({
+                receiving_payment_option_id: defaultOptionId,
+                cashout_amount_currency: "USD",
+                cashout_amount: cashoutValue,
+                receiving_amount_currency: option?.currency || details.initial_receiving_currency || "LKR",
+                receiving_amount: multiplyAndRound(cashoutValue, nextRate),
+                cashout_method_id: nextMethodId,
+                receiving_payment_option_rate: selectedDefaultRate.rate,
+                receiving_payment_option_rate_id: selectedDefaultRate.id,
+                cashout_account_id: String(fields.cashout_account_id || "").trim(),
+                gateway_token: gatewayToken,
+              });
+              if (cancelled) return;
+              setWithdrawalId(created.id);
+              setTransactionId(created.transaction_id);
+              const context = await fetchWithdrawalPaymentProofContext(created.id);
+              if (cancelled) return;
+              setProofContext(context);
+            } catch (createErr) {
+              if (!cancelled) setPageError(createErr.message || "Failed to create cash-out.");
+            }
           }
           setCurrencySwitch("USD");
           setGatewayLocked(true);
@@ -754,6 +760,7 @@ export default function WithdrawalPage() {
             receiving_payment_option_rate: selectedRate.rate,
             receiving_payment_option_rate_id: selectedRate.id,
             cashout_account_id: cashoutAccountId.trim(),
+            gateway_token: new URLSearchParams(window.location.search).get("gateway") || "",
           });
           activeWithdrawalId = created.id;
           activeTransactionId = created.transaction_id;
