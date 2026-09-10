@@ -48,7 +48,10 @@ function PartnerPayEntry() {
           router.replace(next);
           return;
         }
-        router.replace(`/login?redirect=${encodeURIComponent(next)}`);
+        const login = new URL("/login", window.location.origin);
+        login.searchParams.set("redirect", next);
+        if (preview.email) login.searchParams.set("email", preview.email);
+        router.replace(`${login.pathname}?${login.searchParams.toString()}`);
       } catch (err) {
         if (!cancelled) {
           setMessage(err.message || "This payment link is invalid or expired.");

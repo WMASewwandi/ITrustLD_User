@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLenis } from "lenis/react";
 import BottomMessage from "@/components/dashboard/bottom-message";
+import PartnerCheckoutWaitModal from "@/components/dashboard/partner-checkout-wait-modal";
 import FlowActions from "@/components/dashboard/flow-actions";
 import MethodTerms from "@/components/method-terms";
 import AddPaymentAccountForm from "@/components/dashboard/add-payment-account-form";
@@ -1455,17 +1456,16 @@ export default function WithdrawalPage() {
             </label>
             {errors.terms ? <p className="mt-2 text-xs text-theme-red-action">{errors.terms}</p> : null}
 
-            {submitted ? (
+            {submitted && gatewayLocked ? (
+              <PartnerCheckoutWaitModal kind="withdrawal" transactionId={transactionId} />
+            ) : submitted ? (
               <BottomMessage
                 title="Cash-out submitted"
                 variant="success"
                 dismissible={false}
                 onClose={() => setSubmitted(false)}
                 primaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
-                secondaryAction={
-                  gatewayLocked
-                    ? undefined
-                    : {
+                secondaryAction={{
                   label: "New Cash-out",
                   onClick: () => {
                     setSubmitted(false);
@@ -1486,8 +1486,7 @@ export default function WithdrawalPage() {
                     setCashoutAccountId("");
                     setReceivingAccountSelection("");
                   },
-                }
-                }
+                }}
               >
                 Your cash-out request has been submitted successfully. Transaction ID {transactionId} is now pending
                 review.

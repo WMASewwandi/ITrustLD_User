@@ -13,6 +13,7 @@ export default function PasswordInput({
   required,
   value,
   onChange,
+  autoFocus,
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -25,6 +26,7 @@ export default function PasswordInput({
         placeholder={placeholder}
         autoComplete={autoComplete}
         required={required}
+        autoFocus={autoFocus}
         onChange={onChange}
         {...(value !== undefined ? { value } : {})}
         className={`${className} pr-10`}

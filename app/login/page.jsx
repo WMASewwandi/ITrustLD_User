@@ -25,6 +25,11 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const inactiveNotice = searchParams.get("reason") === "inactive";
+  const prefillEmail = isValidEmail(searchParams.get("email") || "")
+    ? String(searchParams.get("email") || "").trim()
+    : "";
+  const partnerPayLogin =
+    Boolean(prefillEmail) && String(searchParams.get("redirect") || "").includes("gateway=");
   const [error, setError] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,7 +43,7 @@ function LoginForm() {
   async function handleSignIn(e) {
     e.preventDefault();
     const form = e.currentTarget;
-    const email = form.email?.value?.trim() || "";
+    const email = partnerPayLogin ? prefillEmail : form.email?.value?.trim() || "";
     const password = form.password?.value || "";
 
     if (!isValidEmail(email)) {
@@ -116,10 +121,19 @@ function LoginForm() {
                 type="email"
                 autoComplete="email"
                 placeholder="you@email.com"
-                onChange={() => setError("")}
-                className={fieldClass}
+                defaultValue={prefillEmail}
+                readOnly={partnerPayLogin}
+                aria-readonly={partnerPayLogin}
+                autoFocus={!partnerPayLogin}
+                onChange={() => {
+                  if (!partnerPayLogin) setError("");
+                }}
+                className={`${fieldClass} ${partnerPayLogin ? "cursor-not-allowed text-white/70" : ""}`}
                 required
               />
+              {partnerPayLogin ? (
+                <p className="mt-1.5 text-xs text-white/45">This checkout is locked to this email.</p>
+              ) : null}
             </div>
 
             <div>
@@ -131,6 +145,7 @@ function LoginForm() {
                 name="password"
                 autoComplete="current-password"
                 placeholder="Enter your password"
+                autoFocus={partnerPayLogin}
                 className={fieldClass}
                 toggleClassName="text-white/40 hover:text-white/70"
                 required
