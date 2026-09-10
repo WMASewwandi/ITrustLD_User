@@ -34,7 +34,7 @@ import {
   resolveCurrentLoyaltyTier,
 } from "@/lib/membership-tiers";
 import { useMembershipTiers } from "@/hooks/use-membership-tiers";
-import { fetchPendingPartnerReturn } from "@/lib/payment-gateway";
+import { fetchPendingPartnerReturn, openPartnerReturnUrl } from "@/lib/payment-gateway";
 import {
   ArrowDownToLine,
   ArrowRight,
@@ -357,12 +357,17 @@ export default function NavigationUser() {
     async function checkPartnerReturn() {
       if (cancelled || inFlight) return;
       if (document.visibilityState === "hidden") return;
+      try {
+        if (sessionStorage.getItem("itrustld-partner-wait")) return;
+      } catch {
+        // ignore
+      }
       inFlight = true;
       try {
         const data = await fetchPendingPartnerReturn();
         const url = data?.redirect_url;
         if (!cancelled && url) {
-          window.location.href = url;
+          openPartnerReturnUrl(url);
         }
       } catch {
         // Ignore — direct users have no partner-return row.
