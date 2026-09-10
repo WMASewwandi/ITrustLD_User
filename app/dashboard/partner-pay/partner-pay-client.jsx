@@ -10,7 +10,7 @@ export default function PartnerPayPage() {
   useEffect(() => {
     const token = params.get("gateway") || params.get("token");
     if (token) {
-      router.replace(`/dashboard/deposit?gateway=${encodeURIComponent(token)}`);
+      router.replace(`/partner-pay?gateway=${encodeURIComponent(token)}`);
       return;
     }
     router.replace("/dashboard");

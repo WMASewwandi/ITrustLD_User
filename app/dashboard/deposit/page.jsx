@@ -38,7 +38,7 @@ import { rewritePublicAssetUrl } from "@/lib/api";
 import { getUserSession, hasUserSession } from "@/lib/auth";
 import { notifyUserNotificationsRefresh } from "@/lib/dashboard";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { buildPartnerReturnUrl, claimPaymentGateway } from "@/lib/payment-gateway";
+import { claimPaymentGateway } from "@/lib/payment-gateway";
 import {
   ArrowLeftRight,
   Building2,
@@ -420,7 +420,12 @@ export default function DepositPage() {
 
   useEffect(() => {
     if (!hasUserSession()) {
-      router.replace("/login");
+      const gatewayToken = new URLSearchParams(window.location.search).get("gateway");
+      router.replace(
+        gatewayToken
+          ? `/partner-pay?gateway=${encodeURIComponent(gatewayToken)}`
+          : "/login",
+      );
       return;
     }
 
@@ -1434,20 +1439,7 @@ export default function DepositPage() {
                 variant="success"
                 dismissible={false}
                 onClose={() => setSubmitted(false)}
-                primaryAction={
-                  gatewayReturnUrl
-                    ? {
-                        label: "Back to Partner",
-                        href: buildPartnerReturnUrl(gatewayReturnUrl, {
-                          type: "deposit",
-                          referenceId: transactionId,
-                          status: "Pending",
-                          amount: proofContext?.deposit?.deposit_amount,
-                          currency: proofContext?.deposit?.deposit_amount_currency,
-                        }),
-                      }
-                    : { label: "View Transactions", href: "/dashboard/transactions" }
-                }
+                primaryAction={{ label: "View Transactions", href: "/dashboard/transactions" }}
                 secondaryAction={
                   gatewayLocked
                     ? undefined
