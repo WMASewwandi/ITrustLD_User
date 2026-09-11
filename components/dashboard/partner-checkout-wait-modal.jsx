@@ -4,13 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { fetchDepositTransaction } from "@/lib/deposits";
-import { fetchPendingPartnerReturn, openPartnerReturnUrl } from "@/lib/payment-gateway";
+import {
+  buildPartnerReturnUrl,
+  fetchPendingPartnerReturn,
+  openPartnerReturnUrl,
+} from "@/lib/payment-gateway";
 import { fetchWithdrawalTransaction } from "@/lib/withdrawals";
 import BottomMessage from "@/components/dashboard/bottom-message";
 
 export const PARTNER_WAIT_FLAG = "itrustld-partner-wait";
 
-export default function PartnerCheckoutWaitModal({ kind, transactionId }) {
+export default function PartnerCheckoutWaitModal({ kind, transactionId, returnUrl = "" }) {
   const [phase, setPhase] = useState("pending");
   const [rejectReason, setRejectReason] = useState("");
   const [mounted, setMounted] = useState(false);
@@ -64,9 +68,27 @@ export default function PartnerCheckoutWaitModal({ kind, transactionId }) {
 
         if (status === "Completed") {
           redirectingRef.current = true;
-          const data = await fetchPendingPartnerReturn();
-          if (data?.redirect_url) {
-            openPartnerReturnUrl(data.redirect_url);
+          let url = "";
+          try {
+            const data = await fetchPendingPartnerReturn();
+            url = String(data?.redirect_url || "").trim();
+          } catch {
+            url = "";
+          }
+          if (!url && returnUrl) {
+            url = buildPartnerReturnUrl(returnUrl, {
+              type: kind === "withdrawal" ? "withdrawal" : "deposit",
+              referenceId: transactionId,
+              status: "Completed",
+              currency: tx?.currency,
+            });
+          }
+          if (url) {
+            const opened = openPartnerReturnUrl(url);
+            if (!opened) {
+              window.location.assign(url);
+              return;
+            }
             window.location.href = "/dashboard/transactions";
             return;
           }
@@ -88,7 +110,7 @@ export default function PartnerCheckoutWaitModal({ kind, transactionId }) {
       cancelled = true;
       window.clearInterval(intervalId);
     };
-  }, [kind, transactionId, phase]);
+  }, [kind, transactionId, phase, returnUrl]);
 
   if (!mounted) return null;
 

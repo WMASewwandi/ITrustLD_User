@@ -1435,7 +1435,11 @@ export default function DepositPage() {
             {errors.terms ? <p className="mt-2 text-xs text-theme-red-action">{errors.terms}</p> : null}
 
             {submitted && gatewayLocked ? (
-              <PartnerCheckoutWaitModal kind="deposit" transactionId={transactionId} />
+              <PartnerCheckoutWaitModal
+                kind="deposit"
+                transactionId={transactionId}
+                returnUrl={gatewayReturnUrl}
+              />
             ) : submitted ? (
               <BottomMessage
                 title="Top-up submitted"
