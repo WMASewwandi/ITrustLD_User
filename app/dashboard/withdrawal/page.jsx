@@ -1457,7 +1457,11 @@ export default function WithdrawalPage() {
             {errors.terms ? <p className="mt-2 text-xs text-theme-red-action">{errors.terms}</p> : null}
 
             {submitted && gatewayLocked ? (
-              <PartnerCheckoutWaitModal kind="withdrawal" transactionId={transactionId} />
+              <PartnerCheckoutWaitModal
+                kind="withdrawal"
+                transactionId={transactionId}
+                returnUrl={gatewayReturnUrl}
+              />
             ) : submitted ? (
               <BottomMessage
                 title="Cash-out submitted"
