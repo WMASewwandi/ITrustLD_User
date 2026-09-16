@@ -20,6 +20,7 @@ import {
   fetchLoyaltyWithdrawals,
   flattenAccountGroups,
   getLoyaltyCashoutLimitError,
+  invalidateLoyaltySummaryCache,
   mapBonusClaimRows,
   mapWithdrawalRows,
 } from "@/lib/loyalty-api";
@@ -162,7 +163,7 @@ export default function LoyaltyPage() {
     if (!options.silent) setLoading(true);
     try {
       const [summaryData, accountsData, historyData, bonusClaimsData] = await Promise.all([
-        fetchLoyaltySummary(),
+        fetchLoyaltySummary({ force: Boolean(options.force) }),
         fetchPaymentAccounts(),
         fetchLoyaltyWithdrawals({ perPage: 50 }),
         fetchBonusClaims({ perPage: 10 }),
@@ -298,6 +299,8 @@ export default function LoyaltyPage() {
       );
       setPoints("");
       setAccount("");
+      // Cached summary still holds the pre-withdrawal balance.
+      invalidateLoyaltySummaryCache();
 
       const historyData = await fetchLoyaltyWithdrawals({ perPage: 50 });
       setWithdrawalHistory(mapWithdrawalRows(historyData.transactions || []));
@@ -407,11 +410,11 @@ export default function LoyaltyPage() {
             <ClaimMyBonus
               bonusSummary={bonusSummary}
               claimHistory={bonusClaims}
-              onClaimed={() => loadLoyaltyData({ silent: true })}
+              onClaimed={() => loadLoyaltyData({ silent: true, force: true })}
             />
 
             {!isPartner ? (
-              <ClaimGift onClaimed={() => loadLoyaltyData({ silent: true })} />
+              <ClaimGift onClaimed={() => loadLoyaltyData({ silent: true, force: true })} />
             ) : null}
 
             {showAffiliateLink ? (

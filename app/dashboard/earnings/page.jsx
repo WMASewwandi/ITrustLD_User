@@ -285,12 +285,14 @@ export default function MyEarningsPage() {
     handleLoyaltyErrorRef.current = handleLoyaltyError;
   }, [handleLoyaltyError]);
 
-  const loadEarningsData = useCallback(async () => {
+  // Pass { force: true } after a claim — the summary is cached for 30s and a
+  // cached payload would overwrite the post-claim counts with pre-claim ones.
+  const loadEarningsData = useCallback(async (options = {}) => {
     setSummaryLoading(true);
     setLoadError("");
     try {
       // Phase 1 — summary only so the page can paint quickly.
-      const summaryData = await fetchLoyaltySummary();
+      const summaryData = await fetchLoyaltySummary({ force: Boolean(options.force) });
       applySummaryData(summaryData);
       setSummaryLoading(false);
 
@@ -893,7 +895,7 @@ export default function MyEarningsPage() {
                       if (result?.client_bonus_summary) {
                         setClientBonusSummary(result.client_bonus_summary);
                       }
-                      await loadEarningsData();
+                      await loadEarningsData({ force: true });
                       setClaimMsg("Client bonus voucher issued successfully.");
                       setTimeout(() => setClaimMsg(""), 3000);
                     }}
@@ -905,7 +907,7 @@ export default function MyEarningsPage() {
                   claimHistory={bonusClaims}
                   compact
                   onClaimed={async () => {
-                    await loadEarningsData();
+                    await loadEarningsData({ force: true });
                     setClaimMsg("Bonus claim submitted successfully. Admin will review your request.");
                     setTimeout(() => setClaimMsg(""), 3000);
                   }}
@@ -1072,7 +1074,7 @@ export default function MyEarningsPage() {
                 if (result?.client_bonus_summary) {
                   setClientBonusSummary(result.client_bonus_summary);
                 }
-                await loadEarningsData();
+                await loadEarningsData({ force: true });
                 setClaimMsg("Client bonus voucher issued successfully.");
                 setTimeout(() => setClaimMsg(""), 3000);
               }}
@@ -1098,7 +1100,7 @@ export default function MyEarningsPage() {
               bonusSummary={bonusSummary}
               claimHistory={bonusClaims}
               onClaimed={async () => {
-                await loadEarningsData();
+                await loadEarningsData({ force: true });
                 setClaimMsg("Bonus claim submitted successfully. Admin will review your request.");
                 setTimeout(() => setClaimMsg(""), 3000);
               }}
@@ -1121,7 +1123,7 @@ export default function MyEarningsPage() {
         {tab === "claim-gift" ? (
           <ClaimGift
             onClaimed={async () => {
-              await loadEarningsData();
+              await loadEarningsData({ force: true });
               setClaimMsg("Gift claim submitted. Our team will process your delivery details.");
               setTimeout(() => setClaimMsg(""), 3000);
             }}
