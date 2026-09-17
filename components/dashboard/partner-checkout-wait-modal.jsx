@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loader2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { fetchDepositTransaction } from "@/lib/deposits";
 import {
   buildPartnerReturnUrl,
@@ -114,6 +114,12 @@ export default function PartnerCheckoutWaitModal({ kind, transactionId, returnUr
 
   if (!mounted) return null;
 
+  const backUrl = buildPartnerReturnUrl(returnUrl, {
+    type: kind === "withdrawal" ? "withdrawal" : "deposit",
+    referenceId: transactionId,
+    status: "Pending",
+  });
+
   if (phase === "rejected") {
     return createPortal(
       <div className="fixed inset-0 z-[11000]">
@@ -147,14 +153,24 @@ export default function PartnerCheckoutWaitModal({ kind, transactionId, returnUr
         data-lenis-prevent
         className="absolute inset-x-0 bottom-0 flex max-h-[85vh] flex-col rounded-t-2xl border border-white/10 bg-[#0B1020] px-5 py-8 shadow-[0_-16px_50px_rgba(0,0,0,0.5)] lg:inset-0 lg:m-auto lg:h-fit lg:max-w-md lg:rounded-2xl"
       >
-        <Loader2 className="mx-auto h-8 w-8 animate-spin text-theme-green-action" />
-        <h3 className="mt-4 text-center text-lg font-bold text-white">Please wait</h3>
+        <h3 className="text-center text-lg font-bold text-white">Please wait</h3>
         <p className="mt-3 text-center text-sm leading-relaxed text-white/75">
           Your {kind === "withdrawal" ? "cash-out" : "top-up"} has been submitted. Please wait until this
           transaction is completed. You cannot leave this page until it is completed or rejected.
         </p>
         {transactionId ? (
           <p className="mt-4 text-center text-xs text-white/45">Transaction ID {transactionId}</p>
+        ) : null}
+        {backUrl ? (
+          <a
+            href={backUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mx-auto mt-6 flex items-center gap-2 rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/5"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </a>
         ) : null}
       </div>
     </div>,
