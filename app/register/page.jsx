@@ -10,6 +10,7 @@ import PasswordInput from "@/components/ui/password-input";
 import { checkEmailAvailable, checkMobileAvailable, fetchAuthConfig, registerUser, setUserSession } from "@/lib/auth";
 import {
   COUNTRIES,
+  DEFAULT_COUNTRY,
   formatNationalPhone,
   getNationalPhoneExample,
   getNationalPhoneRules,
@@ -90,7 +91,7 @@ function RegisterForm() {
 
   const [countryQuery, setCountryQuery] = useState("");
   const [countryOpen, setCountryOpen] = useState(false);
-  const [country, setCountry] = useState(COUNTRIES[0]);
+  const [country, setCountry] = useState(DEFAULT_COUNTRY);
   const [phone, setPhone] = useState("");
   const [form, setForm] = useState({
     firstName: "",
