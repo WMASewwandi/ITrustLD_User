@@ -369,8 +369,8 @@ export default function WithdrawalPage() {
   const liveCashoutAccountError = useMemo(() => {
     if (gatewayLocked) return null;
     if (!String(cashoutAccountId || "").trim()) return null;
-    return validateCashoutAccountId(cashoutMethod?.name, cashoutAccountId);
-  }, [gatewayLocked, cashoutAccountId, cashoutMethod?.name]);
+    return validateCashoutAccountId(cashoutMethod, cashoutAccountId);
+  }, [gatewayLocked, cashoutAccountId, cashoutMethod]);
 
   const liveAmountError = useMemo(() => {
     const raw = editingCashoutAmount ? amount : receivingAmount;
@@ -388,7 +388,7 @@ export default function WithdrawalPage() {
     return null;
   }, [amount, cashoutMethod, converted.cashout, editingCashoutAmount, rateValue, receivingAmount]);
 
-  const cashoutAccountHint = cashoutAccountFormatHint(cashoutMethod?.name);
+  const cashoutAccountHint = cashoutAccountFormatHint(cashoutMethod);
   const amountHint =
     cashoutMethod && Number.isFinite(Number(cashoutMethod.minLimit)) && Number.isFinite(Number(cashoutMethod.maxLimit))
       ? `Cash-out amount must be between USD ${cashoutMethod.minLimit} and USD ${cashoutMethod.maxLimit}.`
@@ -610,7 +610,7 @@ export default function WithdrawalPage() {
 
   function validateStep2() {
     const next = {};
-    const accountError = validateCashoutAccountId(cashoutMethod?.name, cashoutAccountId);
+    const accountError = validateCashoutAccountId(cashoutMethod, cashoutAccountId);
     if (accountError) next.cashoutAccountId = accountError;
     if (!paymentOptionId) next.paymentOption = "Select a receiving payment option.";
 
@@ -1141,7 +1141,7 @@ export default function WithdrawalPage() {
 
                 <div>
                   <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45">
-                    {cashoutAccountPlaceholder(cashoutMethod?.name)}
+                    {cashoutAccountPlaceholder(cashoutMethod)}
                   </label>
                   <input
                     type="text"
@@ -1149,7 +1149,7 @@ export default function WithdrawalPage() {
                     onChange={(e) => {
                       setCashoutAccountId(e.target.value);
                     }}
-                    placeholder={cashoutAccountPlaceholder(cashoutMethod?.name)}
+                    placeholder={cashoutAccountPlaceholder(cashoutMethod)}
                     className={`${fieldClass} ${cashoutAccountInvalid ? "border-theme-red-action/50" : ""}`}
                   />
                   {shownCashoutAccountMessage ? (

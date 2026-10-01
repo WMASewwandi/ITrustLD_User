@@ -385,8 +385,8 @@ export default function DepositPage() {
   const liveTopupAccountError = useMemo(() => {
     if (gatewayLocked) return null;
     if (!String(topupAccountId || "").trim()) return null;
-    return validateTopupAccountId(topupMethod?.name, topupAccountId);
-  }, [gatewayLocked, topupAccountId, topupMethod?.name]);
+    return validateTopupAccountId(topupMethod, topupAccountId);
+  }, [gatewayLocked, topupAccountId, topupMethod]);
 
   const liveAmountError = useMemo(() => {
     const raw = editingDepositAmount ? amount : paymentAmount;
@@ -406,7 +406,7 @@ export default function DepositPage() {
 
   const topupAccountHint = isGiftVoucher
     ? "This platform ID cannot be used for another gift voucher deposit within 30 days."
-    : topupAccountFormatHint(topupMethod?.name);
+    : topupAccountFormatHint(topupMethod);
   const amountHint =
     topupMethod && Number.isFinite(Number(topupMethod.minLimit)) && Number.isFinite(Number(topupMethod.maxLimit))
       ? `Deposit amount must be between USD ${topupMethod.minLimit} and USD ${topupMethod.maxLimit}.`
@@ -675,7 +675,7 @@ export default function DepositPage() {
 
   function validateStep2() {
     const next = {};
-    const accountError = validateTopupAccountId(topupMethod?.name, topupAccountId);
+    const accountError = validateTopupAccountId(topupMethod, topupAccountId);
     if (accountError) next.topupAccountId = accountError;
     else if (giftVoucherReuseError) next.topupAccountId = giftVoucherReuseError;
     if (!paymentOptionId) next.paymentOption = "Select a payment option.";
@@ -1214,7 +1214,7 @@ export default function DepositPage() {
 
                 <div>
                   <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-white/45">
-                    {topupAccountPlaceholder(topupMethod?.name)}
+                    {topupAccountPlaceholder(topupMethod)}
                   </label>
                   <input
                     type="text"
@@ -1223,7 +1223,7 @@ export default function DepositPage() {
                       setTopupAccountId(e.target.value);
                       setErrors((prev) => ({ ...prev, topupAccountId: undefined }));
                     }}
-                    placeholder={topupAccountPlaceholder(topupMethod?.name)}
+                    placeholder={topupAccountPlaceholder(topupMethod)}
                     className={`${fieldClass} ${topupAccountInvalid ? "border-theme-red-action/50" : ""}`}
                   />
                   {shownTopupAccountMessage ? (
