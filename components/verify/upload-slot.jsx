@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 
 const ACCEPTED_TYPES = "image/jpeg,image/png,image/gif,image/webp,image/bmp,.jpg,.jpeg,.png,.webp,.gif,.bmp";
+const ACCEPTED_EXTENSIONS = [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"];
 
 function validateImageFile(file) {
   if (!file) return null;
   const name = file.name.toLowerCase();
   const type = (file.type || "").toLowerCase();
+  const hasAcceptedExtension = ACCEPTED_EXTENSIONS.some((ext) => name.endsWith(ext));
 
   if (
     name.endsWith(".heic") ||
@@ -23,7 +25,7 @@ function validateImageFile(file) {
     return "PDF is not supported. Please upload JPG, PNG, GIF, BMP or WebP image.";
   }
 
-  if (!type.startsWith("image/")) {
+  if (!hasAcceptedExtension && !type.startsWith("image/")) {
     return "Please upload only image files (JPG, PNG, GIF, BMP, WebP).";
   }
 

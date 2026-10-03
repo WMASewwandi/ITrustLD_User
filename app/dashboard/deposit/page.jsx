@@ -18,7 +18,6 @@ import {
   findDepositRate,
   getMethodPendingCount,
   GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE,
-  GIFT_VOUCHER_COOLDOWN_CODE,
   giftVoucherCooldownMessage as formatGiftVoucherCooldownMessage,
   isGiftVoucherPaymentOption,
   isGiftVoucherPlatformReuseError,
@@ -250,6 +249,11 @@ function PaymentAccountsPanel({ type, accounts, onCopy }) {
   );
 }
 
+function walletCurrency(method, fallback = "USD") {
+  const code = String(method?.currency || fallback).trim().toUpperCase();
+  return code || fallback;
+}
+
 function formatRateDate() {
   const d = new Date();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -302,6 +306,16 @@ export default function DepositPage() {
     return bootstrap?.topup_methods?.find((m) => m.id === methodId) || null;
   }, [bootstrap, methodDetails, methodId]);
 
+  useEffect(() => {
+    if (!topupMethod?.currency) return;
+    const next = walletCurrency(topupMethod);
+    setDepositCurrency((prev) => {
+      if (prev === next) return prev;
+      setCurrencySwitch((current) => (current === prev ? next : current));
+      return next;
+    });
+  }, [topupMethod]);
+
   const selectedPaymentOption = useMemo(
     () => methodDetails?.payment_options?.find((opt) => Number(opt.id) === Number(paymentOptionId)) || null,
     [methodDetails, paymentOptionId],
@@ -338,7 +352,13 @@ export default function DepositPage() {
     "—";
 
   const paymentCurrency = selectedPaymentOption?.currency || methodDetails?.initial_payment_currency || "LKR";
-  const canSwitchToPaymentCurrency = paymentCurrency !== "USD";
+  const methodAmountCurrency = walletCurrency(topupMethod, depositCurrency);
+  const canSwitchToPaymentCurrency = paymentCurrency !== methodAmountCurrency;
+  const amountCurrencyOptions = useMemo(() => {
+    const codes = (bootstrap?.topup_methods || []).map((method) => walletCurrency(method));
+    if (methodAmountCurrency) codes.unshift(methodAmountCurrency);
+    return [...new Set(codes.filter(Boolean))];
+  }, [bootstrap, methodAmountCurrency]);
   const editingDepositAmount = currencySwitch === depositCurrency;
   const rateValue = toPositiveRate(selectedRate?.rate);
   const isCardPayment = String(selectedPaymentOption?.name || "").toLowerCase() === "card payment";
@@ -398,18 +418,16 @@ export default function DepositPage() {
       const min = Number(topupMethod.minLimit);
       const max = Number(topupMethod.maxLimit);
       if (Number.isFinite(min) && Number.isFinite(max) && (depositValue < min || depositValue > max)) {
-        return `Deposit amount must be between USD ${min} and USD ${max}.`;
+        return `Deposit amount must be between ${methodAmountCurrency} ${min} and ${methodAmountCurrency} ${max}.`;
       }
     }
     return null;
-  }, [amount, converted.deposit, editingDepositAmount, paymentAmount, rateValue, topupMethod]);
+  }, [amount, converted.deposit, editingDepositAmount, methodAmountCurrency, paymentAmount, rateValue, topupMethod]);
 
-  const topupAccountHint = isGiftVoucher
-    ? "This platform ID cannot be used for another gift voucher deposit within 30 days."
-    : topupAccountFormatHint(topupMethod);
+  const topupAccountHint = isGiftVoucher ? "" : topupAccountFormatHint(topupMethod);
   const amountHint =
     topupMethod && Number.isFinite(Number(topupMethod.minLimit)) && Number.isFinite(Number(topupMethod.maxLimit))
-      ? `Deposit amount must be between USD ${topupMethod.minLimit} and USD ${topupMethod.maxLimit}.`
+      ? `Deposit amount must be between ${methodAmountCurrency} ${topupMethod.minLimit} and ${methodAmountCurrency} ${topupMethod.maxLimit}.`
       : "Enter a valid deposit amount.";
   const shownTopupAccountMessage =
     errors.topupAccountId || liveTopupAccountError || giftVoucherReuseError || topupAccountHint;
@@ -548,10 +566,6 @@ export default function DepositPage() {
       setGiftVoucherReuseError("");
       return undefined;
     }
-    if (giftVoucherCooldownMessage) {
-      setGiftVoucherReuseError("");
-      return undefined;
-    }
     const accountId = String(topupAccountId || "").trim();
     if (!accountId || liveTopupAccountError || !paymentOptionId) {
       setGiftVoucherReuseError("");
@@ -566,11 +580,7 @@ export default function DepositPage() {
           topupAccountId: accountId,
         });
         if (cancelled) return;
-        if (result?.code === GIFT_VOUCHER_COOLDOWN_CODE) {
-          setGiftVoucherReuseError("");
-          return;
-        }
-        setGiftVoucherReuseError(result?.allowed === false ? result.message || GIFT_VOUCHER_PLATFORM_REUSE_MESSAGE : "");
+        setGiftVoucherReuseError(result?.platform?.blocked ? result.platform.message || "" : "");
       } catch {
         if (!cancelled) setGiftVoucherReuseError("");
       }
@@ -688,7 +698,7 @@ export default function DepositPage() {
       next.amount = "Please enter a valid deposit amount.";
     } else if (topupMethod) {
       if (depositValue < topupMethod.minLimit || depositValue > topupMethod.maxLimit) {
-        next.amount = `Deposit amount must be between USD ${topupMethod.minLimit} and USD ${topupMethod.maxLimit}.`;
+        next.amount = `Deposit amount must be between ${methodAmountCurrency} ${topupMethod.minLimit} and ${methodAmountCurrency} ${topupMethod.maxLimit}.`;
       }
     }
 
@@ -715,11 +725,11 @@ export default function DepositPage() {
     return Object.keys(next).length === 0;
   }
 
-  async function loadMethodDetails(targetMethodId = methodId) {
+  async function loadMethodDetails(targetMethodId = methodId, amountCurrency = depositCurrency) {
     const details = await fetchDepositMethodDetails({
       topupMethodId: targetMethodId,
       depositAmount: amount,
-      depositAmountCurrency: depositCurrency,
+      depositAmountCurrency: amountCurrency,
     });
     setMethodDetails(details);
     const defaultOptionId = defaultAllowedPaymentOptionId(
@@ -727,7 +737,7 @@ export default function DepositPage() {
       details.priority_rate?.paymentOptionId,
     );
     setPaymentOptionId(defaultOptionId);
-    setCurrencySwitch(depositCurrency);
+    setCurrencySwitch(amountCurrency);
     const depositValue = parseMoneyInput(amount);
     const selectedDefaultRate = findDepositRate(
       details.deposit_rates,
@@ -747,6 +757,9 @@ export default function DepositPage() {
     if (!validateStep1(nextMethodId)) return;
 
     const method = bootstrap?.topup_methods?.find((item) => Number(item.id) === Number(nextMethodId));
+    const nextCurrency = walletCurrency(method);
+    setDepositCurrency(nextCurrency);
+    setCurrencySwitch(nextCurrency);
     const pendingCount = getMethodPendingCount(bootstrap?.topup_methods, nextMethodId);
     if (pendingCount >= MAX_PENDING_PER_METHOD) {
       setLimitAlert(
@@ -761,7 +774,7 @@ export default function DepositPage() {
     setPageError("");
     setBusy(true);
     try {
-      await loadMethodDetails(nextMethodId);
+      await loadMethodDetails(nextMethodId, nextCurrency);
       setStep(2);
       setErrors({});
     } catch (err) {
@@ -913,8 +926,8 @@ export default function DepositPage() {
     setPaymentOptionId(Number(nextId));
     setGiftVoucherReuseError("");
     setErrors((prev) => ({ ...prev, topupAccountId: undefined, paymentOption: undefined }));
-    if (option?.currency && option.currency !== "USD") {
-      setCurrencySwitch(depositCurrency);
+    if (option?.currency && option.currency !== methodAmountCurrency) {
+      setCurrencySwitch(methodAmountCurrency);
     }
     const depositValue = parseMoneyInput(amount) || converted.deposit;
     if (nextRate && depositValue > 0) {
@@ -1003,13 +1016,15 @@ export default function DepositPage() {
                   placeholder="Enter amount"
                 />
                 <select
-                  value={depositCurrency}
+                  value={amountCurrencyOptions.includes(depositCurrency) ? depositCurrency : methodAmountCurrency}
                   onChange={(e) => setDepositCurrency(e.target.value)}
                   className="rounded-xl border border-white/20 bg-[#0B1020]/60 px-4 py-3 text-sm font-medium text-white outline-none sm:min-w-[120px]"
                 >
-                  <option value="USD" className="bg-[#141A2E]">
-                    USD
-                  </option>
+                  {amountCurrencyOptions.map((code) => (
+                    <option key={code} value={code} className="bg-[#141A2E]">
+                      {code}
+                    </option>
+                  ))}
                 </select>
               </div>
               {errors.amount ? <p className="mt-2 text-xs text-theme-red-action">{errors.amount}</p> : null}
@@ -1077,7 +1092,7 @@ export default function DepositPage() {
                       <div>
                         <p className="text-sm font-semibold text-white">{m.name}</p>
                         <p className="mt-1 text-xs text-white/45">
-                          USD {m.minLimit} – {m.maxLimit.toLocaleString()}
+                          {walletCurrency(m)} {m.minLimit} – {m.maxLimit.toLocaleString()}
                         </p>
                       </div>
                     </div>
