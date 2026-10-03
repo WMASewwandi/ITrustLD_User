@@ -248,6 +248,11 @@ function PaymentAccountsPanel({ type, accounts, onCopy }) {
   );
 }
 
+function walletCurrency(method, fallback = "USD") {
+  const code = String(method?.currency || fallback).trim().toUpperCase();
+  return code || fallback;
+}
+
 function formatRateDate() {
   const d = new Date();
   const dd = String(d.getDate()).padStart(2, "0");
@@ -278,7 +283,7 @@ export default function WithdrawalPage() {
   const [proofContext, setProofContext] = useState(null);
 
   const [amount, setAmount] = useState("");
-  const [cashoutCurrency] = useState("USD");
+  const [cashoutCurrency, setCashoutCurrency] = useState("USD");
   const [methodId, setMethodId] = useState(null);
   const [paymentOptionId, setPaymentOptionId] = useState(null);
   const [currencySwitch, setCurrencySwitch] = useState("USD");
@@ -310,6 +315,16 @@ export default function WithdrawalPage() {
     if (methodDetails?.cashout_method) return methodDetails.cashout_method;
     return bootstrap?.cashout_methods?.find((m) => m.id === methodId) || null;
   }, [bootstrap, methodDetails, methodId]);
+
+  useEffect(() => {
+    if (!cashoutMethod?.currency) return;
+    const next = walletCurrency(cashoutMethod);
+    setCashoutCurrency((prev) => {
+      if (prev === next) return prev;
+      setCurrencySwitch((current) => (current === prev ? next : current));
+      return next;
+    });
+  }, [cashoutMethod]);
 
   const selectedPaymentOption = useMemo(
     () => methodDetails?.payment_options?.find((opt) => Number(opt.id) === Number(paymentOptionId)) || null,
@@ -348,7 +363,13 @@ export default function WithdrawalPage() {
 
   const receivingCurrency =
     selectedPaymentOption?.currency || methodDetails?.initial_receiving_currency || "LKR";
-  const canSwitchToReceivingCurrency = receivingCurrency !== "USD";
+  const methodAmountCurrency = walletCurrency(cashoutMethod, cashoutCurrency);
+  const canSwitchToReceivingCurrency = receivingCurrency !== methodAmountCurrency;
+  const amountCurrencyOptions = useMemo(() => {
+    const codes = (bootstrap?.cashout_methods || []).map((method) => walletCurrency(method));
+    if (methodAmountCurrency) codes.unshift(methodAmountCurrency);
+    return [...new Set(codes.filter(Boolean))];
+  }, [bootstrap, methodAmountCurrency]);
   const editingCashoutAmount = currencySwitch === cashoutCurrency;
   const rateValue = toPositiveRate(selectedRate?.rate);
 
@@ -382,16 +403,16 @@ export default function WithdrawalPage() {
       const min = Number(cashoutMethod.minLimit);
       const max = Number(cashoutMethod.maxLimit);
       if (Number.isFinite(min) && Number.isFinite(max) && (cashoutValue < min || cashoutValue > max)) {
-        return `Cash-out amount must be between USD ${min} and USD ${max}.`;
+        return `Cash-out amount must be between ${methodAmountCurrency} ${min} and ${methodAmountCurrency} ${max}.`;
       }
     }
     return null;
-  }, [amount, cashoutMethod, converted.cashout, editingCashoutAmount, rateValue, receivingAmount]);
+  }, [amount, cashoutMethod, converted.cashout, editingCashoutAmount, methodAmountCurrency, rateValue, receivingAmount]);
 
   const cashoutAccountHint = cashoutAccountFormatHint(cashoutMethod);
   const amountHint =
     cashoutMethod && Number.isFinite(Number(cashoutMethod.minLimit)) && Number.isFinite(Number(cashoutMethod.maxLimit))
-      ? `Cash-out amount must be between USD ${cashoutMethod.minLimit} and USD ${cashoutMethod.maxLimit}.`
+      ? `Cash-out amount must be between ${methodAmountCurrency} ${cashoutMethod.minLimit} and ${methodAmountCurrency} ${cashoutMethod.maxLimit}.`
       : "Enter a valid cash-out amount.";
   const shownCashoutAccountMessage = errors.cashoutAccountId || liveCashoutAccountError || cashoutAccountHint;
   const cashoutAccountInvalid = Boolean(errors.cashoutAccountId || liveCashoutAccountError);
@@ -621,7 +642,7 @@ export default function WithdrawalPage() {
       next.amount = "Please enter a valid cash-out amount.";
     } else if (cashoutMethod) {
       if (cashoutValue < cashoutMethod.minLimit || cashoutValue > cashoutMethod.maxLimit) {
-        next.amount = `Cash-out amount must be between USD ${cashoutMethod.minLimit} and USD ${cashoutMethod.maxLimit}.`;
+        next.amount = `Cash-out amount must be between ${methodAmountCurrency} ${cashoutMethod.minLimit} and ${methodAmountCurrency} ${cashoutMethod.maxLimit}.`;
       }
     }
 
@@ -647,11 +668,11 @@ export default function WithdrawalPage() {
     return Object.keys(next).length === 0;
   }
 
-  async function loadMethodDetails(targetMethodId = methodId) {
+  async function loadMethodDetails(targetMethodId = methodId, amountCurrency = cashoutCurrency) {
     const details = await fetchWithdrawalMethodDetails({
       cashoutMethodId: targetMethodId,
       cashoutAmount: amount,
-      cashoutAmountCurrency: cashoutCurrency,
+      cashoutAmountCurrency: amountCurrency,
     });
     setMethodDetails(details);
     const defaultOptionId = defaultAllowedPaymentOptionId(
@@ -659,7 +680,7 @@ export default function WithdrawalPage() {
       details.priority_rate?.paymentOptionId,
     );
     setPaymentOptionId(defaultOptionId);
-    setCurrencySwitch(cashoutCurrency);
+    setCurrencySwitch(amountCurrency);
     const cashoutValue = parseMoneyInput(amount);
     const selectedDefaultRate = findWithdrawalRate(
       details.withdrawal_rates,
@@ -679,6 +700,9 @@ export default function WithdrawalPage() {
     if (!validateStep1(nextMethodId)) return;
 
     const method = bootstrap?.cashout_methods?.find((item) => Number(item.id) === Number(nextMethodId));
+    const nextCurrency = walletCurrency(method);
+    setCashoutCurrency(nextCurrency);
+    setCurrencySwitch(nextCurrency);
     const pendingCount = getMethodPendingCount(bootstrap?.cashout_methods, nextMethodId);
     if (pendingCount >= MAX_PENDING_PER_METHOD) {
       setLimitAlert(
@@ -693,7 +717,7 @@ export default function WithdrawalPage() {
     setPageError("");
     setBusy(true);
     try {
-      await loadMethodDetails(nextMethodId);
+      await loadMethodDetails(nextMethodId, nextCurrency);
       setStep(2);
       setErrors({});
     } catch (err) {
@@ -845,8 +869,8 @@ export default function WithdrawalPage() {
     const nextRate = toPositiveRate(rate?.rate);
     setPaymentOptionId(Number(nextId));
     setReceivingAccountSelection("");
-    if (option?.currency && option.currency !== "USD") {
-      setCurrencySwitch(cashoutCurrency);
+    if (option?.currency && option.currency !== methodAmountCurrency) {
+      setCurrencySwitch(methodAmountCurrency);
     }
     const cashoutValue = parseMoneyInput(amount) || converted.cashout;
     if (nextRate && cashoutValue > 0) {
@@ -931,13 +955,15 @@ export default function WithdrawalPage() {
                   placeholder="Enter amount"
                 />
                 <select
-                  value={cashoutCurrency}
-                  disabled
+                  value={amountCurrencyOptions.includes(cashoutCurrency) ? cashoutCurrency : methodAmountCurrency}
+                  onChange={(e) => setCashoutCurrency(e.target.value)}
                   className="rounded-xl border border-white/20 bg-[#0B1020]/60 px-4 py-3 text-sm font-medium text-white outline-none sm:min-w-[120px]"
                 >
-                  <option value="USD" className="bg-[#141A2E]">
-                    USD
-                  </option>
+                  {amountCurrencyOptions.map((code) => (
+                    <option key={code} value={code} className="bg-[#141A2E]">
+                      {code}
+                    </option>
+                  ))}
                 </select>
               </div>
               {errors.amount ? <p className="mt-2 text-xs text-theme-red-action">{errors.amount}</p> : null}
@@ -1005,7 +1031,7 @@ export default function WithdrawalPage() {
                       <div>
                         <p className="text-sm font-semibold text-white">{m.name}</p>
                         <p className="mt-1 text-xs text-white/45">
-                          USD {m.minLimit} – {m.maxLimit.toLocaleString()}
+                          {walletCurrency(m)} {m.minLimit} – {m.maxLimit.toLocaleString()}
                         </p>
                       </div>
                     </div>
