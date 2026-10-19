@@ -1205,6 +1205,11 @@ export default function DepositPage() {
                         value={amount}
                         onChange={(e) => {
                           setAmount(e.target.value.replace(/[^\d.]/g, ""));
+                          setErrors((prev) => ({
+                            ...prev,
+                            amount: undefined,
+                            paymentAmount: undefined,
+                          }));
                         }}
                         className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
                       />
@@ -1215,6 +1220,11 @@ export default function DepositPage() {
                         value={paymentAmount}
                         onChange={(e) => {
                           setPaymentAmount(e.target.value.replace(/[^\d.]/g, ""));
+                          setErrors((prev) => ({
+                            ...prev,
+                            amount: undefined,
+                            paymentAmount: undefined,
+                          }));
                         }}
                         className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
                       />
