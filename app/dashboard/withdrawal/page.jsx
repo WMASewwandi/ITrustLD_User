@@ -1141,6 +1141,11 @@ export default function WithdrawalPage() {
                         value={amount}
                         onChange={(e) => {
                           setAmount(e.target.value.replace(/[^\d.]/g, ""));
+                          setErrors((prev) => ({
+                            ...prev,
+                            amount: undefined,
+                            receivingAmount: undefined,
+                          }));
                         }}
                         placeholder="Cash-out Amount"
                         className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
@@ -1152,6 +1157,11 @@ export default function WithdrawalPage() {
                         value={receivingAmount}
                         onChange={(e) => {
                           setReceivingAmount(e.target.value.replace(/[^\d.]/g, ""));
+                          setErrors((prev) => ({
+                            ...prev,
+                            amount: undefined,
+                            receivingAmount: undefined,
+                          }));
                         }}
                         placeholder="Receiving Amount"
                         className={`${fieldClass} ${amountInvalid ? "border-theme-red-action/50" : ""}`}
