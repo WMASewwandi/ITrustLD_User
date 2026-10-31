@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Gift, Loader2, MapPin, X } from "lucide-react";
 import { claimGift, fetchAvailableGifts } from "@/lib/loyalty-api";
-import VoucherCountdown from "@/components/dashboard/voucher-countdown";
+import VoucherCountdown, { getVoucherExpiresAt } from "@/components/dashboard/voucher-countdown";
 
 const fieldClass =
   "w-full rounded-xl border border-white/12 bg-[#0B1020]/70 px-4 py-3 text-sm text-white outline-none transition placeholder:text-white/35 focus:border-theme-green-action/50";
@@ -118,12 +118,19 @@ function ClaimGiftModal({ gift, open, onClose, onClaimed }) {
   );
 }
 
+function isGiftExpired(gift, nowMs) {
+  if (gift?.is_expired) return true;
+  const expires = getVoucherExpiresAt(gift?.expires_at, gift?.created_at);
+  return Boolean(expires && expires.getTime() <= nowMs);
+}
+
 export default function ClaimGift({ onClaimed, className = "" }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [gifts, setGifts] = useState([]);
   const [userLevel, setUserLevel] = useState("");
   const [selectedGift, setSelectedGift] = useState(null);
+  const [nowMs, setNowMs] = useState(() => Date.now());
 
   const loadGifts = useCallback(async () => {
     setLoading(true);
@@ -144,7 +151,15 @@ export default function ClaimGift({ onClaimed, className = "" }) {
     loadGifts();
   }, [loadGifts]);
 
-  const eligibleCount = gifts.filter((gift) => gift.is_eligible).length;
+  useEffect(() => {
+    if (!gifts.some((gift) => !gift.already_claimed && (gift.expires_at || gift.created_at))) {
+      return undefined;
+    }
+    const id = window.setInterval(() => setNowMs(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [gifts]);
+
+  const eligibleCount = gifts.filter((gift) => gift.is_eligible && !isGiftExpired(gift, nowMs)).length;
 
   return (
     <div className={className}>
@@ -178,8 +193,9 @@ export default function ClaimGift({ onClaimed, className = "" }) {
           <ul className="divide-y divide-white/10 border-t border-white/10">
             {gifts.map((gift) => {
               const claimed = gift.already_claimed;
-              const expired = Boolean(gift.is_expired);
-              const canClaim = gift.is_eligible && !expired;
+              const expired = isGiftExpired(gift, nowMs);
+              const canClaim = Boolean(gift.is_eligible) && !expired;
+              const notEligible = !claimed && !expired && !gift.is_eligible;
               const validUntilLabel = gift.expires_at
                 ? new Date(gift.expires_at).toLocaleDateString("en-US", {
                     month: "long",
@@ -197,16 +213,16 @@ export default function ClaimGift({ onClaimed, className = "" }) {
                     {gift.description ? (
                       <p className="mt-1 text-sm text-white/45">{gift.description}</p>
                     ) : null}
-                    {validUntilLabel && !claimed ? (
+                    {validUntilLabel && !claimed && !expired ? (
                       <p className="mt-1 text-[11px] text-white/35">Valid until {validUntilLabel}</p>
                     ) : null}
                   </div>
                   <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
-                    {!claimed ? (
+                    {canClaim ? (
                       <VoucherCountdown
                         expiresAt={gift.expires_at}
                         createdAt={gift.created_at}
-                        status={expired ? "Expired" : "Pending"}
+                        status="Pending"
                         footerLabel="to claim gift"
                       />
                     ) : null}
@@ -222,10 +238,10 @@ export default function ClaimGift({ onClaimed, className = "" }) {
                         Claim Gift
                       </button>
                     ) : expired ? (
-                      <p className="text-xs text-theme-red-action">Offer expired</p>
-                    ) : (
-                      <p className="text-xs text-white/40">Not eligible at your current level</p>
-                    )}
+                      <p className="text-xs font-semibold text-theme-red-action">Expired</p>
+                    ) : notEligible ? (
+                      <p className="text-xs font-semibold text-theme-orange">Not eligible for this level</p>
+                    ) : null}
                   </div>
                 </li>
               );
